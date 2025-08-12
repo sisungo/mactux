@@ -198,6 +198,7 @@ pub fn fchdir(fd: c_int) -> Result<(), LxError> {
     chdir(vfd::orig_path(vfd)?)
 }
 
+/// Returns path prefix of `fd` when using with `at` functions.
 fn at_path(fd: c_int) -> Result<Vec<u8>, LxError> {
     if let Some(dvfd) = crate::vfd::get(fd) {
         vfd::orig_path(dvfd)
@@ -224,6 +225,7 @@ fn handle_open_like(resp: Response, flags: OpenFlags, mode: u32) -> Result<c_int
     }
 }
 
+/// Returns a path that can be accepted by the MacTux server from a relative path.
 fn full_path(mut path: Vec<u8>) -> Vec<u8> {
     if path.first().copied() == Some(b'/') {
         path

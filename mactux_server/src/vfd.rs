@@ -16,6 +16,7 @@ use structures::{
     io::{FcntlCmd, IoctlCmd, Whence},
 };
 
+/// A virtual file descriptor.
 pub struct VirtualFd {
     inner: Box<dyn VirtualFile>,
     open_flags: AtomicCell<OpenFlags>,
@@ -176,6 +177,7 @@ pub trait VirtualFile: Send + Sync {
     }
 }
 
+/// Gets a new virtual file descriptor table after `fork()`.
 pub async fn fork_table(vfd_table: &Registry<Arc<VirtualFd>>) -> Registry<Arc<VirtualFd>> {
     let (mut table, next_id) = vfd_table.snapshot();
     for (_, vfd) in table.iter_mut() {
@@ -184,6 +186,7 @@ pub async fn fork_table(vfd_table: &Registry<Arc<VirtualFd>>) -> Registry<Arc<Vi
     Registry::from_snapshot((table, next_id))
 }
 
+/// Gets a new virtual file descriptor table after `exec()`.
 pub fn exec_table(vfd_table: &Registry<Arc<VirtualFd>>) {
     vfd_table.eliminate(|vfd| vfd.open_flags().contains(OpenFlags::O_CLOEXEC));
 }

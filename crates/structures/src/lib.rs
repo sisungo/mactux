@@ -1,3 +1,5 @@
+//! Structures and definitions of Linux types, along with utilities converting them from and to the apple ones.
+
 pub mod convention;
 pub mod error;
 pub mod fs;

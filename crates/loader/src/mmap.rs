@@ -1,5 +1,6 @@
 use std::{ffi::c_int, os::fd::RawFd};
 
+/// A mapped memory area that does RAII.
 #[derive(Debug)]
 pub struct MappedArea {
     addr: *mut u8,
@@ -33,6 +34,7 @@ impl Drop for MappedArea {
     }
 }
 
+/// A builder of a mapped memory area.
 #[derive(Debug, Clone, Copy)]
 pub struct MappedAreaBuilder {
     addr: usize,
@@ -89,11 +91,13 @@ impl MappedAreaBuilder {
         self
     }
 
+    /// Indicates whether RAII is enabled for the built [`MappedArea`].
     pub fn auto_unmap(mut self, value: bool) -> Self {
         self.auto_unmap = value;
         self
     }
 
+    /// Performs the mapping.
     pub unsafe fn build(self) -> std::io::Result<MappedArea> {
         let addr = unsafe {
             libc::mmap(

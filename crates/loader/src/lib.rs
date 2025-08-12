@@ -31,6 +31,7 @@ pub struct Program {
     _mapped_areas: Vec<MappedArea>,
 }
 impl Program {
+    /// Loads a Linux program from the given file descriptor.
     pub fn load<R: Into<OwnedFd>>(exec_fd: R) -> Result<Self, Error> {
         let exec_fd = exec_fd.into();
         let read_cache = ReadCache::new(IoFd(exec_fd.as_fd()));
@@ -82,6 +83,7 @@ impl Program {
         })
     }
 
+    /// Runs the program.
     pub unsafe fn run<'a>(
         &self,
         args: impl ExactSizeIterator<Item = &'a [u8]>,
@@ -107,6 +109,7 @@ impl Program {
     }
 }
 
+/// A file descriptor that implements standard Rust IO traits.
 #[derive(Debug)]
 struct IoFd<'a>(BorrowedFd<'a>);
 impl Read for IoFd<'_> {
@@ -140,6 +143,7 @@ impl Seek for IoFd<'_> {
     }
 }
 
+/// An error when loading a Linux program.
 #[derive(Debug)]
 pub enum Error {
     Read(std::io::Error),
@@ -181,6 +185,7 @@ fn map_base(main: &ExecutableObject) -> Result<MappedArea, Error> {
     }
 }
 
+/// Reads `PT_INTERP` from a program header.
 fn read_interp(
     phdr: &ProgramHeader64<LittleEndian>,
     read_cache: &ReadCache<IoFd>,
@@ -197,6 +202,7 @@ fn read_interp(
     unsafe { Ok(OwnedFd::from_raw_fd(interp_fd)) }
 }
 
+/// Maps a `PT_LOAD` program header to process memory.
 fn map_phdr(
     phdr: &ProgramHeader64<LittleEndian>,
     fd: RawFd,

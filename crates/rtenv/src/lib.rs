@@ -1,3 +1,5 @@
+//! The MacTux runtime environment.
+
 pub mod error_report;
 pub mod fs;
 pub mod io;
@@ -20,6 +22,7 @@ pub mod emuctx;
 
 mod util;
 
+/// Setups the environment.
 pub unsafe fn install() -> std::io::Result<()> {
     unsafe {
         process::install()?;

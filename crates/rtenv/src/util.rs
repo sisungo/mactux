@@ -18,6 +18,7 @@ macro_rules! posix_bi {
     };
 }
 
+/// Converts from a Rust byte vector to a NUL-terminated C string.
 pub fn c_path(mut dat: Vec<u8>) -> Vec<u8> {
     dat.push(0);
     dat

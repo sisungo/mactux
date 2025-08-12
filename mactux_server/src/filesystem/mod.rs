@@ -1,3 +1,5 @@
+//! The MacTux filesystem stack.
+
 pub mod procfs;
 pub mod sysfs;
 pub mod kernfs;

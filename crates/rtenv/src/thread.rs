@@ -6,10 +6,12 @@ use std::{
 };
 use structures::{error::LxError, signal::SigNum, sync::FutexOpts};
 
+/// Minimal TID that indicates a non-main thread rather than a process (or, the "main thread").
 const MINIMUM_TID: i32 = 0x40000000;
 
 static mut THREAD_CTX: libc::pthread_key_t = unsafe { std::mem::zeroed() };
 
+/// Installs the thread context.
 pub unsafe fn install() -> std::io::Result<()> {
     unsafe {
         if libc::pthread_key_create(&raw mut THREAD_CTX, Some(ThreadCtx::destructor)) == -1 {
@@ -25,6 +27,7 @@ pub unsafe fn install() -> std::io::Result<()> {
     Ok(())
 }
 
+/// Context of a thread.
 #[derive(Debug)]
 pub struct ThreadCtx {
     pub tid: Cell<i32>,
@@ -57,14 +60,17 @@ impl Default for ThreadCtx {
     }
 }
 
+/// Executes a closure with context of current thread.
 pub fn with_context<T>(f: impl FnOnce(&ThreadCtx) -> T) -> T {
     unsafe { f(&*libc::pthread_getspecific((&raw const THREAD_CTX).read()).cast::<ThreadCtx>()) }
 }
 
+/// Returns TID of this thread.
 pub fn id() -> i32 {
     with_context(|ctx| ctx.tid.get())
 }
 
+/// Kills a thread.
 pub fn kill(tid: i32, signum: SigNum) -> Result<(), LxError> {
     if tid < MINIMUM_TID {
         return crate::process::kill(tid, signum);
@@ -74,11 +80,13 @@ pub fn kill(tid: i32, signum: SigNum) -> Result<(), LxError> {
     Err(LxError::ESRCH)
 }
 
+/// Sets `clear_child_tid` value for current thread.
 #[inline]
 pub fn set_clear_tid(value: Option<NonNull<u32>>) {
     with_context(|ctx| ctx.clear_tid.set(value));
 }
 
+/// This is called when entering a MacTux thread.
 pub unsafe fn enter() -> std::io::Result<()> {
     unsafe {
         if libc::pthread_setspecific(
@@ -93,6 +101,7 @@ pub unsafe fn enter() -> std::io::Result<()> {
     Ok(())
 }
 
+/// This is called when exiting a MacTux thread.
 pub unsafe fn exit(code: i32) -> ! {
     unsafe {
         if let Some(ptr) = with_context(|ctx| ctx.clear_tid.get()) {

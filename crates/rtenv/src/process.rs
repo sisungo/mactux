@@ -22,6 +22,7 @@ use structures::{
 
 static mut PROCESS_CTX: MaybeUninit<ProcessCtx> = MaybeUninit::uninit();
 
+/// Context of a process.
 #[derive(Debug)]
 pub struct ProcessCtx {
     pub cwd: ArcSwap<Vec<u8>>,
@@ -30,6 +31,7 @@ pub struct ProcessCtx {
     pub vfd_table: papaya::HashMap<c_int, u64, FxBuildHasher>,
 }
 
+/// Installs the process context.
 pub unsafe fn install() -> std::io::Result<()> {
     let cwd = ArcSwap::from(Arc::new(vec![b'/']));
     let thread_info_map = crate::emuctx::ThreadInfoMap::new();
@@ -46,6 +48,7 @@ pub unsafe fn install() -> std::io::Result<()> {
     Ok(())
 }
 
+/// Returns a reference to current process context.
 pub fn context() -> &'static ProcessCtx {
     unsafe { (*&raw const PROCESS_CTX).assume_init_ref() }
 }
@@ -173,6 +176,7 @@ pub fn kill(pid: i32, signum: SigNum) -> Result<(), LxError> {
     unsafe { posix_bi!(libc::kill(pid, signum.to_apple()?)) }
 }
 
+/// Does preparation work for the newly-created process.
 fn prepare_new_process(client: Client) {
     if client.invoke(Request::AfterFork(pid())).is_err() {
         crate::error_report::fast_fail();

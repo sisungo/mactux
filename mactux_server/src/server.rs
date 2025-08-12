@@ -19,6 +19,7 @@ use tokio::{
     net::{UnixListener, UnixStream},
 };
 
+/// A server.
 pub struct Server {
     listener: UnixListener,
 }
@@ -48,6 +49,7 @@ impl Server {
     }
 }
 
+/// A session.
 pub struct Session {
     conn: UnixStream,
     process: Arc<ProcessCtx>,

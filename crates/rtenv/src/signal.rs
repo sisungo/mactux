@@ -14,6 +14,7 @@ use structures::{
     ucontext::UContext,
 };
 
+/// macOS signals that can be handled.
 const HANDLED_SIGNALS: &[c_int] = &[
     libc::SIGHUP,
     libc::SIGINT,
@@ -49,7 +50,7 @@ pub fn install() -> std::io::Result<()> {
     Ok(())
 }
 
-/// Raises a signal in the emulated context.
+/// Raises a signal in the emulated context. This must be called out of the emulated context.
 #[cfg(target_arch = "x86_64")]
 pub fn raise(
     signum: SigNum,
@@ -218,6 +219,7 @@ pub fn sigaction(signum: SigNum, new: Option<SigAction>) -> Result<SigAction, Lx
     }
 }
 
+/// Converts from apple `siginfo` to the Linux one.
 fn linux_siginfo(signum: SigNum, apple: &libc::siginfo_t) -> SigInfo {
     SigInfo {
         si_signo: signum.0 as _,
@@ -246,6 +248,7 @@ fn linux_siginfo(signum: SigNum, apple: &libc::siginfo_t) -> SigInfo {
     }
 }
 
+/// Installs a signal handler.
 fn install_for(
     signum: c_int,
     handler: unsafe extern "C" fn(c_int, &libc::siginfo_t, &mut libc::ucontext_t),
@@ -264,6 +267,7 @@ fn install_for(
     }
 }
 
+/// Handles a signal.
 unsafe extern "C" fn handle_signal(
     signum: c_int,
     info: &libc::siginfo_t,
@@ -282,6 +286,7 @@ unsafe extern "C" fn handle_signal(
     raise(signum, info, ctx, in_emulated);
 }
 
+/// Handles SIGSEGV.
 unsafe extern "C" fn handle_sigsegv(_: c_int, info: &libc::siginfo_t, ctx: &mut libc::ucontext_t) {
     // This special handler may process all `fs` accesses to `gs` ones.
     let in_emulated = reentrant_in_emulated(info);
@@ -305,6 +310,7 @@ unsafe extern "C" fn handle_sigsegv(_: c_int, info: &libc::siginfo_t, ctx: &mut 
     }
 }
 
+/// Handles SIGABRT.
 unsafe extern "C" fn handle_sigabrt(_: c_int, info: &libc::siginfo_t, ctx: &mut libc::ucontext_t) {
     let prev_in_emulated = reentrant_in_emulated(info);
     if prev_in_emulated {
@@ -320,6 +326,7 @@ unsafe extern "C" fn handle_sigabrt(_: c_int, info: &libc::siginfo_t, ctx: &mut 
     }
 }
 
+/// Reentrantly judges if we are in the emulated context.
 fn reentrant_in_emulated(info: &libc::siginfo_t) -> bool {
     if is_async(info) {
         without_signals(in_emulated)
@@ -328,6 +335,7 @@ fn reentrant_in_emulated(info: &libc::siginfo_t) -> bool {
     }
 }
 
+/// Stack frame of a signal handler.
 #[derive(Debug, Clone)]
 #[repr(C)]
 struct SignalStackFrame {
@@ -337,6 +345,8 @@ struct SignalStackFrame {
     prev_in_emulated: bool,
 }
 
+/// Default implementation of the signal restorer.
+#[cfg(target_arch = "x86_64")]
 #[unsafe(naked)]
 unsafe extern "sysv64" fn linux_restore() -> ! {
     std::arch::naked_asm! {

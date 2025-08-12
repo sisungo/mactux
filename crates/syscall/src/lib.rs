@@ -36,6 +36,7 @@ pub fn install() -> std::io::Result<()> {
     }
 }
 
+/// Type of a system call handler.
 type SystemCallHandler = unsafe fn(&mut libc::ucontext_t);
 
 trait UcontextExt {
@@ -49,11 +50,15 @@ trait UcontextExt {
     fn ret(&mut self, value: usize);
 }
 
+/// Converts a type that can be constructed from a system call argument.
 trait FromSyscall {
+    /// Converts `value` passed from system call to this type.
     fn from_syscall(value: usize) -> Self;
 }
 
+/// Converts a type to a system call return value.
 trait ToSysret {
+    /// Converts `self` to a value that can be returned by system call.
     fn to_sysret(self) -> usize;
 }
 

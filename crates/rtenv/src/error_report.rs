@@ -1,5 +1,10 @@
 use std::io::Write;
 
+/// The error report port.
+/// 
+/// This is basically the same as [`std::io::Stderr`], but this guarantees that this is mapped to the POSIX primitives
+/// directly and no thread-local variables or locks are used, so this can be used from the emulated context or async signal
+/// handlers.
 #[derive(Debug, Clone, Copy)]
 pub struct ErrorReport;
 impl Write for ErrorReport {
@@ -17,6 +22,7 @@ impl Write for ErrorReport {
     }
 }
 
+/// Prints register information to [`ErrorReport`].
 #[cfg(target_arch = "x86_64")]
 pub fn print_registers(ctx: &libc::ucontext_t) {
     let thrd_state = unsafe { &(*ctx.uc_mcontext).__ss };
@@ -48,6 +54,7 @@ pub fn print_registers(ctx: &libc::ucontext_t) {
     );
 }
 
+/// Makes the process fail immediately.
 #[cold]
 pub fn fast_fail() -> ! {
     unsafe {
