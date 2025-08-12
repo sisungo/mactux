@@ -1,0 +1,8 @@
+[package]
+name = "mactux_ipc"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+bincode = { version = "2", features = ["derive"] }
+structures = { path = "../structures" }

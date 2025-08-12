@@ -1,0 +1,43 @@
+use bincode::{Decode, Encode};
+use structures::{
+    error::LxError,
+    fs::{Dirent64, Stat},
+    misc::SysInfo,
+};
+
+#[derive(Debug, Clone, Encode, Decode)]
+pub enum Response {
+    Nothing,
+
+    OpenNativePath(Vec<u8>),
+    OpenVirtualFd(u64),
+    SockPath(Vec<u8>),
+
+    Read(Vec<u8>),
+    Write(usize),
+    Lseek(u64),
+    Ctrl(u64),
+    CtrlBlob(u64, Vec<u8>),
+    DupVirtualFd(u64),
+    OrigPath(Vec<u8>),
+    VirtualFdAvailCtrl(VirtualFdAvailCtrl),
+    Stat(Stat),
+    Dirent64(Dirent64),
+
+    NetworkNames(NetworkNames),
+    SysInfo(SysInfo),
+
+    Error(LxError),
+}
+
+#[derive(Debug, Clone, Encode, Decode)]
+pub struct VirtualFdAvailCtrl {
+    pub in_size: isize,
+    pub out_size: usize,
+}
+
+#[derive(Debug, Clone, Encode, Decode)]
+pub struct NetworkNames {
+    pub nodename: Vec<u8>,
+    pub domainname: Vec<u8>,
+}

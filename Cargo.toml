@@ -1,0 +1,32 @@
+[package]
+name = "mactux"
+authors = ["sisungo <sisungo@icloud.com>"]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+publish = false
+
+[workspace]
+members = [
+    "crates/loader",
+    "crates/macros",
+    "crates/mactux_ipc",
+    "crates/rtenv",
+    "crates/structures",
+    "crates/syscall",
+    "mactux_server"
+]
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+syscall = { path = "crates/syscall" }
+loader = { path = "crates/loader" }
+rtenv = { path = "crates/rtenv" }
+structures = { path = "crates/structures" }
+mimalloc = "0.1"
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"

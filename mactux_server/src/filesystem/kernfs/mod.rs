@@ -1,0 +1,240 @@
+mod typical_files;
+
+pub use typical_files::fn_file;
+
+use crate::{
+    util::FileAttrs,
+    vfd::{VirtualFd, VirtualFile},
+    filesystem::vfs::{Mountable, NewlyOpen, VfsPath},
+};
+use async_trait::async_trait;
+use mactux_ipc::response::Response;
+use std::{
+    borrow::Cow,
+    collections::BTreeMap,
+    path::PathBuf,
+    sync::{Arc, Mutex, RwLock},
+};
+use structures::{
+    error::LxError,
+    fs::{AccessFlags, Dirent64, Dirent64Hdr, DirentType, OpenFlags, Stat},
+    io::FcntlCmd,
+    time::Timespec,
+};
+
+#[derive(Default)]
+pub struct KernFs(pub Arc<Directory>);
+impl KernFs {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+#[async_trait]
+impl Mountable for KernFs {
+    async fn open(
+        self: Arc<Self>,
+        path: &VfsPath,
+        flags: OpenFlags,
+        mode: u32,
+    ) -> Result<NewlyOpen, LxError> {
+        if path.segments.is_empty() {
+            return Ok(NewlyOpen::Virtual(VirtualFd::new(
+                Box::new(KernFsDirVirtualFd::new(self.0.clone(), FileAttrs::common())),
+                flags,
+            )));
+        }
+        let dir_entry = self.0._open(&path.segments)?;
+        if (path.indicates_dir() || flags.contains(OpenFlags::O_DIRECTORY))
+            && !matches!(dir_entry, DirEntry::Directory(_))
+        {
+            return Err(LxError::ENOTDIR);
+        }
+        match &dir_entry {
+            DirEntry::Directory(dir) => Ok(NewlyOpen::Virtual(VirtualFd::new(
+                Box::new(KernFsDirVirtualFd::new(dir.clone(), dir.attrs.clone())),
+                flags,
+            ))),
+            DirEntry::RegularFile(reg) => reg.open(flags).await,
+        }
+    }
+
+    async fn unlink(&self, _path: &VfsPath) -> Result<(), LxError> {
+        Err(LxError::EOPNOTSUPP)
+    }
+
+    async fn rmdir(&self, _path: &VfsPath) -> Result<(), LxError> {
+        Err(LxError::EOPNOTSUPP)
+    }
+
+    async fn symlink(&self, _dst: &VfsPath, _content: &[u8]) -> Result<(), LxError> {
+        Err(LxError::EOPNOTSUPP)
+    }
+
+    async fn mkdir(&self, _path: &VfsPath, _mode: u32) -> Result<(), LxError> {
+        Err(LxError::EOPNOTSUPP)
+    }
+
+    async fn rename(&self, _src: &VfsPath, _dst: &VfsPath) -> Result<(), LxError> {
+        Err(LxError::EOPNOTSUPP)
+    }
+
+    async fn access(&self, _path: &VfsPath, _mode: AccessFlags) -> Result<(), LxError> {
+        Err(LxError::EOPNOTSUPP)
+    }
+
+    async fn get_sock_path(&self, _path: &VfsPath, _create: bool) -> Result<PathBuf, LxError> {
+        Err(LxError::EOPNOTSUPP)
+    }
+
+    async fn mount_bind(&self, _path: &VfsPath) -> Result<Box<dyn Mountable>, LxError> {
+        todo!()
+    }
+}
+
+pub struct Directory {
+    pub table: RwLock<BTreeMap<Vec<u8>, DirEntry>>,
+    pub attrs: FileAttrs,
+}
+impl Directory {
+    pub fn new() -> Self {
+        Self {
+            table: RwLock::default(),
+            attrs: FileAttrs {
+                uid: 0,
+                gid: 0,
+                mode: 0o777,
+                atime: Timespec {
+                    tv_sec: 0,
+                    tv_nsec: 0,
+                },
+                mtime: Timespec {
+                    tv_sec: 0,
+                    tv_nsec: 0,
+                },
+                ctime: Timespec {
+                    tv_sec: 0,
+                    tv_nsec: 0,
+                },
+            },
+        }
+    }
+
+    fn _open(&self, sgmt: &[Cow<'_, [u8]>]) -> Result<DirEntry, LxError> {
+        let reader = self.table.read().unwrap();
+        if sgmt.len() == 1 {
+            return reader.get(&*sgmt[0]).ok_or(LxError::ENOENT).cloned();
+        }
+        let dir_entry = reader.get(&*sgmt[0]).ok_or(LxError::ENOENT)?;
+        match &dir_entry {
+            DirEntry::Directory(dir) => dir._open(&sgmt[1..]),
+            DirEntry::RegularFile(_) => Err(LxError::ENOTDIR),
+        }
+    }
+}
+impl Default for Directory {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[derive(Clone)]
+pub enum DirEntry {
+    Directory(Arc<Directory>),
+    RegularFile(Arc<dyn KernFsFile>),
+}
+
+#[async_trait]
+pub trait KernFsFile: Send + Sync {
+    async fn open(&self, flags: OpenFlags) -> Result<NewlyOpen, LxError>;
+}
+
+pub struct KernFsDirVirtualFd {
+    attrs: FileAttrs,
+    keys: Mutex<Vec<Vec<u8>>>,
+    dir: Arc<Directory>,
+}
+impl KernFsDirVirtualFd {
+    fn new(dir: Arc<Directory>, attrs: FileAttrs) -> Self {
+        let mut keys = dir
+            .table
+            .read()
+            .unwrap()
+            .keys()
+            .cloned()
+            .collect::<Vec<Vec<u8>>>();
+        keys.push(vec![b'.']);
+        keys.push(vec![b'.', b'.']);
+        let keys = Mutex::new(keys);
+
+        Self { attrs, keys, dir }
+    }
+}
+#[async_trait]
+impl VirtualFile for KernFsDirVirtualFd {
+    async fn stat(&self) -> Result<Stat, LxError> {
+        Ok(Stat {
+            st_dev: 0,
+            st_ino: 0,
+            st_nlink: 0,
+            st_mode: self.attrs.mode | 0o40000,
+            st_uid: self.attrs.uid,
+            st_gid: self.attrs.gid,
+            _pad0: 0,
+            st_rdev: 0,
+            st_size: 0,
+            st_blksize: 0,
+            st_blocks: 0,
+            st_atime: self.attrs.atime.tv_sec,
+            st_atimensec: self.attrs.atime.tv_nsec as _,
+            st_mtime: self.attrs.mtime.tv_sec,
+            st_mtimensec: self.attrs.mtime.tv_nsec as _,
+            st_ctime: self.attrs.ctime.tv_sec,
+            st_ctimensec: self.attrs.ctime.tv_nsec as _,
+            _unused: [0; _],
+        })
+    }
+
+    async fn fcntl(&self, cmd: u32, data: Vec<u8>) -> Result<Response, LxError> {
+        let cmd = FcntlCmd(cmd);
+        match cmd {
+            FcntlCmd::F_SETFD => Ok(Response::Ctrl(0)),
+            FcntlCmd::F_GETFL => Ok(Response::Ctrl((OpenFlags::O_DIRECTORY).bits() as _)),
+            FcntlCmd::F_SETFL => Ok(Response::Ctrl(0)),
+            _ => Err(LxError::EINVAL),
+        }
+    }
+
+    async fn getdents64(&self) -> Result<Option<Dirent64>, LxError> {
+        const DIRENT64HDR_REFDIR: Dirent64Hdr = Dirent64Hdr {
+            d_ino: 0,
+            d_off: 0,
+            d_reclen: 0,
+            d_type: DirentType::DT_DIR,
+            _align: [0; _],
+        };
+
+        let dir_reader = self.dir.table.read().unwrap();
+        let Some(next_key) = self.keys.lock().unwrap().pop() else {
+            return Ok(None);
+        };
+        if next_key == b"." || next_key == b".." {
+            return Ok(Some(Dirent64::new(DIRENT64HDR_REFDIR, next_key)));
+        }
+
+        let Some(dir_entry) = dir_reader.get(&next_key) else {
+            return Ok(None);
+        };
+        let d_type = match &dir_entry {
+            DirEntry::RegularFile(_) => DirentType::DT_REG,
+            DirEntry::Directory(_) => DirentType::DT_DIR,
+        };
+        let hdr = Dirent64Hdr {
+            d_ino: 0,
+            d_off: 0,
+            d_reclen: 0,
+            d_type,
+            _align: [0; _],
+        };
+        Ok(Some(Dirent64::new(hdr, next_key)))
+    }
+}
