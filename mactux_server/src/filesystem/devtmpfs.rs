@@ -1,5 +1,8 @@
 use crate::{
-    filesystem::{kernfs::{DirEntry, KernFs}, vfs::Mountable},
+    filesystem::{
+        kernfs::{DirEntry, KernFs},
+        vfs::Mountable,
+    },
     util::FileAttrs,
 };
 use std::sync::Arc;

@@ -3,9 +3,9 @@
 //! This is a filesystem that maps all Linux filesystem accesses to macOS ones.
 
 use crate::{
+    filesystem::vfs::{MountDev, Mountable, NewlyOpen, VfsPath},
     util::c_str,
     vfd::{VirtualFd, VirtualFile},
-    filesystem::vfs::{MountDev, Mountable, NewlyOpen, VfsPath},
 };
 use async_trait::async_trait;
 use mactux_ipc::response::Response;

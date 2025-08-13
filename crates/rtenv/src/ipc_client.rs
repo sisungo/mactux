@@ -129,7 +129,7 @@ pub fn server_sock_path() -> &'static Path {
 }
 
 /// Sets path of the server socket to connect.
-/// 
+///
 /// # Panics
 /// This function would panic if there is already a server socket path set.
 pub fn set_server_sock_path(val: PathBuf) {
@@ -158,14 +158,14 @@ pub fn make_client() -> Client {
 }
 
 /// Updates the thread-local IPC client.
-/// 
+///
 /// This is usually used after `fork()` or `clone()` that creates a process (not a thread).
 pub fn update_client(client: Client) {
     thread::with_context(|ctx| *ctx.client.get().unwrap().borrow_mut() = client);
 }
 
 /// Sets the client file descriptor.
-/// 
+///
 /// This is usually used after `execve()`, which inherits the parent client.
 pub unsafe fn set_client_fd(fd: libc::c_int) {
     unsafe {

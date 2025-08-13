@@ -262,8 +262,6 @@ impl RUsageWho {
     pub const RUSAGE_THREAD: Self = Self(1);
 
     pub fn to_apple(self) -> Option<c_int> {
-        newtype_impl_to_apple!(
-            self = RUSAGE_SELF, RUSAGE_CHILDREN
-        )
+        newtype_impl_to_apple!(self = RUSAGE_SELF, RUSAGE_CHILDREN)
     }
 }

@@ -1,7 +1,7 @@
 use std::io::Write;
 
 /// The error report port.
-/// 
+///
 /// This is basically the same as [`std::io::Stderr`], but this guarantees that this is mapped to the POSIX primitives
 /// directly and no thread-local variables or locks are used, so this can be used from the emulated context or async signal
 /// handlers.

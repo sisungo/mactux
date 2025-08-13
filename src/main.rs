@@ -69,6 +69,7 @@ fn main() {
     }
 }
 
+/// Initializes the environmental libraries.
 fn setup_environment() {
     if let Err(err) = std::env::set_current_dir("/") {
         eprintln!("mactux: failed to switch to secure path \"/\": {err}");
@@ -81,6 +82,7 @@ fn setup_environment() {
     }
 }
 
+/// Loads a program at the given path.
 fn load_program(exec: &[u8]) -> Program {
     let fd = rtenv::fs::open(exec.to_vec(), OpenFlags::O_CLOEXEC | OpenFlags::O_RDONLY, 0)
         .unwrap_or_else(|err| {
@@ -106,6 +108,7 @@ fn load_program(exec: &[u8]) -> Program {
     })
 }
 
+/// Collects arguments from `cmdline`.
 fn collect_args(cmdline: &Mactux) -> Vec<&[u8]> {
     let mut args = Vec::with_capacity(cmdline.args.len() + 1);
     let arg0 = cmdline.arg0.as_ref().unwrap_or(&cmdline.exec);
@@ -117,6 +120,7 @@ fn collect_args(cmdline: &Mactux) -> Vec<&[u8]> {
     args
 }
 
+/// Collects environmental variables from `cmdline`.
 fn collect_envp(cmdline: &Mactux) -> Vec<&[u8]> {
     let mut envp = Vec::with_capacity(cmdline.env.len());
     cmdline

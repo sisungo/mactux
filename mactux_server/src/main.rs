@@ -1,19 +1,24 @@
 mod device;
-mod server;
+mod filesystem;
 mod net;
 mod process;
+mod server;
 mod sysinfo;
 mod syslog;
 mod util;
 mod uts;
 mod vfd;
 mod work_dir;
-mod filesystem;
 
 #[cfg(feature = "audio")]
 mod audio;
 
-use crate::{process::ProcessCtx, util::Registry, filesystem::vfs::{MountNamespace, VfsPath}, work_dir::WorkDir};
+use crate::{
+    filesystem::vfs::{MountNamespace, VfsPath},
+    process::ProcessCtx,
+    util::Registry,
+    work_dir::WorkDir,
+};
 use rustc_hash::FxBuildHasher;
 use std::{
     fmt::Debug,

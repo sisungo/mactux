@@ -3,9 +3,9 @@ mod typical_files;
 pub use typical_files::fn_file;
 
 use crate::{
+    filesystem::vfs::{Mountable, NewlyOpen, VfsPath},
     util::FileAttrs,
     vfd::{VirtualFd, VirtualFile},
-    filesystem::vfs::{Mountable, NewlyOpen, VfsPath},
 };
 use async_trait::async_trait;
 use mactux_ipc::response::Response;

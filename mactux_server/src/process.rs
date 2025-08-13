@@ -1,9 +1,9 @@
 use crate::{
     app,
+    filesystem::vfs::{MountNamespace, Mountable},
     util::Registry,
     uts::{InitUts, UtsNamespace},
     vfd::VirtualFd,
-    filesystem::vfs::{MountNamespace, Mountable},
 };
 use papaya::Guard;
 use std::sync::{

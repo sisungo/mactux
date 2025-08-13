@@ -1,7 +1,8 @@
+use super::KernFsFile;
 use crate::{
+    filesystem::vfs::NewlyOpen,
     util::FileAttrs,
     vfd::{VirtualFd, VirtualFile},
-    filesystem::vfs::NewlyOpen,
 };
 use async_trait::async_trait;
 use std::sync::Arc;
@@ -9,7 +10,6 @@ use structures::{
     error::LxError,
     fs::{OpenFlags, Stat},
 };
-use super::KernFsFile;
 
 #[derive(Debug, Clone)]
 struct FnFile<F> {

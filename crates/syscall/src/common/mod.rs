@@ -779,7 +779,12 @@ pub unsafe fn sys_futex(
 }
 
 #[syscall]
-pub unsafe fn sys_rseq(rseq: *mut RSeq, rseq_len: u32, flags: u32, sig: u32) -> Result<(), LxError> {
+pub unsafe fn sys_rseq(
+    rseq: *mut RSeq,
+    rseq_len: u32,
+    flags: u32,
+    sig: u32,
+) -> Result<(), LxError> {
     Err(LxError::ENOSYS)
 }
 

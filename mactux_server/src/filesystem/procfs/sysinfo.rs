@@ -16,7 +16,7 @@ pub fn meminfo() -> Result<Vec<u8>, LxError> {
 }
 
 pub fn uptime() -> Result<Vec<u8>, LxError> {
-    Err(LxError::EINVAL)
+    Ok(format!("{} 0", crate::sysinfo::sysinfo()?.uptime).into_bytes())
 }
 
 pub fn loadavg() -> Result<Vec<u8>, LxError> {

@@ -1,4 +1,4 @@
-use crate::{util::Registry, filesystem::vfs::VfsPath};
+use crate::{filesystem::vfs::VfsPath, util::Registry};
 use async_trait::async_trait;
 use crossbeam::atomic::AtomicCell;
 use mactux_ipc::response::{Response, VirtualFdAvailCtrl};
