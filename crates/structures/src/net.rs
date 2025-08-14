@@ -1,73 +1,47 @@
-use crate::{error::LxError, newtype_impl_to_apple};
+use crate::{error::LxError, unixvariants};
 use libc::{c_char, c_int};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-#[repr(transparent)]
-pub struct Domain(pub u32);
-impl Domain {
-    pub const PF_LOCAL: Self = Self(1);
-    pub const PF_INET: Self = Self(2);
-    pub const PF_INET6: Self = Self(10);
-
-    pub fn to_apple(self) -> Result<c_int, LxError> {
-        newtype_impl_to_apple!(self = PF_LOCAL, PF_INET, PF_INET6).ok_or(LxError::EINVAL)
+unixvariants! {
+    pub struct Domain: u32 {
+        const PF_LOCAL = 1;
+        const PF_INET = 2;
+        const PF_INET6 = 10;
+        fn from_apple(apple: c_int) -> Result<Self, LxError>;
+        fn to_apple(self) -> Result<c_int, LxError>;
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-#[repr(transparent)]
-pub struct Type(pub u32);
-impl Type {
-    pub const SOCK_STREAM: Self = Self(1);
-    pub const SOCK_DGRAM: Self = Self(2);
-    pub const SOCK_RAW: Self = Self(3);
-
-    pub fn to_apple(self) -> Result<c_int, LxError> {
-        newtype_impl_to_apple!(self = SOCK_STREAM, SOCK_DGRAM, SOCK_RAW).ok_or(LxError::EINVAL)
+unixvariants! {
+    pub struct Type: u32 {
+        const SOCK_STREAM = 1;
+        const SOCK_DGRAM = 2;
+        const SOCK_RAW = 3;
+        fn from_apple(apple: c_int) -> Result<Self, LxError>;
+        fn to_apple(self) -> Result<c_int, LxError>;
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-#[repr(transparent)]
-pub struct Protocol(pub u32);
-impl Protocol {
-    pub const IPPROTO_IP: Self = Self(0);
-    pub const IPPROTO_ICMP: Self = Self(1);
-    pub const IPPROTO_IGMP: Self = Self(2);
-    pub const IPPROTO_TCP: Self = Self(6);
-    pub const IPPROTO_UDP: Self = Self(17);
-    pub const IPPROTO_IPV6: Self = Self(41);
-    pub const IPPROTO_ICMPV6: Self = Self(58);
-
-    pub fn to_apple(self) -> Result<c_int, LxError> {
-        newtype_impl_to_apple!(
-            self = IPPROTO_IP,
-            IPPROTO_ICMP,
-            IPPROTO_IGMP,
-            IPPROTO_TCP,
-            IPPROTO_UDP,
-            IPPROTO_IPV6,
-            IPPROTO_ICMPV6
-        )
-        .ok_or(LxError::EINVAL)
+unixvariants! {
+    pub struct Protocol: u32 {
+        const IPPROTO_IP = 0;
+        const IPPROTO_ICMP = 1;
+        const IPPROTO_IGMP = 2;
+        const IPPROTO_TCP = 6;
+        const IPPROTO_UDP = 17;
+        const IPPROTO_IPV6 = 41;
+        const IPPROTO_ICMPV6 = 58;
+        fn from_apple(apple: c_int) -> Result<Self, LxError>;
+        fn to_apple(self) -> Result<c_int, LxError>;
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-#[repr(transparent)]
-pub struct ShutdownHow(pub u32);
-impl ShutdownHow {
-    pub const SHUT_RD: Self = Self(0);
-    pub const SHUT_WR: Self = Self(1);
-    pub const SHUT_RDWR: Self = Self(2);
-
-    pub const fn to_apple(self) -> Result<c_int, LxError> {
-        match self {
-            Self::SHUT_RD => Ok(libc::SHUT_RD),
-            Self::SHUT_WR => Ok(libc::SHUT_WR),
-            Self::SHUT_RDWR => Ok(libc::SHUT_RDWR),
-            _ => Err(LxError::EINVAL),
-        }
+unixvariants! {
+    pub struct ShutdownHow: u32 {
+        const SHUT_RD = 0;
+        const SHUT_WR = 1;
+        const SHUT_RDWR = 2;
+        fn from_apple(apple: c_int) -> Result<Self, LxError>;
+        fn to_apple(self) -> Result<c_int, LxError>;
     }
 }
 

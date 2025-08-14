@@ -1,29 +1,16 @@
-use crate::{error::LxError, newtype_impl_to_apple};
+use crate::unixvariants;
 use libc::c_int;
 use std::time::Duration;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[repr(transparent)]
-pub struct ClockId(pub u32);
-impl ClockId {
-    pub const CLOCK_REALTIME: Self = Self(0);
-    pub const CLOCK_MONOTONIC: Self = Self(1);
-    pub const CLOCK_PROCESS_CPUTIME_ID: Self = Self(2);
-    pub const CLOCK_THREAD_CPUTIME_ID: Self = Self(3);
-
-    pub fn to_apple(self) -> Result<libc::clockid_t, LxError> {
-        newtype_impl_to_apple!(
-            self = CLOCK_REALTIME,
-            CLOCK_MONOTONIC,
-            CLOCK_PROCESS_CPUTIME_ID,
-            CLOCK_THREAD_CPUTIME_ID
-        )
-        .ok_or(LxError::EINVAL)
-    }
-}
-impl Default for ClockId {
-    fn default() -> Self {
-        Self::CLOCK_REALTIME
+unixvariants! {
+    #[derive(Default)]
+    pub struct ClockId: u32 {
+        const CLOCK_REALTIME = 0;
+        const CLOCK_MONOTONIC = 1;
+        const CLOCK_PROCESS_CPUTIME_ID = 2;
+        const CLOCK_THREAD_CPUTIME_ID = 3;
+        fn from_apple(apple: libc::clockid_t) -> Result<Self, LxError>;
+        fn to_apple(self) -> Result<libc::clockid_t, LxError>;
     }
 }
 

@@ -916,7 +916,7 @@ pub unsafe fn sys_prlimit64(
     if ![0, -1, rtenv::process::pid()].contains(&pid) {
         return Err(LxError::EPERM);
     }
-    let Some(res) = res.to_apple() else {
+    let Ok(res) = res.to_apple() else {
         return Ok(());
     };
     unsafe {
@@ -963,7 +963,7 @@ pub unsafe fn sys_wait4(
 pub unsafe fn sys_getrusage(who: RUsageWho, rusage: *mut RUsage) -> Result<(), LxError> {
     unsafe {
         let mut buf = std::mem::zeroed();
-        if libc::getrusage(who.to_apple().ok_or(LxError::EINVAL)?, &mut buf) == -1 {
+        if libc::getrusage(who.to_apple()?, &mut buf) == -1 {
             return Err(LxError::last_apple_error());
         }
         rusage.write(RUsage::from_apple(buf));

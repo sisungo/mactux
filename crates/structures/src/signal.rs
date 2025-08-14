@@ -1,4 +1,4 @@
-use crate::{error::LxError, time::ClockId};
+use crate::{error::LxError, time::ClockId, unixvariants};
 use bitflags::bitflags;
 use libc::{c_int, c_long, c_short, c_uint};
 
@@ -236,15 +236,14 @@ impl KernelSigSet {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-#[repr(transparent)]
-pub struct MaskHowto(pub u32);
-impl MaskHowto {
-    pub const SIG_BLOCK: Self = Self(0);
-    pub const SIG_UNBLOCK: Self = Self(1);
-    pub const SIG_SETMASK: Self = Self(2);
-
-    impl_from_to_apple!(SIG_BLOCK, SIG_SETMASK, SIG_UNBLOCK);
+unixvariants! {
+    pub struct MaskHowto: u32 {
+        const SIG_BLOCK = 0;
+        const SIG_UNBLOCK = 1;
+        const SIG_SETMASK = 2;
+        fn from_apple(apple: c_int) -> Result<Self, LxError>;
+        fn to_apple(self) -> Result<c_int, LxError>;
+    }
 }
 
 #[derive(Debug, Clone)]

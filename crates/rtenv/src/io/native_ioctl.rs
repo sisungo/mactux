@@ -3,7 +3,7 @@ use libc::c_int;
 use structures::{
     error::LxError,
     io::IoctlCmd,
-    terminal::{TcFlowArg, Termios, Termios2, WinSize},
+    terminal::{TcFlowAction, Termios, Termios2, WinSize},
 };
 
 pub fn native_ioctl(fd: c_int, cmd: IoctlCmd, arg: *mut u8) -> Result<c_int, LxError> {
@@ -72,8 +72,8 @@ pub fn native_ioctl(fd: c_int, cmd: IoctlCmd, arg: *mut u8) -> Result<c_int, LxE
             Ok(0)
         },
         IoctlCmd::TCXONC => unsafe {
-            let apple_arg = TcFlowArg(arg as usize as u32);
-            posix_bi!(libc::tcflow(fd, apple_arg.to_apple()?))?;
+            let action = TcFlowAction(arg as usize as u32);
+            posix_bi!(libc::tcflow(fd, action.to_apple()?))?;
             Ok(0)
         },
         _ => Err(LxError::EINVAL),

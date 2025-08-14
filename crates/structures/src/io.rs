@@ -1,6 +1,6 @@
 use crate::{
     bitflags_impl_from_apple, bitflags_impl_to_apple, error::LxError, mapper,
-    newtype_impl_from_apple, newtype_impl_to_apple, signal::KernelSigSet, terminal::Termios2,
+    signal::KernelSigSet, terminal::Termios2, unixvariants,
 };
 use bincode::{Decode, Encode};
 use bitflags::bitflags;
@@ -102,26 +102,16 @@ impl IoctlCmd {
     }
 }
 
-#[derive(Debug, Clone, Copy, Encode, Decode, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[repr(transparent)]
-pub struct Whence(pub u32);
-impl Whence {
-    pub const SEEK_SET: Self = Self(0);
-    pub const SEEK_CUR: Self = Self(1);
-    pub const SEEK_END: Self = Self(2);
-    pub const SEEK_DATA: Self = Self(3);
-    pub const SEEK_HOLE: Self = Self(4);
-
-    #[inline]
-    pub fn to_apple(self) -> Result<c_int, LxError> {
-        newtype_impl_to_apple!(self = SEEK_SET, SEEK_CUR, SEEK_END, SEEK_DATA, SEEK_HOLE)
-            .ok_or(LxError::EINVAL)
-    }
-
-    #[inline]
-    pub fn from_apple(apple: c_int) -> Result<Self, LxError> {
-        newtype_impl_from_apple!(apple = SEEK_SET, SEEK_CUR, SEEK_END, SEEK_DATA, SEEK_HOLE)
-            .ok_or(LxError::EINVAL)
+unixvariants! {
+    #[derive(Encode, Decode)]
+    pub struct Whence: u32 {
+        const SEEK_SET = 0;
+        const SEEK_CUR = 1;
+        const SEEK_END = 2;
+        const SEEK_DATA = 3;
+        const SEEK_HOLE = 4;
+        fn from_apple(apple: c_int) -> Result<Self, LxError>;
+        fn to_apple(self) -> Result<c_int, LxError>;
     }
 }
 
@@ -158,36 +148,23 @@ impl Flock {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-#[repr(transparent)]
-pub struct FlockTy(pub u16);
-impl FlockTy {
-    pub const F_RDLCK: Self = Self(0);
-    pub const F_WRLCK: Self = Self(1);
-    pub const F_UNLCK: Self = Self(2);
-
-    #[inline]
-    pub fn to_apple(self) -> Result<i16, LxError> {
-        newtype_impl_to_apple!(self = F_RDLCK, F_WRLCK, F_UNLCK).ok_or(LxError::EINVAL)
-    }
-
-    #[inline]
-    pub fn from_apple(apple: i16) -> Result<Self, LxError> {
-        newtype_impl_from_apple!(apple = F_RDLCK, F_WRLCK, F_UNLCK).ok_or(LxError::EINVAL)
+unixvariants! {
+    pub struct FlockTy: u16 {
+        const F_RDLCK = 0;
+        const F_WRLCK = 1;
+        const F_UNLCK = 2;
+        fn from_apple(apple: i16) -> Result<Self, LxError>;
+        fn to_apple(self) -> Result<i16, LxError>;
     }
 }
 
-#[derive(Debug, Clone, Copy, Encode, Decode, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[repr(transparent)]
-pub struct FlockOp(pub u32);
-impl FlockOp {
-    pub const LOCK_SH: Self = Self(1);
-    pub const LOCK_EX: Self = Self(2);
-    pub const LOCK_UN: Self = Self(8);
-
-    #[inline]
-    pub fn to_apple(self) -> Result<c_int, LxError> {
-        newtype_impl_to_apple!(self = LOCK_SH, LOCK_EX, LOCK_UN).ok_or(LxError::EINVAL)
+unixvariants! {
+    pub struct FlockOp: u32 {
+        const LOCK_SH = 1;
+        const LOCK_EX = 2;
+        const LOCK_UN = 8;
+        fn from_apple(apple: c_int) -> Result<Self, LxError>;
+        fn to_apple(self) -> Result<c_int, LxError>;
     }
 }
 

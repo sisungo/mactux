@@ -168,8 +168,8 @@ impl<T: ToSysret> ToSysret for std::io::Result<T> {
             Err(err) => {
                 (-(err
                     .raw_os_error()
-                    .map(LxError::from_apple)
-                    .unwrap_or(LxError::EOPNOTSUPP)
+                    .map(|x| LxError::from_apple(x).unwrap_or(LxError::EIO))
+                    .unwrap_or(LxError::EIO)
                     .0 as i32)) as usize
             }
         }

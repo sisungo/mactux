@@ -1,4 +1,4 @@
-use crate::{bitflags_impl_to_apple, newtype_impl_to_apple};
+use crate::{bitflags_impl_to_apple, unixvariants};
 use bitflags::bitflags;
 use libc::c_int;
 
@@ -70,45 +70,35 @@ bitflags! {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[repr(transparent)]
-pub struct Madvice(pub u32);
-impl Madvice {
-    pub const MADV_NORMAL: Self = Self(0);
-    pub const MADV_RANDOM: Self = Self(1);
-    pub const MADV_SEQUENTIAL: Self = Self(2);
-    pub const MADV_WILLNEED: Self = Self(3);
-    pub const MADV_DONTNEED: Self = Self(4);
-    pub const MADV_FREE: Self = Self(8);
-    pub const MADV_REMOVE: Self = Self(9);
-    pub const MADV_DONTFORK: Self = Self(10);
-    pub const MADV_DOFORK: Self = Self(11);
-    pub const MADV_MERGEABLE: Self = Self(12);
-    pub const MADV_UNMERGEABLE: Self = Self(13);
-    pub const MADV_HUGEPAGE: Self = Self(14);
-    pub const MADV_NOHUGEPAGE: Self = Self(15);
-    pub const MADV_DONTDUMP: Self = Self(16);
-    pub const MADV_DODUMP: Self = Self(17);
-    pub const MADV_WIPEONFORK: Self = Self(18);
-    pub const MADV_KEEPONFORK: Self = Self(19);
-    pub const MADV_COLD: Self = Self(20);
-    pub const MADV_PAGEOUT: Self = Self(21);
-    pub const MADV_POPULATE_READ: Self = Self(22);
-    pub const MADV_POPULATE_WRITE: Self = Self(23);
-    pub const MADV_COLLAPSE: Self = Self(25);
-    pub const MADV_HWPOISON: Self = Self(100);
-    pub const MADV_SOFT_OFFLINE: Self = Self(101);
-    pub const MADV_GUARD_INSTALL: Self = Self(102);
-    pub const MADV_GUARD_REMOVE: Self = Self(103);
-
-    pub fn to_apple(self) -> Option<c_int> {
-        newtype_impl_to_apple!(
-            self = MADV_NORMAL,
-            MADV_RANDOM,
-            MADV_SEQUENTIAL,
-            MADV_WILLNEED,
-            MADV_DONTNEED,
-            MADV_FREE
-        )
+unixvariants! {
+    pub struct Madvice: u32 {
+        const MADV_NORMAL = 0;
+        const MADV_RANDOM = 1;
+        const MADV_SEQUENTIAL = 2;
+        const MADV_WILLNEED = 3;
+        const MADV_DONTNEED = 4;
+        const MADV_FREE = 8;
+        #[linux_only] const MADV_REMOVE = 9;
+        #[linux_only] const MADV_DONTFORK = 10;
+        #[linux_only] const MADV_DOFORK = 11;
+        #[linux_only] const MADV_MERGEABLE = 12;
+        #[linux_only] const MADV_UNMERGEABLE = 13;
+        #[linux_only] const MADV_HUGEPAGE = 14;
+        #[linux_only] const MADV_NOHUGEPAGE = 15;
+        #[linux_only] const MADV_DONTDUMP = 16;
+        #[linux_only] const MADV_DODUMP = 17;
+        #[linux_only] const MADV_WIPEONFORK = 18;
+        #[linux_only] const MADV_KEEPONFORK = 19;
+        #[linux_only] const MADV_COLD = 20;
+        #[linux_only] const MADV_PAGEOUT = 21;
+        #[linux_only] const MADV_POPULATE_READ = 22;
+        #[linux_only] const MADV_POPULATE_WRITE = 23;
+        #[linux_only] const MADV_COLLAPSE = 25;
+        #[linux_only] const MADV_HWPOISON = 100;
+        #[linux_only] const MADV_SOFT_OFFLINE = 101;
+        #[linux_only] const MADV_GUARD_INSTALL = 102;
+        #[linux_only] const MADV_GUARD_REMOVE = 103;
+        fn from_apple(apple: c_int) -> Result<Self, LxError>;
+        fn to_apple(self) -> Result<c_int, LxError>;
     }
 }

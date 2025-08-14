@@ -1,5 +1,5 @@
 use crate::{
-    bitflags_impl_to_apple, error::LxError, newtype_impl_to_apple, signal::SigNum, time::Timeval,
+    bitflags_impl_to_apple, error::LxError, signal::SigNum, time::Timeval, unixvariants,
 };
 use bitflags::bitflags;
 use std::ffi::c_int;
@@ -217,52 +217,36 @@ impl RLimit64 {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[repr(transparent)]
-pub struct RLimitable(pub u32);
-impl RLimitable {
-    pub const RLIMIT_CPU: Self = Self(0);
-    pub const RLIMIT_FSIZE: Self = Self(1);
-    pub const RLIMIT_DATA: Self = Self(2);
-    pub const RLIMIT_STACK: Self = Self(3);
-    pub const RLIMIT_CORE: Self = Self(4);
-    pub const RLIMIT_RSS: Self = Self(5); // no longer effective
-    pub const RLIMIT_NPROC: Self = Self(6);
-    pub const RLIMIT_NOFILE: Self = Self(7);
-    pub const RLIMIT_MEMLOCK: Self = Self(8);
-    pub const RLIMIT_AS: Self = Self(9);
-    pub const RLIMIT_LOCKS: Self = Self(10);
-    pub const RLIMIT_SIGPENDING: Self = Self(11);
-    pub const RLIMIT_MSGQUEUE: Self = Self(12);
-    pub const RLIMIT_NICE: Self = Self(13);
-    pub const RLIMIT_RTPRIO: Self = Self(14);
-    pub const RLIMIT_RTTIME: Self = Self(15);
-
-    pub fn to_apple(self) -> Option<c_int> {
-        newtype_impl_to_apple!(
-            self = RLIMIT_CPU,
-            RLIMIT_FSIZE,
-            RLIMIT_DATA,
-            RLIMIT_STACK,
-            RLIMIT_CORE,
-            RLIMIT_NPROC,
-            RLIMIT_NOFILE,
-            RLIMIT_MEMLOCK,
-            RLIMIT_AS
-        )
+unixvariants! {
+    pub struct RLimitable: u32 {
+        const RLIMIT_CPU = 0;
+        const RLIMIT_FSIZE = 1;
+        const RLIMIT_DATA = 2;
+        const RLIMIT_STACK = 3;
+        const RLIMIT_CORE = 4;
+        const RLIMIT_NOFILE = 7;
+        const RLIMIT_MEMLOCK = 8;
+        const RLIMIT_AS = 9;
+        #[linux_only] const RLIMIT_LOCKS = 10;
+        #[linux_only] const RLIMIT_SIGPENDING = 11;
+        #[linux_only] const RLIMIT_MSGQUEUE = 12;
+        #[linux_only] const RLIMIT_NICE = 13;
+        #[linux_only] const RLIMIT_RTPRIO = 14;
+        #[linux_only] const RLIMIT_RTTIME = 15;
+        #[linux_only] const RLIMIT_RSS = 5;
+        #[linux_only] const RLIMIT_NRPOC = 6;
+        fn from_apple(apple: c_int) -> Result<Self, LxError>;
+        fn to_apple(self) -> Result<c_int, LxError>;
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[repr(transparent)]
-pub struct RUsageWho(pub u32);
-impl RUsageWho {
-    pub const RUSAGE_SELF: Self = Self(0);
-    pub const RUSAGE_CHILDREN: Self = Self(u32::MAX);
-    pub const RUSAGE_THREAD: Self = Self(1);
-
-    pub fn to_apple(self) -> Option<c_int> {
-        newtype_impl_to_apple!(self = RUSAGE_SELF, RUSAGE_CHILDREN)
+unixvariants! {
+    pub struct RUsageWho: u32 {
+        const RUSAGE_SELF = 0;
+        const RUSAGE_CHILDREN = u32::MAX;
+        #[apple = RUSAGE_SELF] const RUSAGE_THREAD = 1;
+        fn from_apple(apple: c_int) -> Result<Self, LxError>;
+        fn to_apple(self) -> Result<c_int, LxError>;
     }
 }
 
