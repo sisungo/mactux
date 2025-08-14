@@ -66,6 +66,9 @@ impl IoctlCmd {
     pub const TIOCSWINSZ: Self = Self(0x5414);
 
     pub const TCGETS2: Self = Self::_ior::<Termios2>(b'T' as _, 42);
+    pub const TCSETS2: Self = Self::_iow::<Termios2>(b'T' as _, 43);
+    pub const TCSETSW2: Self = Self::_iow::<Termios2>(b'T' as _, 44);
+    pub const TCSETSF2: Self = Self::_iow::<Termios2>(b'T' as _, 45);
 
     pub const SNDCTL_DSP_CHANNELS: Self = Self::_iowr::<c_int>(b'P' as _, 6);
     pub const SNDCTL_DSP_SPEED: Self = Self::_iowr::<c_int>(b'P' as _, 2);

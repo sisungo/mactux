@@ -576,7 +576,7 @@ macro_rules! impl_syscall_indirect {
             unsafe extern "sysv64" fn __impl(mut ctx: Box<libc::__darwin_mcontext64>) -> ! {
                 unsafe {
                     rtenv::emuctx::leave_emulated();
-                    ctx.__ss.__rax = $blk(&*ctx);
+                    ctx.__ss.__rax = $blk(&mut *ctx);
                     rtenv::emuctx::enter_emulated();
                     core::arch::asm!(
                         "mov rdi, {}",
@@ -600,7 +600,7 @@ macro_rules! impl_syscall_indirect {
 }
 
 impl_syscall_indirect!(
-    sys_clone = |mctx: &libc::__darwin_mcontext64| {
+    sys_clone = |mctx: &mut libc::__darwin_mcontext64| {
         let flags = CloneFlags::from_bits_retain(mctx.__ss.__rdi as _);
         let stack = mctx.__ss.__rsi;
         let parent_tid = mctx.__ss.__rdx;
@@ -620,6 +620,12 @@ impl_syscall_indirect!(
             cgroup: 0,
         };
         match rtenv::process::clone(clone_args) {
+            Ok(0) => {
+                if stack != 0 {
+                    mctx.__ss.__rsp = stack;
+                }
+                0
+            },
             Ok(n) => n as _,
             Err(err) => -(err.0 as i32) as u64
         }

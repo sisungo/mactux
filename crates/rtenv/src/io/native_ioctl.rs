@@ -56,6 +56,21 @@ pub fn native_ioctl(fd: c_int, cmd: IoctlCmd, arg: *mut u8) -> Result<c_int, LxE
             arg.cast::<Termios2>().write(apple_termios.into());
             Ok(0)
         },
+        IoctlCmd::TCSETS2 => unsafe {
+            let apple_termios = arg.cast::<Termios2>().read().to_apple();
+            posix_bi!(libc::tcsetattr(fd, libc::TCSANOW, &apple_termios))?;
+            Ok(0)
+        },
+        IoctlCmd::TCSETSW2 => unsafe {
+            let apple_termios = arg.cast::<Termios2>().read().to_apple();
+            posix_bi!(libc::tcsetattr(fd, libc::TCSADRAIN, &apple_termios))?;
+            Ok(0)
+        },
+        IoctlCmd::TCSETSF2 => unsafe {
+            let apple_termios = arg.cast::<Termios2>().read().to_apple();
+            posix_bi!(libc::tcsetattr(fd, libc::TCSAFLUSH, &apple_termios))?;
+            Ok(0)
+        },
         _ => Err(LxError::EINVAL),
     }
 }
