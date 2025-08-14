@@ -4,7 +4,7 @@ use std::{
     ffi::c_void,
     ptr::NonNull,
 };
-use structures::{error::LxError, signal::SigNum, sync::FutexOpts};
+use structures::{error::LxError, process::CloneArgs, signal::SigNum, sync::FutexOpts};
 
 /// Minimal TID that indicates a non-main thread rather than a process (or, the "main thread").
 const MINIMUM_TID: i32 = 0x40000000;
@@ -84,6 +84,11 @@ pub fn kill(tid: i32, signum: SigNum) -> Result<(), LxError> {
 #[inline]
 pub fn set_clear_tid(value: Option<NonNull<u32>>) {
     with_context(|ctx| ctx.clear_tid.set(value));
+}
+
+/// Spawns a thread.
+pub fn clone(args: CloneArgs) -> Result<i32, LxError> {
+    todo!()
 }
 
 /// This is called when entering a MacTux thread.

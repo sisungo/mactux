@@ -774,6 +774,16 @@ pub unsafe fn sys_gettimeofday(
     }
 }
 
+#[syscall]
+pub unsafe fn sys_time(time: *mut i64) -> Result<(), LxError> {
+    unsafe {
+        match libc::time(time) {
+            -1 => Err(LxError::last_apple_error()),
+            _ => Ok(()),
+        }
+    }
+}
+
 // -== Synchronous ==-
 
 #[syscall]

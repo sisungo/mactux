@@ -16,7 +16,7 @@ use std::{
 use structures::{
     error::LxError,
     fs::AccessFlags,
-    process::{ChildType, CloneArgs},
+    process::{ChildType, CloneArgs, CloneFlags},
     signal::{SigAction, SigNum},
 };
 
@@ -164,11 +164,28 @@ pub fn fork() -> Result<i32, LxError> {
 }
 
 pub fn clone(args: CloneArgs) -> Result<i32, LxError> {
-    match args.flags().child_type() {
-        ChildType::Process => todo!(),
-        ChildType::Thread => todo!(),
+    let result = match args.flags().child_type() {
+        ChildType::Process => {
+            let status = fork();
+            status
+        },
+        ChildType::Thread => crate::thread::clone(args.clone()),
         ChildType::Unsupported => Err(LxError::EINVAL),
-    }
+    };
+    match result {
+        Ok(0) => {
+            if args.flags().contains(CloneFlags::CLONE_SETTLS) {
+                crate::emuctx::x86_64_set_emulated_gsbase(args.tls());
+            }
+        },
+        Ok(child_tid) => unsafe {
+            if args.flags().contains(CloneFlags::CLONE_PARENT_SETTID) {
+                args.parent_tid().write(child_tid);
+            }
+        },
+        Err(_) => {},
+    };
+    result
 }
 
 pub fn kill(pid: i32, signum: SigNum) -> Result<(), LxError> {

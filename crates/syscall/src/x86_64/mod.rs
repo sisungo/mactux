@@ -1,7 +1,8 @@
+use std::ptr::NonNull;
 use crate::{SystemCallHandler, UcontextExt, common::*};
 use libc::{c_int, siginfo_t, ucontext_t};
 use macros::syscall;
-use structures::error::LxError;
+use structures::{error::LxError, process::{CloneArgs, CloneFlags}};
 
 pub unsafe extern "C" fn handle_sigsys(_: c_int, info: &siginfo_t, uap: &mut ucontext_t) {
     if rtenv::signal::is_async(info) {
@@ -122,7 +123,7 @@ const SYSTEM_CALL_HANDLERS: &[SystemCallHandler] = &[
     sys_invalid,         // 53
     sys_invalid,         // 54
     sys_invalid,         // 55
-    sys_invalid,         // 56
+    sys_clone,           // 56
     sys_fork,            // 57
     sys_vfork,           // 58
     sys_execve,          // 59
@@ -267,7 +268,7 @@ const SYSTEM_CALL_HANDLERS: &[SystemCallHandler] = &[
     sys_invalid,         // 198
     sys_invalid,         // 199
     sys_tkill,           // 200
-    sys_invalid,         // 201
+    sys_time,            // 201
     sys_futex,           // 202
     sys_invalid,         // 203
     sys_invalid,         // 204
@@ -598,6 +599,32 @@ macro_rules! impl_syscall_indirect {
     };
 }
 
+impl_syscall_indirect!(
+    sys_clone = |mctx: &libc::__darwin_mcontext64| {
+        let flags = CloneFlags::from_bits_retain(mctx.__ss.__rdi as _);
+        let stack = mctx.__ss.__rsi;
+        let parent_tid = mctx.__ss.__rdx;
+        let child_tid = mctx.__ss.__r10;
+        let tls = mctx.__ss.__r8;
+        let clone_args = CloneArgs {
+            flags: flags.bits() as _,
+            pidfd: 0,
+            child_tid,
+            parent_tid,
+            exit_signal: 0,
+            stack,
+            stack_size: 0,
+            tls,
+            set_tid: 0,
+            set_tid_size: 0,
+            cgroup: 0,
+        };
+        match rtenv::process::clone(clone_args) {
+            Ok(n) => n as _,
+            Err(err) => -(err.0 as i32) as u64
+        }
+    }
+);
 impl_syscall_indirect!(
     sys_fork = |_| {
         match rtenv::process::fork() {
