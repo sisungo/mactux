@@ -988,6 +988,27 @@ pub unsafe fn sys_sched_yield() {
     std::thread::yield_now();
 }
 
+#[syscall]
+pub unsafe fn sys_sched_getaffinity(
+    _pid: i32,
+    cpusetsize: usize,
+    cpuset: *mut u8,
+) -> Result<(), LxError> {
+    unsafe {
+        cpuset.write_bytes(0xff, cpusetsize);
+    }
+    Ok(())
+}
+
+#[syscall]
+pub unsafe fn sys_sched_setaffinity(
+    _pid: i32,
+    _cpusetsize: usize,
+    _cpuset: *const u8,
+) -> Result<(), LxError> {
+    Err(LxError::EPERM)
+}
+
 // -== Multi-user Support ==-
 
 #[syscall]

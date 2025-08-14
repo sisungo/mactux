@@ -168,7 +168,7 @@ pub fn clone(args: CloneArgs) -> Result<i32, LxError> {
         ChildType::Process => {
             let status = fork();
             status
-        },
+        }
         ChildType::Thread => crate::thread::clone(args.clone()),
         ChildType::Unsupported => Err(LxError::EINVAL),
     };
@@ -177,13 +177,13 @@ pub fn clone(args: CloneArgs) -> Result<i32, LxError> {
             if args.flags().contains(CloneFlags::CLONE_SETTLS) {
                 crate::emuctx::x86_64_set_emulated_gsbase(args.tls());
             }
-        },
+        }
         Ok(child_tid) => unsafe {
             if args.flags().contains(CloneFlags::CLONE_PARENT_SETTID) {
                 args.parent_tid().write(child_tid);
             }
         },
-        Err(_) => {},
+        Err(_) => {}
     };
     result
 }

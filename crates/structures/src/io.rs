@@ -60,6 +60,7 @@ impl IoctlCmd {
     pub const TCSETS: Self = Self(0x5402);
     pub const TCSETSW: Self = Self(0x5403);
     pub const TCSETSF: Self = Self(0x5404);
+    pub const TCXONC: Self = Self(0x540A);
     pub const TIOCGPGRP: Self = Self(0x540F);
     pub const TIOCSPGRP: Self = Self(0x5410);
     pub const TIOCGWINSZ: Self = Self(0x5413);

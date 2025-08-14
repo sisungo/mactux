@@ -26,6 +26,7 @@ impl LxError {
     pub const EMFILE: Self = Self(24);
     pub const ENOTTY: Self = Self(25);
     pub const ETXTBSY: Self = Self(26);
+    pub const ENOSPC: Self = Self(28);
     pub const ESPIPE: Self = Self(29);
     pub const EROFS: Self = Self(30);
     pub const EPIPE: Self = Self(32);
@@ -59,6 +60,7 @@ impl LxError {
             EMFILE,
             ENOTTY,
             ETXTBSY,
+            ENOSPC,
             ESPIPE,
             EROFS,
             EPIPE,

@@ -1,3 +1,4 @@
+use crate::{error::LxError, newtype_impl_to_apple};
 use bitflags::bitflags;
 
 macro_rules! impl_from_to_apple {
@@ -316,5 +317,19 @@ impl From<libc::winsize> for WinSize {
             ws_xpixel: value.ws_xpixel,
             ws_ypixel: value.ws_ypixel,
         }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(transparent)]
+pub struct TcFlowArg(pub u32);
+impl TcFlowArg {
+    pub const TCOOFF: Self = Self(0);
+    pub const TCOON: Self = Self(1);
+    pub const TCIOFF: Self = Self(2);
+    pub const TCION: Self = Self(3);
+
+    pub fn to_apple(self) -> Result<libc::c_int, LxError> {
+        newtype_impl_to_apple!(self = TCOOFF, TCOON, TCIOFF, TCION).ok_or(LxError::EINVAL)
     }
 }
