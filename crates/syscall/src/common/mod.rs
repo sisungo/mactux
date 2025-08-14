@@ -11,7 +11,7 @@ use structures::{
     misc::{GrndFlags, SysInfo, UtsName},
     mm::{Madvice, MmapFlags, MmapProt, MremapFlags, MsyncFlags},
     net::{Domain, Protocol, ShutdownHow, SockAddr, Type},
-    process::{RLimit64, RLimitable, RUsage, RUsageWho, WaitOptions, WaitStatus},
+    process::{PrctlOp, RLimit64, RLimitable, RUsage, RUsageWho, WaitOptions, WaitStatus},
     signal::{KernelSigSet, MaskHowto, SigAction, SigNum},
     sync::{FutexCmd, FutexOp, RSeq},
     time::{ClockId, Timespec, Timeval, Timezone},
@@ -752,7 +752,10 @@ pub unsafe fn sys_clock_gettime(clk_id: ClockId, tp: *mut Timespec) -> Result<()
 }
 
 #[syscall]
-pub unsafe fn sys_gettimeofday(tv: Option<NonNull<Timeval>>, tz: Option<NonNull<Timezone>>) -> Result<(), LxError> {
+pub unsafe fn sys_gettimeofday(
+    tv: Option<NonNull<Timeval>>,
+    tz: Option<NonNull<Timezone>>,
+) -> Result<(), LxError> {
     unsafe {
         let mut tvbuf = std::mem::zeroed();
         let mut tzbuf: Timezone = std::mem::zeroed();
@@ -766,7 +769,7 @@ pub unsafe fn sys_gettimeofday(tv: Option<NonNull<Timeval>>, tz: Option<NonNull<
                     tz.write(tzbuf);
                 }
                 Ok(())
-            },
+            }
         }
     }
 }
@@ -951,6 +954,11 @@ pub unsafe fn sys_getrusage(who: RUsageWho, rusage: *mut RUsage) -> Result<(), L
         rusage.write(RUsage::from_apple(buf));
         Ok(())
     }
+}
+
+#[syscall]
+pub unsafe fn sys_prctl(op: PrctlOp) -> Result<(), LxError> {
+    Err(LxError::EINVAL)
 }
 
 #[syscall]

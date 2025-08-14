@@ -14,7 +14,7 @@ use structures::{
     misc::GrndFlags,
     mm::{Madvice, MmapFlags, MmapProt, MremapFlags, MsyncFlags},
     net::{Domain, Protocol, ShutdownHow, Type},
-    process::{RLimitable, RUsageWho, WaitOptions},
+    process::{PrctlOp, RLimitable, RUsageWho, WaitOptions},
     signal::{MaskHowto, SigNum},
     sync::FutexOp,
     time::ClockId,
@@ -126,7 +126,7 @@ impl_from_to_sys_bitflags!(
 );
 impl_from_to_sys_newtype!(
     Whence; FcntlCmd; IoctlCmd; FutexOp; ClockId; MaskHowto; SigNum; Domain; Type; Protocol;
-    ShutdownHow; FlockOp; Madvice; RLimitable; RUsageWho
+    ShutdownHow; FlockOp; Madvice; RLimitable; RUsageWho; PrctlOp
 );
 impl<T> FromSyscall for *const T {
     fn from_syscall(value: usize) -> Self {

@@ -1,5 +1,5 @@
-use libc::c_int;
 use crate::{error::LxError, newtype_impl_to_apple};
+use libc::c_int;
 use std::time::Duration;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]

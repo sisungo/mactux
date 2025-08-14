@@ -265,3 +265,7 @@ impl RUsageWho {
         newtype_impl_to_apple!(self = RUSAGE_SELF, RUSAGE_CHILDREN)
     }
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(transparent)]
+pub struct PrctlOp(pub u32);

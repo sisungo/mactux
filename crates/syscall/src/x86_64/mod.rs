@@ -223,7 +223,7 @@ const SYSTEM_CALL_HANDLERS: &[SystemCallHandler] = &[
     sys_invalid,         // 154
     sys_invalid,         // 155
     sys_invalid,         // 156
-    sys_invalid,         // 157
+    sys_prctl,           // 157
     sys_arch_prctl,      // 158
     sys_invalid,         // 159
     sys_invalid,         // 160

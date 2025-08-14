@@ -43,13 +43,18 @@ pub fn shutdown(sock: c_int, how: ShutdownHow) -> Result<(), LxError> {
     }
 }
 
-fn apple_sockaddr(linux: SockAddr, create: bool) -> Result<([u8; size_of::<libc::sockaddr_storage>()], usize), LxError> {
+fn apple_sockaddr(
+    linux: SockAddr,
+    create: bool,
+) -> Result<([u8; size_of::<libc::sockaddr_storage>()], usize), LxError> {
     let mut buf = [0; _];
 
     match linux {
         SockAddr::In(inet) => inet.to_apple(&mut buf)?,
         SockAddr::Un(un, len) => unsafe {
-            (&raw mut buf).cast::<libc::sockaddr_un>().write(local::apple_sockaddr(un, len, create)?);
+            (&raw mut buf)
+                .cast::<libc::sockaddr_un>()
+                .write(local::apple_sockaddr(un, len, create)?);
         },
     }
 

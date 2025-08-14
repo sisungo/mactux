@@ -197,10 +197,13 @@ pub fn fchdir(fd: c_int) -> Result<(), LxError> {
 
 pub fn get_sock_path(path: Vec<u8>, create: bool) -> Result<Vec<u8>, LxError> {
     with_client(|client| {
-        match client.invoke(Request::GetSockPath(full_path(path), create)).unwrap() {
+        match client
+            .invoke(Request::GetSockPath(full_path(path), create))
+            .unwrap()
+        {
             Response::SockPath(path) => Ok(path),
             Response::Error(err) => Err(err),
-            _ => panic!("unexpected server response,")
+            _ => panic!("unexpected server response,"),
         }
     })
 }
