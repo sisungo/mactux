@@ -19,6 +19,7 @@ structures = { path = "../crates/structures" }
 mactux_ipc = { path = "../crates/mactux_ipc" }
 tracing = "0.1"
 tracing-subscriber = "0.3"
+libproc = "0.14"
 rodio = { version = "0.21", optional = true }
 rustc-hash = "2"
 crossbeam = "0.8.4"

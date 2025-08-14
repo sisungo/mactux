@@ -1,3 +1,4 @@
+use libc::c_int;
 use papaya::Guard;
 use rustc_hash::FxBuildHasher;
 use std::{
@@ -7,7 +8,7 @@ use std::{
     },
     time::SystemTime,
 };
-use structures::time::Timespec;
+use structures::{error::LxError, time::Timespec};
 
 #[derive(Debug)]
 pub struct Registry<T> {
@@ -126,4 +127,22 @@ pub fn now() -> Timespec {
 pub fn c_str(mut rs: Vec<u8>) -> Vec<u8> {
     rs.push(0);
     rs
+}
+
+pub unsafe fn sysctl_read<T: Copy, const N: usize>(mut name: [c_int; N]) -> Result<T, LxError> {
+    unsafe {
+        let mut data: T = std::mem::zeroed();
+        let mut size = size_of::<T>();
+        match libc::sysctl(
+            name.as_mut_ptr(),
+            N as _,
+            (&raw mut data).cast(),
+            &mut size,
+            std::ptr::null_mut(),
+            0,
+        ) {
+            -1 => Err(LxError::EINVAL),
+            _ => Ok(data),
+        }
+    }
 }

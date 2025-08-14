@@ -15,7 +15,7 @@ mod audio;
 
 use crate::{
     filesystem::vfs::{MountNamespace, VfsPath},
-    process::ProcessCtx,
+    process::{InitPid, PidNamespace, ProcessCtx},
     util::Registry,
     work_dir::WorkDir,
 };
@@ -32,6 +32,7 @@ static APP: OnceLock<Arc<App>> = OnceLock::new();
 struct App {
     work_dir: WorkDir,
     mnt_ns_registry: Registry<Arc<MountNamespace>>,
+    pid_ns_registry: Registry<Arc<dyn PidNamespace>>,
     native_procs: papaya::HashMap<libc::pid_t, Arc<ProcessCtx>, FxBuildHasher>,
 }
 impl App {
@@ -48,10 +49,15 @@ impl App {
         init_mounts(&work_dir, &init_mnt).await?;
         assert_eq!(mnt_ns_registry.register(init_mnt), 1);
 
+        let pid_ns_registry = Registry::new();
+        let init_pid = InitPid::instance();
+        assert_eq!(pid_ns_registry.register(init_pid as _), 1);
+
         let native_procs = papaya::HashMap::with_capacity_and_hasher(128, FxBuildHasher::default());
         Ok(Arc::new(Self {
             work_dir,
             mnt_ns_registry,
+            pid_ns_registry,
             native_procs,
         }))
     }

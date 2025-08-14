@@ -1,4 +1,4 @@
-use crate::vfd::VirtualFd;
+use crate::{process::PidNamespace, vfd::VirtualFd};
 use async_trait::async_trait;
 use std::{
     borrow::Cow,
@@ -300,7 +300,9 @@ pub async fn mountable(fs: &str, dev: MountDev, opts: &str) -> Result<Arc<dyn Mo
     match fs {
         "nativefs" => super::nativefs::mountable(dev, opts),
         "devtmpfs" => super::devtmpfs::mountable(),
-        "procfs" => super::procfs::mountable(),
+        "procfs" => crate::process::InitPid::instance()
+            .procfs()
+            .ok_or(LxError::EPERM),
         "sysfs" => super::sysfs::mountable(),
         _ => Err(LxError::ENOENT),
     }

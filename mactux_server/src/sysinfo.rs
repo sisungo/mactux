@@ -1,10 +1,9 @@
-use crate::util::now;
+use crate::util::{now, sysctl_read};
 use libc::host_statistics64;
 use mach2::{
     kern_return::KERN_SUCCESS, mach_init::mach_host_self, mach_port::mach_port_deallocate,
     vm_statistics::vm_statistics64_data_t,
 };
-use std::ffi::c_int;
 use structures::{error::LxError, misc::SysInfo};
 
 #[cfg(target_arch = "x86_64")]
@@ -101,22 +100,4 @@ fn swap_usage() -> Result<libc::xsw_usage, LxError> {
 
 fn boottime() -> Result<libc::timeval, LxError> {
     unsafe { sysctl_read([libc::CTL_KERN, libc::KERN_BOOTTIME]) }
-}
-
-unsafe fn sysctl_read<T: Copy, const N: usize>(mut name: [c_int; N]) -> Result<T, LxError> {
-    unsafe {
-        let mut data: T = std::mem::zeroed();
-        let mut size = size_of::<T>();
-        match libc::sysctl(
-            name.as_mut_ptr(),
-            N as _,
-            (&raw mut data).cast(),
-            &mut size,
-            std::ptr::null_mut(),
-            0,
-        ) {
-            -1 => Err(LxError::EINVAL),
-            _ => Ok(data),
-        }
-    }
 }

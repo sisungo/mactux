@@ -1,13 +1,16 @@
 use crate::{
     app,
-    filesystem::vfs::{MountNamespace, Mountable},
+    filesystem::{
+        kernfs::KernFs,
+        vfs::{MountNamespace, Mountable},
+    },
     util::Registry,
     uts::{InitUts, UtsNamespace},
     vfd::VirtualFd,
 };
 use papaya::Guard;
 use std::sync::{
-    Arc, RwLock,
+    Arc, OnceLock, RwLock,
     atomic::{self, AtomicI32},
 };
 use structures::error::LxError;
@@ -32,8 +35,22 @@ pub trait PidNamespace: Send + Sync {
     fn procfs(&self) -> Option<Arc<dyn Mountable>>;
 }
 
-#[derive(Debug)]
-pub struct InitPid;
+pub struct InitPid {
+    procfs: Arc<KernFs>,
+}
+impl InitPid {
+    pub fn instance() -> Arc<Self> {
+        static INSTANCE: OnceLock<Arc<InitPid>> = OnceLock::new();
+
+        INSTANCE
+            .get_or_init(|| {
+                Arc::new(Self {
+                    procfs: crate::filesystem::procfs::empty(),
+                })
+            })
+            .clone()
+    }
+}
 impl PidNamespace for InitPid {
     fn apple_to_linux(&self, apple: libc::pid_t) -> Option<i32> {
         Some(apple)
@@ -44,17 +61,20 @@ impl PidNamespace for InitPid {
     }
 
     fn register(&self, apple: libc::pid_t) -> i32 {
+        crate::filesystem::procfs::add_process(&self.procfs, apple, apple);
         apple
     }
 
-    fn unregister(&self, apple: libc::pid_t) {}
+    fn unregister(&self, apple: libc::pid_t) {
+        crate::filesystem::procfs::del_process(&self.procfs, apple);
+    }
 
     fn parent(&self) -> Option<&Arc<dyn PidNamespace>> {
         None
     }
 
     fn procfs(&self) -> Option<Arc<dyn Mountable>> {
-        None
+        Some(self.procfs.clone())
     }
 }
 
@@ -69,11 +89,12 @@ pub struct ProcessCtx {
 }
 impl ProcessCtx {
     pub fn scratch(pid: i32) -> Arc<Self> {
+        InitPid::instance().register(pid);
         Arc::new(Self {
             native_pid: pid.into(),
             mnt_ns: RwLock::new(MountNamespace::initial()),
             uts_ns: RwLock::new(Arc::new(InitUts)),
-            pid_ns: RwLock::new(Arc::new(InitPid)),
+            pid_ns: RwLock::new(InitPid::instance()),
             vfd_table: Registry::new(),
         })
     }
@@ -123,6 +144,7 @@ impl ProcessCtx {
     pub fn set_native_pid(self: Arc<Self>, new: i32) {
         debug_assert_eq!(self.native_pid(), 0);
         self.native_pid.store(new, atomic::Ordering::Relaxed);
+        self.pid_ns.read().unwrap().register(new);
         app().native_procs.pin().insert(new, self);
     }
 
@@ -140,6 +162,11 @@ impl ProcessCtx {
 
     pub fn after_exec(&self) {
         crate::vfd::exec_table(&self.vfd_table);
+    }
+}
+impl Drop for ProcessCtx {
+    fn drop(&mut self) {
+        self.pid_ns.read().unwrap().unregister(self.native_pid());
     }
 }
 
