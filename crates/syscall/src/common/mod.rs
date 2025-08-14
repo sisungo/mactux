@@ -849,6 +849,11 @@ pub unsafe fn sys_getpgid(pid: i32) -> c_int {
 }
 
 #[syscall]
+pub unsafe fn sys_getpgrp() -> c_int {
+    rtenv::process::pgid(rtenv::process::pid())
+}
+
+#[syscall]
 pub unsafe fn sys_setpgid(pid: i32, pgid: i32) -> Result<i32, LxError> {
     rtenv::process::setpgid(pid, pgid)
 }

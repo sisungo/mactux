@@ -177,7 +177,7 @@ const SYSTEM_CALL_HANDLERS: &[SystemCallHandler] = &[
     sys_getegid,         // 108
     sys_setpgid,         // 109
     sys_getppid,         // 110
-    sys_invalid,         // 111
+    sys_getpgrp,         // 111
     sys_invalid,         // 112
     sys_invalid,         // 113
     sys_invalid,         // 114
