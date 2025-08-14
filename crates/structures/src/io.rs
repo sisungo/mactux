@@ -1,6 +1,6 @@
 use crate::{
     bitflags_impl_from_apple, bitflags_impl_to_apple, error::LxError, mapper,
-    newtype_impl_from_apple, newtype_impl_to_apple, signal::KernelSigSet,
+    newtype_impl_from_apple, newtype_impl_to_apple, signal::KernelSigSet, terminal::Termios2,
 };
 use bincode::{Decode, Encode};
 use bitflags::bitflags;
@@ -64,6 +64,8 @@ impl IoctlCmd {
     pub const TIOCSPGRP: Self = Self(0x5410);
     pub const TIOCGWINSZ: Self = Self(0x5413);
     pub const TIOCSWINSZ: Self = Self(0x5414);
+
+    pub const TCGETS2: Self = Self::_ior::<Termios2>(b'T' as _, 42);
 
     pub const SNDCTL_DSP_CHANNELS: Self = Self::_iowr::<c_int>(b'P' as _, 6);
     pub const SNDCTL_DSP_SPEED: Self = Self::_iowr::<c_int>(b'P' as _, 2);

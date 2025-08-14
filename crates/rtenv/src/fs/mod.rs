@@ -22,7 +22,7 @@ pub fn open(path: Vec<u8>, flags: OpenFlags, mode: u32) -> Result<c_int, LxError
 #[inline]
 pub fn openat(
     dfd: c_int,
-    mut path: Vec<u8>,
+    path: Vec<u8>,
     mut oflags: OpenFlags,
     atflags: AtFlags,
     mode: u32,
@@ -35,10 +35,7 @@ pub fn openat(
         return crate::io::dup(dfd);
     }
 
-    let mut new_path = at_path(dfd)?;
-    new_path.push(b'/');
-    new_path.append(&mut path);
-    open(new_path, oflags, mode)
+    open(at_path(dfd, path)?, oflags, mode)
 }
 
 #[inline]
@@ -208,8 +205,19 @@ pub fn get_sock_path(path: Vec<u8>, create: bool) -> Result<Vec<u8>, LxError> {
     })
 }
 
+fn at_path(fd: c_int, mut path: Vec<u8>) -> Result<Vec<u8>, LxError> {
+    if path.first() == Some(&b'/') {
+        return Ok(full_path(path));
+    }
+
+    let mut new_path = at_base_path(fd)?;
+    new_path.push(b'/');
+    new_path.append(&mut path);
+    Ok(new_path)
+}
+
 /// Returns path prefix of `fd` when using with `at` functions.
-fn at_path(fd: c_int) -> Result<Vec<u8>, LxError> {
+fn at_base_path(fd: c_int) -> Result<Vec<u8>, LxError> {
     if let Some(dvfd) = crate::vfd::get(fd) {
         vfd::orig_path(dvfd)
     } else if fd == -100 {

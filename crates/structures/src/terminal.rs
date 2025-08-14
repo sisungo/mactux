@@ -21,10 +21,53 @@ pub struct Termios {
     c_lflag: LocalFlags,
     c_line: u8,
     c_cc: ControlCharacters,
+}
+impl Termios {
+    pub fn to_apple(&self) -> libc::termios {
+        libc::termios {
+            c_iflag: self.c_iflag.to_apple(),
+            c_oflag: self.c_oflag.to_apple(),
+            c_cflag: self.c_cflag.to_apple(),
+            c_lflag: self.c_lflag.to_apple(),
+            c_cc: self.c_cc.to_apple(),
+            c_ispeed: 0,
+            c_ospeed: 0,
+        }
+    }
+}
+impl From<Termios2> for Termios {
+    #[inline]
+    fn from(value: Termios2) -> Self {
+        Self {
+            c_iflag: value.c_iflag,
+            c_oflag: value.c_oflag,
+            c_cflag: value.c_cflag,
+            c_lflag: value.c_lflag,
+            c_line: 0,
+            c_cc: value.c_cc,
+        }
+    }
+}
+impl From<libc::termios> for Termios {
+    #[inline]
+    fn from(value: libc::termios) -> Self {
+        Self::from(Termios2::from(value))
+    }
+}
+
+#[derive(Debug, Clone)]
+#[repr(C)]
+pub struct Termios2 {
+    c_iflag: InputFlags,
+    c_oflag: OutputFlags,
+    c_cflag: ControlFlags,
+    c_lflag: LocalFlags,
+    c_line: u8,
+    c_cc: ControlCharacters,
     c_ispeed: u32,
     c_ospeed: u32,
 }
-impl Termios {
+impl Termios2 {
     pub fn to_apple(&self) -> libc::termios {
         libc::termios {
             c_iflag: self.c_iflag.to_apple(),
@@ -37,7 +80,7 @@ impl Termios {
         }
     }
 }
-impl From<libc::termios> for Termios {
+impl From<libc::termios> for Termios2 {
     #[inline]
     fn from(value: libc::termios) -> Self {
         Self {
@@ -162,7 +205,7 @@ impl LocalFlags {
 
 #[derive(Debug, Clone, Copy)]
 #[repr(transparent)]
-pub struct ControlCharacters([ControlCharacter; 32]);
+pub struct ControlCharacters([ControlCharacter; 19]);
 impl ControlCharacters {
     pub const VINTR: usize = 0;
     pub const VQUIT: usize = 1;

@@ -64,7 +64,10 @@ impl VirtualFd {
     }
 
     pub async fn fcntl(&self, cmd: FcntlCmd, buf: &[u8]) -> Result<Response, LxError> {
-        self.inner.fcntl(cmd.0, buf.to_vec()).await
+        match cmd {
+            FcntlCmd::F_GETFL => Ok(Response::Ctrl(self.open_flags().bits() as _)),
+            other => self.inner.fcntl(other.0, buf.to_vec()).await,
+        }
     }
 
     pub fn ioctl_query(&self, cmd: IoctlCmd) -> Result<VirtualFdAvailCtrl, LxError> {

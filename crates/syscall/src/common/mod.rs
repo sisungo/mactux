@@ -361,7 +361,7 @@ pub unsafe fn sys_copy_file_range(
         return Err(LxError::EINVAL);
     }
 
-    let mut buf = vec![0u8; len];
+    let mut buf = vec![0u8; len.min(4096)];
     let bytes_read = match off_in {
         Some(ptr) => unsafe {
             let n = rtenv::io::pread64(fd_in, &mut buf, ptr.read())?;
