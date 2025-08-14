@@ -3,7 +3,7 @@ use crate::{
     util::sysctl_read,
 };
 use libproc::{bsd_info::BSDInfo, task_info::TaskInfo};
-use std::{sync::Arc, io::Write};
+use std::{io::Write, sync::Arc};
 use structures::error::LxError;
 
 pub fn dir(native_pid: libc::pid_t) -> Arc<Directory> {

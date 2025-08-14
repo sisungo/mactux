@@ -38,7 +38,11 @@ pub fn stat() -> Result<Vec<u8>, LxError> {
     let irq = 0;
     let softirq = 0;
 
-    writeln!(&mut s, "cpu {user} {nice} {system} {idle} {iowait} {irq} {softirq}").unwrap();
+    writeln!(
+        &mut s,
+        "cpu {user} {nice} {system} {idle} {iowait} {irq} {softirq}"
+    )
+    .unwrap();
 
     Ok(s)
 }

@@ -3,7 +3,7 @@ mod sysinfo;
 
 use crate::filesystem::kernfs::{DirEntry, KernFs, fn_file};
 use std::sync::Arc;
-use sysinfo::{cmdline, cpuinfo, loadavg, meminfo, uptime, stat};
+use sysinfo::{cmdline, cpuinfo, loadavg, meminfo, stat, uptime};
 
 pub fn empty() -> Arc<KernFs> {
     let kernfs = KernFs::new();

@@ -51,7 +51,10 @@ impl App {
 
         let pid_ns_registry = Registry::new();
         let init_pid = InitPid::instance();
-        assert_eq!(pid_ns_registry.register(Arc::downgrade(&(init_pid as _))), 1);
+        assert_eq!(
+            pid_ns_registry.register(Arc::downgrade(&(init_pid as _))),
+            1
+        );
 
         let native_procs = papaya::HashMap::with_capacity_and_hasher(128, FxBuildHasher::default());
         Ok(Arc::new(Self {

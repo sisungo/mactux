@@ -24,7 +24,7 @@ impl<F: Fn() -> Result<Vec<u8>, LxError> + Clone + Send + Sync> VirtualFile for 
             return Ok(0);
         }
         let bytes_read = buf.len().min(s.len() - *off as usize);
-        buf[..bytes_read].copy_from_slice(&s[*off as _..]);
+        buf[..bytes_read].copy_from_slice(&s[(*off as _)..(*off as usize + bytes_read)]);
         *off += bytes_read as u64;
         Ok(bytes_read)
     }

@@ -46,9 +46,7 @@ impl InitPid {
             .get_or_init(|| {
                 let procfs = crate::filesystem::procfs::empty();
                 crate::filesystem::procfs::add_process(&procfs, std::process::id() as _, 1);
-                Arc::new(Self {
-                    procfs,
-                })
+                Arc::new(Self { procfs })
             })
             .clone()
     }
