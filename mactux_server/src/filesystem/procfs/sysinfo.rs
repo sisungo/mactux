@@ -28,5 +28,5 @@ pub fn cpuinfo() -> Result<Vec<u8>, LxError> {
 }
 
 pub fn cmdline() -> Result<Vec<u8>, LxError> {
-    Err(LxError::EINVAL)
+    Ok(Vec::new())
 }
