@@ -27,6 +27,22 @@ pub fn cpuinfo() -> Result<Vec<u8>, LxError> {
     Err(LxError::EINVAL)
 }
 
+pub fn stat() -> Result<Vec<u8>, LxError> {
+    let mut s = Vec::new();
+
+    let user = 0;
+    let nice = 0;
+    let system = 0;
+    let idle = 0;
+    let iowait = 0;
+    let irq = 0;
+    let softirq = 0;
+
+    writeln!(&mut s, "cpu {user} {nice} {system} {idle} {iowait} {irq} {softirq}").unwrap();
+
+    Ok(s)
+}
+
 pub fn cmdline() -> Result<Vec<u8>, LxError> {
     Ok(Vec::new())
 }

@@ -3,8 +3,7 @@ use papaya::Guard;
 use rustc_hash::FxBuildHasher;
 use std::{
     sync::{
-        Arc,
-        atomic::{self, AtomicU64},
+        atomic::{self, AtomicU64}, Arc, Weak
     },
     time::SystemTime,
 };
@@ -72,9 +71,9 @@ impl<T: Clone> Registry<T> {
         }
     }
 }
-impl<T> Registry<Arc<T>> {
+impl<T: ?Sized> Registry<Weak<T>> {
     pub fn gc(&self) {
-        self.eliminate(|v| Arc::strong_count(v) >= 2);
+        self.eliminate(|v| v.strong_count() == 0);
     }
 }
 impl<T: Clone> Default for Registry<T> {

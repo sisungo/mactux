@@ -44,8 +44,10 @@ impl InitPid {
 
         INSTANCE
             .get_or_init(|| {
+                let procfs = crate::filesystem::procfs::empty();
+                crate::filesystem::procfs::add_process(&procfs, std::process::id() as _, 1);
                 Arc::new(Self {
-                    procfs: crate::filesystem::procfs::empty(),
+                    procfs,
                 })
             })
             .clone()
@@ -117,6 +119,10 @@ impl ProcessCtx {
         let Some(new) = app().mnt_ns_registry.get(new) else {
             return Err(LxError::ENOENT);
         };
+        let Some(new) = new.upgrade() else {
+            app().mnt_ns_registry.gc();
+            return Err(LxError::ENOENT);
+        };
         *self.mnt_ns.write().unwrap() = new;
         Ok(())
     }
@@ -134,7 +140,14 @@ impl ProcessCtx {
     }
 
     pub fn set_pid_ns(&self, new: u64) -> Result<(), LxError> {
-        todo!()
+        let Some(new) = app().pid_ns_registry.get(new) else {
+            return Err(LxError::ENOENT);
+        };
+        let Some(new) = new.upgrade() else {
+            app().pid_ns_registry.gc();
+            return Err(LxError::ENOENT);
+        };
+        todo!();
     }
 
     pub fn native_pid(&self) -> i32 {

@@ -23,7 +23,7 @@ use rustc_hash::FxBuildHasher;
 use std::{
     fmt::Debug,
     path::PathBuf,
-    sync::{Arc, OnceLock},
+    sync::{Arc, OnceLock, Weak},
 };
 use structures::convention::Fstab;
 
@@ -31,8 +31,8 @@ static APP: OnceLock<Arc<App>> = OnceLock::new();
 
 struct App {
     work_dir: WorkDir,
-    mnt_ns_registry: Registry<Arc<MountNamespace>>,
-    pid_ns_registry: Registry<Arc<dyn PidNamespace>>,
+    mnt_ns_registry: Registry<Weak<MountNamespace>>,
+    pid_ns_registry: Registry<Weak<dyn PidNamespace>>,
     native_procs: papaya::HashMap<libc::pid_t, Arc<ProcessCtx>, FxBuildHasher>,
 }
 impl App {
@@ -47,11 +47,11 @@ impl App {
         let mnt_ns_registry = Registry::new();
         let init_mnt = MountNamespace::initial();
         init_mounts(&work_dir, &init_mnt).await?;
-        assert_eq!(mnt_ns_registry.register(init_mnt), 1);
+        assert_eq!(mnt_ns_registry.register(Arc::downgrade(&init_mnt)), 1);
 
         let pid_ns_registry = Registry::new();
         let init_pid = InitPid::instance();
-        assert_eq!(pid_ns_registry.register(init_pid as _), 1);
+        assert_eq!(pid_ns_registry.register(Arc::downgrade(&(init_pid as _))), 1);
 
         let native_procs = papaya::HashMap::with_capacity_and_hasher(128, FxBuildHasher::default());
         Ok(Arc::new(Self {

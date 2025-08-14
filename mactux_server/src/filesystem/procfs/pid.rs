@@ -68,7 +68,7 @@ pub fn stat(native_pid: libc::pid_t) -> impl Fn() -> Result<Vec<u8>, LxError> + 
             .map_err(|_| LxError::EPERM)?;
         let ppid = bsd_info.pbi_ppid;
         let pgid = bsd_info.pbi_pgid;
-        let start_time = bsd_info.pbi_start_tvsec;
+        let start_time = bsd_info.pbi_start_tvusec / 1000;
 
         let task_info = libproc::proc_pid::pidinfo::<TaskInfo>(native_pid, native_pid as _)
             .map_err(|_| LxError::EPERM)?;
@@ -76,10 +76,10 @@ pub fn stat(native_pid: libc::pid_t) -> impl Fn() -> Result<Vec<u8>, LxError> + 
         let cmin_flt = task_info.pti_faults;
         let maj_flt = task_info.pti_faults;
         let cmaj_flt = task_info.pti_faults;
-        let utime = task_info.pti_total_user;
-        let stime = task_info.pti_total_system;
-        let cutime = task_info.pti_total_user;
-        let cstime = task_info.pti_total_system;
+        let utime = task_info.pti_total_user / 1_000_000;
+        let stime = task_info.pti_total_system / 1_000_000;
+        let cutime = task_info.pti_total_user / 1_000_000;
+        let cstime = task_info.pti_total_system / 1_000_000;
         let priority = 0;
         let nice = 0;
         let num_threads = task_info.pti_threadnum;
@@ -88,18 +88,18 @@ pub fn stat(native_pid: libc::pid_t) -> impl Fn() -> Result<Vec<u8>, LxError> + 
         let rss = task_info.pti_resident_size;
 
         let mut s = Vec::new();
-        writeln!(&mut s, "{pid} ({comm}) {state} {ppid} {pgid} ").unwrap();
-        writeln!(&mut s, "1 0 0 0 ").unwrap();
-        writeln!(&mut s, "{min_flt} {cmin_flt} {maj_flt} {cmaj_flt} ").unwrap();
-        writeln!(&mut s, "{utime} {stime} {cutime} {cstime} ").unwrap();
-        writeln!(&mut s, "{priority} {nice} ").unwrap();
-        writeln!(&mut s, "{num_threads} ").unwrap();
-        writeln!(&mut s, "{it_real_value} {start_time} ").unwrap();
-        writeln!(&mut s, "{vsize} {rss} 0 ").unwrap();
-        writeln!(&mut s, "0 0 0 0 0 ").unwrap();
-        writeln!(&mut s, "0 0 0 0 ").unwrap();
-        writeln!(&mut s, "0 0 0 ").unwrap();
-        writeln!(&mut s, "17 0 0 0 0 0 0 0 0 0").unwrap();
+        write!(&mut s, "{pid} ({comm}) {state} {ppid} {pgid} ").unwrap();
+        write!(&mut s, "1 0 0 0 ").unwrap();
+        write!(&mut s, "{min_flt} {cmin_flt} {maj_flt} {cmaj_flt} ").unwrap();
+        write!(&mut s, "{utime} {stime} {cutime} {cstime} ").unwrap();
+        write!(&mut s, "{priority} {nice} ").unwrap();
+        write!(&mut s, "{num_threads} ").unwrap();
+        write!(&mut s, "{it_real_value} {start_time} ").unwrap();
+        write!(&mut s, "{vsize} {rss} 0 ").unwrap();
+        write!(&mut s, "0 0 0 0 0 ").unwrap();
+        write!(&mut s, "0 0 0 0 ").unwrap();
+        write!(&mut s, "0 0 0 ").unwrap();
+        write!(&mut s, "17 0 0 0 0 0 0 0 0 0").unwrap();
         Ok(s)
     }
 }

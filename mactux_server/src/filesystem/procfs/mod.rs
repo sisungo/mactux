@@ -3,7 +3,7 @@ mod sysinfo;
 
 use crate::filesystem::kernfs::{DirEntry, KernFs, fn_file};
 use std::sync::Arc;
-use sysinfo::{cmdline, cpuinfo, loadavg, meminfo, uptime};
+use sysinfo::{cmdline, cpuinfo, loadavg, meminfo, uptime, stat};
 
 pub fn empty() -> Arc<KernFs> {
     let kernfs = KernFs::new();
@@ -14,6 +14,7 @@ pub fn empty() -> Arc<KernFs> {
     writer.insert("loadavg".into(), DirEntry::RegularFile(fn_file(loadavg)));
     writer.insert("cpuinfo".into(), DirEntry::RegularFile(fn_file(cpuinfo)));
     writer.insert("cmdline".into(), DirEntry::RegularFile(fn_file(cmdline)));
+    writer.insert("stat".into(), DirEntry::RegularFile(fn_file(stat)));
 
     drop(writer);
     Arc::new(kernfs)
