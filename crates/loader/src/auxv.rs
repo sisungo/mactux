@@ -6,6 +6,7 @@ pub struct AuxiliaryInfo {
     pub phdr_count: usize,
     pub entry: usize,
     pub base: usize,
+    pub random: *const [u8; 64],
 }
 impl AuxiliaryInfo {
     pub fn push_to_stack(&self, stack: &mut Vec<usize>) {
@@ -33,6 +34,10 @@ impl AuxiliaryInfo {
         stack.push(AuxType::Entry as usize);
         stack.push(self.entry);
 
+        // Push the random bytes.
+        stack.push(AuxType::Random as usize);
+        stack.push(self.random as usize);
+
         // Push exec fd.
         stack.push(AuxType::ExecFd as usize);
         stack.push(self.exec_fd);
@@ -59,6 +64,7 @@ enum AuxType {
     PageSz = 6,
     Base = 7,
     Entry = 9,
+    Random = 25,
     Sysinfo = 32,
     SysinfoEhdr = 33,
 }

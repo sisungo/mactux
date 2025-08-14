@@ -162,7 +162,7 @@ const SYSTEM_CALL_HANDLERS: &[SystemCallHandler] = &[
     sys_fchown,          // 93
     sys_invalid,         // 94
     sys_umask,           // 95
-    sys_invalid,         // 96
+    sys_gettimeofday,    // 96
     sys_invalid,         // 97
     sys_getrusage,       // 98
     sys_sysinfo,         // 99

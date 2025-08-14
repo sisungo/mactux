@@ -14,7 +14,7 @@ use structures::{
     process::{RLimit64, RLimitable, RUsage, RUsageWho, WaitOptions, WaitStatus},
     signal::{KernelSigSet, MaskHowto, SigAction, SigNum},
     sync::{FutexCmd, FutexOp, RSeq},
-    time::{ClockId, Timespec, Timeval},
+    time::{ClockId, Timespec, Timeval, Timezone},
 };
 
 // -== Filesystem Operations ==-
@@ -747,6 +747,26 @@ pub unsafe fn sys_clock_gettime(clk_id: ClockId, tp: *mut Timespec) -> Result<()
                 tp.write(Timespec::from_apple(apple_tp));
                 Ok(())
             }
+        }
+    }
+}
+
+#[syscall]
+pub unsafe fn sys_gettimeofday(tv: Option<NonNull<Timeval>>, tz: Option<NonNull<Timezone>>) -> Result<(), LxError> {
+    unsafe {
+        let mut tvbuf = std::mem::zeroed();
+        let mut tzbuf: Timezone = std::mem::zeroed();
+        match libc::gettimeofday(&mut tvbuf, (&raw mut tzbuf).cast()) {
+            -1 => Err(LxError::last_apple_error()),
+            _ => {
+                if let Some(tv) = tv {
+                    tv.write(Timeval::from_apple(tvbuf));
+                }
+                if let Some(tz) = tz {
+                    tz.write(tzbuf);
+                }
+                Ok(())
+            },
         }
     }
 }

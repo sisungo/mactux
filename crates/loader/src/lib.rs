@@ -9,6 +9,7 @@ use object::{
     elf::{PT_INTERP, PT_LOAD, ProgramHeader64},
     read::elf::{ElfFile64, FileHeader, ProgramHeader},
 };
+use rand::RngCore;
 use std::{
     io::{Read, Seek},
     os::fd::{AsFd, AsRawFd, BorrowedFd, FromRawFd, OwnedFd, RawFd},
@@ -97,6 +98,8 @@ impl Program {
             Some(interp) => interp.entry,
             None => self.entry,
         };
+        let mut random = Box::new([0u8; 64]);
+        rand::rng().fill_bytes(&mut *random);
         let auxv = AuxiliaryInfo {
             exec_fd: self.exec_fd.as_raw_fd() as _,
             phdr_base: self.phdr as usize,
@@ -104,6 +107,7 @@ impl Program {
             phdr_count: self.phnum as usize,
             entry: self.entry as usize,
             base,
+            random: Box::into_raw(random),
         };
         stack::jump(entry, args, envs, auxv);
     }

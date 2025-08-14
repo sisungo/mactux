@@ -1,3 +1,4 @@
+use libc::c_int;
 use crate::{error::LxError, newtype_impl_to_apple};
 use std::time::Duration;
 
@@ -72,4 +73,11 @@ impl Timeval {
             tv_nsec: self.tv_usec * 1000,
         }
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[repr(C)]
+pub struct Timezone {
+    pub tz_minuteswest: c_int,
+    pub tz_dsttime: c_int,
 }
