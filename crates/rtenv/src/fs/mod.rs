@@ -198,6 +198,16 @@ pub fn fchdir(fd: c_int) -> Result<(), LxError> {
     chdir(vfd::orig_path(vfd)?)
 }
 
+pub fn get_sock_path(path: Vec<u8>, create: bool) -> Result<Vec<u8>, LxError> {
+    with_client(|client| {
+        match client.invoke(Request::GetSockPath(full_path(path), create)).unwrap() {
+            Response::SockPath(path) => Ok(path),
+            Response::Error(err) => Err(err),
+            _ => panic!("unexpected server response,")
+        }
+    })
+}
+
 /// Returns path prefix of `fd` when using with `at` functions.
 fn at_path(fd: c_int) -> Result<Vec<u8>, LxError> {
     if let Some(dvfd) = crate::vfd::get(fd) {

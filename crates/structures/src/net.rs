@@ -73,7 +73,7 @@ impl ShutdownHow {
 
 #[derive(Debug, Clone)]
 pub enum SockAddr {
-    Un(SockAddrUn),
+    Un(SockAddrUn, usize),
     In(SockAddrIn),
 }
 impl SockAddr {
@@ -81,17 +81,10 @@ impl SockAddr {
         unsafe {
             let domain = buf.as_ptr().cast::<SaFamily>().read().to_domain();
             match domain {
-                Domain::PF_LOCAL => SockAddrUn::from_bytes(buf).map(Self::Un),
+                Domain::PF_LOCAL => SockAddrUn::from_bytes(buf).map(|un| Self::Un(un, buf.len())),
                 Domain::PF_INET => SockAddrIn::from_bytes(buf).map(Self::In),
                 _ => Err(LxError::EAFNOSUPPORT),
             }
-        }
-    }
-
-    pub fn to_apple(&self, buf: &mut [u8]) -> Result<(), LxError> {
-        match self {
-            Self::Un(un) => un.to_apple(buf),
-            Self::In(inet) => inet.to_apple(buf),
         }
     }
 }
@@ -117,25 +110,6 @@ impl SockAddrUn {
             return Err(LxError::ENOMEM);
         }
         unsafe { Ok(buf.as_ptr().cast::<Self>().read()) }
-    }
-
-    pub fn to_apple(&self, buf: &mut [u8]) -> Result<(), LxError> {
-        if buf.len() < size_of::<Self>() {
-            return Err(LxError::ENOMEM);
-        }
-        let mut sun_path = [0; _];
-        let path_size = size_of_val(&sun_path);
-        sun_path.copy_from_slice(&self.sun_path[..path_size]);
-        unsafe {
-            buf.as_mut_ptr()
-                .cast::<libc::sockaddr_un>()
-                .write(libc::sockaddr_un {
-                    sun_len: size_of::<libc::sockaddr_un>() as _,
-                    sun_family: libc::AF_LOCAL as _,
-                    sun_path,
-                });
-        }
-        Ok(())
     }
 }
 
