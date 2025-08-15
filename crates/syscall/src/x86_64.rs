@@ -290,7 +290,7 @@ const SYSTEM_CALL_HANDLERS: &[SystemCallHandler] = &[
     sys_set_tid_address,   // 218
     sys_invalid,           // 219
     sys_invalid,           // 220
-    sys_invalid,           // 221
+    sys_fadvise64,         // 221
     sys_invalid,           // 222
     sys_invalid,           // 223
     sys_invalid,           // 224

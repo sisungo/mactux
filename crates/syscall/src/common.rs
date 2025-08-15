@@ -345,6 +345,16 @@ pub unsafe fn sys_pipe2(fildes: *mut [c_int; 2], flags: OpenFlags) -> Result<(),
     Ok(())
 }
 
+#[syscall]
+pub unsafe fn sys_fadvise64(
+    _fd: c_int,
+    _off: i64,
+    _len: usize,
+    _advice: c_int,
+) -> Result<(), LxError> {
+    Ok(())
+}
+
 // -== Zero-copy IO Operations ==-
 
 #[syscall]
@@ -378,21 +388,27 @@ pub unsafe fn sys_copy_file_range(
         },
         None => rtenv::io::write(fd_out, &buf[..bytes_read])?,
     };
-    Ok(bytes_read.min(bytes_written))
+    Ok(bytes_written)
 }
 
 #[syscall]
 pub unsafe fn sys_sendfile(
     out_fd: c_int,
     in_fd: c_int,
-    offset: *mut i64,
+    off_in: Option<NonNull<i64>>,
     count: usize,
 ) -> Result<usize, LxError> {
-    assert!(offset.is_null()); // TODO
-    let mut buf = vec![0u8; count];
-    let rbytes = rtenv::io::read(in_fd, &mut buf)?;
-    let wbytes = rtenv::io::write(out_fd, &buf[..rbytes])?;
-    Ok(rbytes.min(wbytes))
+    let mut buf = vec![0u8; count.min(4096)];
+    let bytes_read = match off_in {
+        Some(ptr) => unsafe {
+            let n = rtenv::io::pread64(in_fd, &mut buf, ptr.read())?;
+            ptr.write(ptr.read() + n as i64);
+            n
+        },
+        None => rtenv::io::read(in_fd, &mut buf)?,
+    };
+    let bytes_written = rtenv::io::write(out_fd, &buf[..bytes_read])?;
+    Ok(bytes_written)
 }
 
 // -== POSIX Traditional IO Multiplexers ==-
@@ -887,10 +903,10 @@ pub unsafe fn sys_set_robust_list(head: *mut u8, size: usize) -> Result<(), LxEr
 
 #[syscall]
 pub unsafe fn sys_rseq(
-    rseq: *mut RSeq,
-    rseq_len: u32,
-    flags: u32,
-    sig: u32,
+    _rseq: *mut RSeq,
+    _rseq_len: u32,
+    _flags: u32,
+    _sig: u32,
 ) -> Result<(), LxError> {
     Err(LxError::ENOSYS)
 }

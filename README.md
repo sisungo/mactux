@@ -10,6 +10,8 @@ Only x86_64 is currently supported. Note that running MacTux on ARM Macs with Ro
 Currently, we have tested:
 
  - musl-libc dynamic linker
+ - glibc dynamic linker
+ - gnu coreutils
  - busybox
  - toybox
  - opusdec

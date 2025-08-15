@@ -48,9 +48,46 @@ unixvariants! {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct SockOpt(pub u32);
+impl SockOpt {
+    pub const SO_DEBUG: Self = Self(1);
+    pub const SO_REUSEDADDR: Self = Self(2);
+    pub const SO_TYPE: Self = Self(3);
+    pub const SO_ERROR: Self = Self(4);
+    pub const SO_DONTROUTE: Self = Self(5);
+    pub const SO_BROADCAST: Self = Self(6);
+    pub const SO_SNDBUF: Self = Self(7);
+    pub const SO_RCVBUF: Self = Self(8);
+    pub const SO_KEEPALIVE: Self = Self(9);
+    pub const SO_OOBINLINE: Self = Self(10);
+    pub const SO_NO_CHECK: Self = Self(11);
+    pub const SO_PRIORITY: Self = Self(12);
+    pub const SO_LINGER: Self = Self(13);
+    pub const SO_REUSEPORT: Self = Self(15);
+    pub const SO_PASSCRED: Self = Self(16);
+    pub const SO_PEERCRED: Self = Self(17);
+    pub const SO_RCVLOWAT: Self = Self(18);
+    pub const SO_SNDLOWAT: Self = Self(19);
+    pub const SO_RCVTIMEO: Self = Self(20);
+    pub const SO_SNDTIMEO: Self = Self(21);
+    pub const SO_BINDTODEVICE: Self = Self(25);
+    pub const SO_TIMESTAMP: Self = Self(29);
+    pub const SO_ACCEPTCONN: Self = Self(30);
+    pub const SO_PEERSEC: Self = Self(31);
+    pub const SO_SNDBUFFORCE: Self = Self(32);
+    pub const SO_RCVBUFFORCE: Self = Self(33);
+    pub const SO_PROTOCOL: Self = Self(38);
+    pub const SO_DOMAIN: Self = Self(39);
+}
+
 unixvariants! {
-    pub struct SockOpt: u32 {
-        const SO_ACCEPTCONN = 30;
+    pub struct SockOptLevel: u32 {
+        const SOL_SOCKET = 1;
+        #[apple = IPPROTO_IP] const SOL_IP = 0;
+        #[apple = IPPROTO_TCP] const SOL_TCP = 6;
+        #[apple = IPPROTO_UDP] const SOL_UDP = 17;
+        #[apple = IPPROTO_IPV6] const SOL_IPV6 = 41;
         fn from_apple(apple: c_int) -> Result<Self, LxError>;
         fn to_apple(self) -> Result<c_int, LxError>;
     }
@@ -206,4 +243,45 @@ impl From<libc::in_addr> for InAddr {
     fn from(value: libc::in_addr) -> Self {
         Self(value.s_addr)
     }
+}
+
+#[derive(Debug, Clone, Copy)]
+#[repr(C)]
+pub struct Linger {
+    pub l_onoff: c_int,
+    pub l_linger: c_int,
+}
+
+#[derive(Debug, Clone)]
+#[repr(C)]
+pub struct MsgHdr {
+    pub msg_name: *mut u8,
+    pub msg_namelen: u32,
+    pub msg_iov: *mut libc::iovec,
+    pub msg_iovlen: c_int,
+    pub _pad1: c_int,
+    pub msg_control: *mut u8,
+    pub msg_controllen: u32,
+    pub _pad2: c_int,
+    pub msg_flags: c_int,
+}
+impl MsgHdr {
+    pub unsafe fn name(&self) -> &[u8] {
+        unsafe { std::slice::from_raw_parts(self.msg_name, self.msg_namelen as _) }
+    }
+
+    pub unsafe fn iov(&self) -> &[libc::iovec] {
+        unsafe { std::slice::from_raw_parts(self.msg_iov, self.msg_iovlen as _) }
+    }
+
+    pub unsafe fn control(&self) -> &[u8] {
+        unsafe { std::slice::from_raw_parts(self.msg_control, self.msg_controllen as _) }
+    }
+}
+
+#[derive(Debug, Clone)]
+#[repr(C)]
+pub struct MmsgHdr {
+    pub msg_hdr: MsgHdr,
+    pub msg_len: u32,
 }
