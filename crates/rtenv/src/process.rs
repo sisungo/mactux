@@ -1,7 +1,7 @@
 use crate::{
-    emuctx::may_fork,
     ipc_client::{Client, with_client},
     posix_bi,
+    thread::{ThreadPubCtxMap, may_fork},
 };
 use arc_swap::ArcSwap;
 use mactux_ipc::request::Request;
@@ -26,7 +26,7 @@ static mut PROCESS_CTX: MaybeUninit<ProcessCtx> = MaybeUninit::uninit();
 #[derive(Debug)]
 pub struct ProcessCtx {
     pub cwd: ArcSwap<Vec<u8>>,
-    pub thread_info_map: crate::emuctx::ThreadInfoMap,
+    pub thread_pubctx_map: ThreadPubCtxMap,
     pub sigactions: [ArcSwap<SigAction>; SigNum::_NSIG as usize],
     pub vfd_table: papaya::HashMap<c_int, u64, FxBuildHasher>,
 }
@@ -34,13 +34,13 @@ pub struct ProcessCtx {
 /// Installs the process context.
 pub unsafe fn install() -> std::io::Result<()> {
     let cwd = ArcSwap::from(Arc::new(vec![b'/']));
-    let thread_info_map = crate::emuctx::ThreadInfoMap::new();
+    let thread_pubctx_map = ThreadPubCtxMap::new();
     let sigactions = std::array::from_fn(|_| ArcSwap::from(Arc::new(SigAction::new())));
     let vfd_table = papaya::HashMap::with_capacity_and_hasher(128, FxBuildHasher::default());
     unsafe {
         (*&raw mut PROCESS_CTX).as_mut_ptr().write(ProcessCtx {
             cwd,
-            thread_info_map,
+            thread_pubctx_map,
             sigactions,
             vfd_table,
         });

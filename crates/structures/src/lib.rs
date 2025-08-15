@@ -17,28 +17,6 @@ pub mod time;
 pub mod ucontext;
 
 #[macro_export]
-macro_rules! newtype_impl_to_apple {
-    ($self:ident = $($x:ident),*) => {
-        #[allow(unreachable_patterns)]
-        match $self {
-            $(Self::$x => Some(libc::$x),)*
-            _ => None,
-        }
-    };
-}
-
-#[macro_export]
-macro_rules! newtype_impl_from_apple {
-    ($apple:ident = $($x:ident),*) => {
-        #[allow(unreachable_patterns)]
-        match $apple {
-            $(libc::$x => Some(Self::$x),)*
-            _ => None,
-        }
-    };
-}
-
-#[macro_export]
 macro_rules! bitflags_impl_to_apple {
     ($self:ident = $($x:ident),*) => {{
         let mut apple = 0;

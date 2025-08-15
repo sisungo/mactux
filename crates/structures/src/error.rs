@@ -1,5 +1,5 @@
-use bincode::{Decode, Encode};
 use crate::unixvariants;
+use bincode::{Decode, Encode};
 use std::ffi::c_int;
 
 unixvariants! {
@@ -44,7 +44,8 @@ impl LxError {
     pub fn last_apple_error() -> Self {
         Self::from_apple(std::io::Error::last_os_error().raw_os_error().expect(
             "`std::io::Error::last_os_error` should always return an error that has raw OS error",
-        )).unwrap_or(Self::EIO)
+        ))
+        .unwrap_or(Self::EIO)
     }
 }
 impl From<std::io::Error> for LxError {

@@ -1,6 +1,4 @@
-use crate::{
-    bitflags_impl_to_apple, error::LxError, signal::SigNum, time::Timeval, unixvariants,
-};
+use crate::{bitflags_impl_to_apple, error::LxError, signal::SigNum, time::Timeval, unixvariants};
 use bitflags::bitflags;
 use std::ffi::c_int;
 
@@ -10,7 +8,7 @@ pub struct WaitStatus(pub c_int);
 impl WaitStatus {
     pub fn from_apple(apple: c_int) -> Self {
         if libc::WTERMSIG(apple) != 0 {
-            let signum = SigNum::from_apple(libc::WTERMSIG(apple)).unwrap_or(SigNum::SIGUNUSED);
+            let signum = SigNum::from_apple(libc::WTERMSIG(apple)).unwrap_or(SigNum::SIGKILL);
             Self(signum.0 as _)
         } else {
             Self(libc::WEXITSTATUS(apple) << 8)

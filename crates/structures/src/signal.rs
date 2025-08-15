@@ -1,18 +1,6 @@
-use crate::{error::LxError, time::ClockId, unixvariants};
+use crate::{time::ClockId, unixvariants};
 use bitflags::bitflags;
 use libc::{c_int, c_long, c_short, c_uint};
-
-macro_rules! impl_from_to_apple {
-    ($($x:ident),*) => {
-        pub fn to_apple(self) -> Result<libc::c_int, LxError> {
-            crate::newtype_impl_to_apple!(self = $($x),*).ok_or(LxError::EINVAL)
-        }
-
-        pub fn from_apple(apple: libc::c_int) -> Result<Self, LxError> {
-            crate::newtype_impl_from_apple!(apple = $($x),*).ok_or(LxError::EINVAL)
-        }
-    };
-}
 
 #[derive(Debug, Clone, Copy)]
 #[repr(C)]
@@ -108,55 +96,47 @@ pub struct SigInfo {
     pub si_arch: c_uint,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[repr(transparent)]
-pub struct SigNum(pub u32);
+unixvariants! {
+    pub struct SigNum: u32 {
+        const SIGHUP = 1;
+        const SIGINT = 2;
+        const SIGQUIT = 3;
+        const SIGILL = 4;
+        const SIGTRAP = 5;
+        const SIGABRT = 6;
+        const SIGBUS = 7;
+        const SIGFPE = 8;
+        const SIGKILL = 9;
+        const SIGUSR1 = 10;
+        const SIGSEGV = 11;
+        const SIGUSR2 = 12;
+        const SIGPIPE = 13;
+        const SIGALRM = 14;
+        const SIGTERM = 15;
+        const SIGCHLD = 17;
+        const SIGCONT = 18;
+        const SIGSTOP = 19;
+        const SIGTSTP = 20;
+        const SIGTTIN = 21;
+        const SIGTTOU = 22;
+        const SIGURG = 23;
+        const SIGXCPU = 24;
+        const SIGXFSZ = 25;
+        const SIGVTALRM = 26;
+        const SIGPROF = 27;
+        const SIGWINCH = 28;
+        const SIGSYS = 31;
+        #[linux_only] const SIGSTKFLT = 16;
+        #[linux_only] const SIGPWR = 30;
+        #[linux_only] const SIGRTMIN = 32;
+        #[linux_only] const SIGRTMAX = Self::_NSIG;
+        #[apple = SIGIO] const SIGPOLL = 29;
+        fn from_apple(apple: c_int) -> Result<Self, LxError>;
+        fn to_apple(self) -> Result<c_int, LxError>;
+    }
+}
 impl SigNum {
-    pub const SIGHUP: Self = Self(1);
-    pub const SIGINT: Self = Self(2);
-    pub const SIGQUIT: Self = Self(3);
-    pub const SIGILL: Self = Self(4);
-    pub const SIGTRAP: Self = Self(5);
-    pub const SIGABRT: Self = Self(6);
-    pub const SIGIOT: Self = Self::SIGABRT;
-    pub const SIGBUS: Self = Self(7);
-    pub const SIGFPE: Self = Self(8);
-    pub const SIGKILL: Self = Self(9);
-    pub const SIGUSR1: Self = Self(10);
-    pub const SIGSEGV: Self = Self(11);
-    pub const SIGUSR2: Self = Self(12);
-    pub const SIGPIPE: Self = Self(13);
-    pub const SIGALRM: Self = Self(14);
-    pub const SIGTERM: Self = Self(15);
-    pub const SIGSTKFLT: Self = Self(16);
-    pub const SIGCHLD: Self = Self(17);
-    pub const SIGCONT: Self = Self(18);
-    pub const SIGSTOP: Self = Self(19);
-    pub const SIGTSTP: Self = Self(20);
-    pub const SIGTTIN: Self = Self(21);
-    pub const SIGTTOU: Self = Self(22);
-    pub const SIGURG: Self = Self(23);
-    pub const SIGXCPU: Self = Self(24);
-    pub const SIGXFSZ: Self = Self(25);
-    pub const SIGVTALRM: Self = Self(26);
-    pub const SIGPROF: Self = Self(27);
-    pub const SIGWINCH: Self = Self(28);
-    pub const SIGIO: Self = Self(29);
-    pub const SIGPOLL: Self = Self(29);
-    pub const SIGPWR: Self = Self(30);
-    pub const SIGSYS: Self = Self(31);
-    pub const SIGUNUSED: Self = Self::SIGSYS;
-
-    pub const SIGRTMIN: Self = Self(32);
-    pub const SIGRTMAX: Self = Self(Self::_NSIG);
-
     pub const _NSIG: u32 = 64;
-
-    impl_from_to_apple!(
-        SIGHUP, SIGINT, SIGQUIT, SIGILL, SIGTRAP, SIGABRT, SIGIOT, SIGBUS, SIGFPE, SIGKILL,
-        SIGUSR1, SIGSEGV, SIGUSR2, SIGPIPE, SIGALRM, SIGTERM, SIGCHLD, SIGCONT, SIGSTOP, SIGTSTP,
-        SIGTTIN, SIGTTOU, SIGXCPU, SIGVTALRM, SIGPROF, SIGWINCH, SIGIO, SIGSYS
-    );
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

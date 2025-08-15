@@ -1,7 +1,7 @@
+use crate::error::LxError;
 use bitflags::bitflags;
 use libc::c_int;
-
-use crate::error::LxError;
+use std::ptr::NonNull;
 
 #[derive(Debug, Clone, Copy)]
 #[repr(transparent)]
@@ -110,7 +110,17 @@ impl FutexWakeOpCmp {
 
 #[derive(Debug, Clone, Copy)]
 #[repr(C)]
-pub struct RobustListHead {}
+pub struct RobustList {
+    pub next: Option<NonNull<Self>>,
+}
+
+#[derive(Debug, Clone, Copy)]
+#[repr(C)]
+pub struct RobustListHead {
+    pub list: RobustList,
+    pub futex_offset: i64,
+    pub list_op_pending: Option<NonNull<RobustList>>,
+}
 
 #[derive(Debug, Clone, Copy)]
 #[repr(C)]
