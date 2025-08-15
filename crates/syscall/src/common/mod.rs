@@ -576,23 +576,33 @@ pub unsafe fn sys_accept(
 #[syscall]
 pub unsafe fn sys_accept4(
     sock: c_int,
-    buf: Option<NonNull<u8>>,
-    len: Option<NonNull<u32>>,
+    buf: *mut u8,
+    len: *mut u32,
     flags: AcceptFlags,
 ) -> Result<c_int, LxError> {
     let (addr, fd) = rtenv::net::accept(sock, flags)?;
-    if let Some(buf) = buf
-        && let Some(len) = len
-    {
-        unsafe {
-            let size = addr.write_to(std::slice::from_raw_parts_mut(
-                buf.as_ptr(),
-                len.as_ptr().read() as usize,
-            ))?;
-            len.write(size as _);
-        }
+    unsafe {
+        crate::util::ret_sockaddr(addr, buf, len)?;
     }
     Ok(fd)
+}
+
+#[syscall]
+pub unsafe fn sys_getsockname(sock: c_int, buf: *mut u8, len: *mut u32) -> Result<(), LxError> {
+    let addr = rtenv::net::getsockname(sock)?;
+    unsafe {
+        crate::util::ret_sockaddr(addr, buf, len)?;
+    }
+    Ok(())
+}
+
+#[syscall]
+pub unsafe fn sys_getpeername(sock: c_int, buf: *mut u8, len: *mut u32) -> Result<(), LxError> {
+    let addr = rtenv::net::getpeername(sock)?;
+    unsafe {
+        crate::util::ret_sockaddr(addr, buf, len)?;
+    }
+    Ok(())
 }
 
 #[syscall]

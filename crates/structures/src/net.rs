@@ -37,6 +37,14 @@ unixvariants! {
 }
 
 unixvariants! {
+    pub struct SockOpt: u32 {
+        const SO_ACCEPTCONN = 30;
+        fn from_apple(apple: c_int) -> Result<Self, LxError>;
+        fn to_apple(self) -> Result<c_int, LxError>;
+    }
+}
+
+unixvariants! {
     pub struct ShutdownHow: u32 {
         const SHUT_RD = 0;
         const SHUT_WR = 1;
@@ -102,7 +110,15 @@ impl SockAddrUn {
     }
 
     pub fn write_to(&self, buf: &mut [u8], size: usize) -> Result<usize, LxError> {
-        todo!()
+        if buf.len() < size {
+            return Err(LxError::ENOMEM);
+        }
+        unsafe {
+            (buf as *mut [u8])
+                .cast::<u8>()
+                .copy_from_nonoverlapping(self as *const _ as *const u8, size);
+        }
+        Ok(size_of::<Self>())
     }
 }
 
@@ -123,7 +139,13 @@ impl SockAddrIn {
     }
 
     pub fn write_to(&self, buf: &mut [u8]) -> Result<usize, LxError> {
-        todo!()
+        if buf.len() < size_of::<Self>() {
+            return Err(LxError::ENOMEM);
+        }
+        unsafe {
+            (buf as *mut [u8]).cast::<Self>().write(*self);
+        }
+        Ok(size_of::<Self>())
     }
 
     pub fn from_apple(buf: &[u8]) -> Result<Self, LxError> {

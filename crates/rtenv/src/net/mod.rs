@@ -46,6 +46,24 @@ pub fn accept(sock: c_int, flags: AcceptFlags) -> Result<(SockAddr, c_int), LxEr
     }
 }
 
+pub fn getsockname(sock: c_int) -> Result<SockAddr, LxError> {
+    unsafe {
+        let mut buf = [0u8; size_of::<libc::sockaddr_storage>()];
+        let mut size = size_of_val(&buf) as libc::socklen_t;
+        posix_bi!(libc::getsockname(sock, (&raw mut buf).cast(), &mut size))?;
+        linux_sockaddr(&buf[..(size as usize)])
+    }
+}
+
+pub fn getpeername(sock: c_int) -> Result<SockAddr, LxError> {
+    unsafe {
+        let mut buf = [0u8; size_of::<libc::sockaddr_storage>()];
+        let mut size = size_of_val(&buf) as libc::socklen_t;
+        posix_bi!(libc::getpeername(sock, (&raw mut buf).cast(), &mut size))?;
+        linux_sockaddr(&buf[..(size as usize)])
+    }
+}
+
 pub fn shutdown(sock: c_int, how: ShutdownHow) -> Result<(), LxError> {
     unsafe {
         match libc::shutdown(sock, how.to_apple()?) {

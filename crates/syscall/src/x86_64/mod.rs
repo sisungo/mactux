@@ -120,8 +120,8 @@ const SYSTEM_CALL_HANDLERS: &[SystemCallHandler] = &[
     sys_shutdown,          // 48
     sys_bind,              // 49
     sys_listen,            // 50
-    sys_invalid,           // 51
-    sys_invalid,           // 52
+    sys_getsockname,       // 51
+    sys_getpeername,       // 52
     sys_invalid,           // 53
     sys_invalid,           // 54
     sys_invalid,           // 55
