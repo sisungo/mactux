@@ -6,17 +6,6 @@ unsafe extern "C" {
     fn _thread_set_tsd_base(gsbase: *mut u8);
 }
 
-/// This is called when a thread that may run emulated code started.
-pub fn enter_thread() {
-    thread::with_context(|ctx| {
-        ctx.thread_info_ptr.set(
-            crate::process::context()
-                .thread_pubctx_map
-                .with_current(|x| &raw const x.emulation),
-        )
-    });
-}
-
 /// Enters the emulated context. This must be called out of the emulated context.
 pub unsafe fn enter_emulated() {
     unsafe {

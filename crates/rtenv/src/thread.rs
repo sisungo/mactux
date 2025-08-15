@@ -4,9 +4,9 @@ use std::{
     cell::{Cell, OnceCell, RefCell, UnsafeCell},
     ffi::c_void,
     ptr::NonNull,
-    sync::RwLock,
+    sync::{atomic::{self, AtomicPtr, AtomicUsize}, RwLock},
 };
-use structures::{error::LxError, process::CloneArgs, signal::SigNum, sync::FutexOpts};
+use structures::{error::LxError, process::CloneArgs, signal::SigNum, sync::{FutexOpts, RobustListHead}};
 
 /// Minimal TID that indicates a non-main thread rather than a process (or, the "main thread").
 const MINIMUM_TID: i32 = 0x40000000;
@@ -135,14 +135,27 @@ pub fn may_fork<T>(fork: impl FnOnce() -> T, is_new: impl FnOnce(&T) -> bool) ->
     result
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct ThreadPubCtx {
     pub emulation: EmulatedThreadInfo,
+    pub robust_list_head: AtomicPtr<RobustListHead>,
+    pub robust_list_head_size: AtomicUsize,
 }
 impl ThreadPubCtx {
     pub fn new() -> Self {
         Self {
             emulation: EmulatedThreadInfo::new(),
+            robust_list_head: AtomicPtr::new(std::ptr::null_mut()),
+            robust_list_head_size: AtomicUsize::new(0),
+        }
+    }
+}
+impl Clone for ThreadPubCtx {
+    fn clone(&self) -> Self {
+        Self {
+            emulation: self.emulation.clone(),
+            robust_list_head: AtomicPtr::new(self.robust_list_head.load(atomic::Ordering::Relaxed)),
+            robust_list_head_size: AtomicUsize::new(self.robust_list_head_size.load(atomic::Ordering::Relaxed)),
         }
     }
 }
@@ -173,6 +186,18 @@ pub fn clone(args: CloneArgs) -> Result<i32, LxError> {
     todo!()
 }
 
+/// Sets robust list for current thread.
+pub fn set_robust_list(ptr: *mut u8, size: usize) -> Result<(), LxError> {
+    if size != size_of::<RobustListHead>() {
+        return Err(LxError::EINVAL);
+    }
+    process::context().thread_pubctx_map.with_current(|ctx| {
+        ctx.robust_list_head.store(ptr.cast(), atomic::Ordering::Relaxed);
+        ctx.robust_list_head_size.store(size, atomic::Ordering::Relaxed);
+    });
+    Ok(())
+}
+
 /// This is called when entering a MacTux thread.
 pub unsafe fn enter() -> std::io::Result<()> {
     unsafe {
@@ -183,11 +208,20 @@ pub unsafe fn enter() -> std::io::Result<()> {
         {
             return Err(std::io::Error::last_os_error());
         }
-        process::context()
-            .thread_pubctx_map
-            .register(Box::new(ThreadPubCtx::new()));
-        crate::emuctx::enter_thread();
     }
+
+    process::context()
+        .thread_pubctx_map
+        .register(Box::new(ThreadPubCtx::new()));
+
+    with_context(|ctx| {
+        ctx.thread_info_ptr.set(
+            process::context()
+                .thread_pubctx_map
+                .with_current(|x| &raw const x.emulation),
+        )
+    });
+
     Ok(())
 }
 

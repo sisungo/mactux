@@ -343,7 +343,7 @@ const SYSTEM_CALL_HANDLERS: &[SystemCallHandler] = &[
     sys_pselect6,          // 270
     sys_ppoll,             // 271
     sys_invalid,           // 272
-    sys_invalid,           // 273
+    sys_set_robust_list,   // 273
     sys_invalid,           // 274
     sys_invalid,           // 275
     sys_invalid,           // 276

@@ -812,6 +812,11 @@ pub unsafe fn sys_futex(
 }
 
 #[syscall]
+pub unsafe fn sys_set_robust_list(head: *mut u8, size: usize) -> Result<(), LxError> {
+    rtenv::thread::set_robust_list(head, size)
+}
+
+#[syscall]
 pub unsafe fn sys_rseq(
     rseq: *mut RSeq,
     rseq_len: u32,
