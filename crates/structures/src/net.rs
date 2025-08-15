@@ -12,8 +12,20 @@ unixvariants! {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct SocketType(pub u32);
+impl SocketType {
+    pub fn kind(self) -> SocketKind {
+        SocketKind(self.0 & 255)
+    }
+
+    pub fn flags(self) -> SocketFlags {
+        SocketFlags::from_bits_retain(self.0 & !255)
+    }
+}
+
 unixvariants! {
-    pub struct Type: u32 {
+    pub struct SocketKind: u32 {
         const SOCK_STREAM = 1;
         const SOCK_DGRAM = 2;
         const SOCK_RAW = 3;
@@ -55,7 +67,7 @@ unixvariants! {
 }
 
 bitflags! {
-    pub struct AcceptFlags: u32 {
+    pub struct SocketFlags: u32 {
         const SOCK_NONBLOCK = 0o4000;
         const SOCK_CLOEXEC = 0o2000000;
     }

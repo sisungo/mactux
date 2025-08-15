@@ -5,15 +5,17 @@ use libc::c_int;
 use std::mem::offset_of;
 use structures::{
     error::LxError,
-    net::{AcceptFlags, Domain, Protocol, ShutdownHow, SockAddr, SockAddrIn, Type},
+    net::{Domain, Protocol, ShutdownHow, SockAddr, SockAddrIn, SocketFlags, SocketType},
 };
 
-pub fn socket(domain: Domain, ty: Type, proto: Protocol) -> Result<c_int, LxError> {
+pub fn socket(domain: Domain, ty: SocketType, proto: Protocol) -> Result<c_int, LxError> {
     unsafe {
-        match libc::socket(domain.to_apple()?, ty.to_apple()?, proto.to_apple()?) {
+        let fd = match libc::socket(domain.to_apple()?, ty.kind().to_apple()?, proto.to_apple()?) {
             -1 => Err(LxError::last_apple_error()),
             n => Ok(n),
-        }
+        }?;
+        prepare_new(fd, ty.flags()).inspect_err(|_| _ = libc::close(fd))?;
+        Ok(fd)
     }
 }
 
@@ -35,13 +37,14 @@ pub fn listen(sock: c_int, backlog: c_int) -> Result<(), LxError> {
     unsafe { posix_bi!(libc::listen(sock, backlog)) }
 }
 
-pub fn accept(sock: c_int, flags: AcceptFlags) -> Result<(SockAddr, c_int), LxError> {
+pub fn accept(sock: c_int, flags: SocketFlags) -> Result<(SockAddr, c_int), LxError> {
     unsafe {
         let mut buf = [0u8; size_of::<libc::sockaddr_storage>()];
         let mut size = size_of_val(&buf) as libc::socklen_t;
         let fd: c_int = posix_num!(libc::accept(sock, (&raw mut buf).cast(), &mut size))?;
-        let sockaddr = prepare_accepted(fd, &buf[..(size as usize)], flags)
-            .inspect_err(|_| _ = libc::close(fd))?;
+        prepare_new(fd, flags).inspect_err(|_| _ = libc::close(fd))?;
+        let sockaddr =
+            linux_sockaddr(&buf[..(size as usize)]).inspect_err(|_| _ = libc::close(fd))?;
         Ok((sockaddr, fd))
     }
 }
@@ -73,17 +76,17 @@ pub fn shutdown(sock: c_int, how: ShutdownHow) -> Result<(), LxError> {
     }
 }
 
-fn prepare_accepted(sock: c_int, addr: &[u8], flags: AcceptFlags) -> Result<SockAddr, LxError> {
+fn prepare_new(sock: c_int, flags: SocketFlags) -> Result<(), LxError> {
     unsafe {
-        if flags.contains(AcceptFlags::SOCK_NONBLOCK) {
+        if flags.contains(SocketFlags::SOCK_NONBLOCK) {
             let flags: c_int = posix_num!(libc::fcntl(sock, libc::F_GETFL))?;
             posix_bi!(libc::fcntl(sock, libc::F_SETFL, flags | libc::O_NONBLOCK))?;
         }
-        if flags.contains(AcceptFlags::SOCK_CLOEXEC) {
+        if flags.contains(SocketFlags::SOCK_CLOEXEC) {
             let flags: c_int = posix_num!(libc::fcntl(sock, libc::F_GETFD))?;
             posix_bi!(libc::fcntl(sock, libc::F_SETFD, flags | libc::FD_CLOEXEC))?;
         }
-        linux_sockaddr(addr)
+        Ok(())
     }
 }
 

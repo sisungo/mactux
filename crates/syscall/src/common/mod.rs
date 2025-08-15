@@ -10,7 +10,7 @@ use structures::{
     io::{EventFdFlags, FcntlCmd, FdSet, FlockOp, IoctlCmd, PSelectSigMask, PollFd, Whence},
     misc::{GrndFlags, SysInfo, UtsName},
     mm::{Madvice, MmapFlags, MmapProt, MremapFlags, MsyncFlags},
-    net::{AcceptFlags, Domain, Protocol, ShutdownHow, SockAddr, Type},
+    net::{Domain, Protocol, ShutdownHow, SockAddr, SocketFlags, SocketType},
     process::{PrctlOp, RLimit64, RLimitable, RUsage, RUsageWho, WaitOptions, WaitStatus},
     signal::{KernelSigSet, MaskHowto, SigAction, SigNum},
     sync::{FutexCmd, FutexOp, RSeq},
@@ -555,7 +555,11 @@ pub unsafe fn sys_getrandom(buf: *mut u8, len: usize, flags: GrndFlags) -> Resul
 // -== Network Communication ==-
 
 #[syscall]
-pub unsafe fn sys_socket(domain: Domain, ty: Type, proto: Protocol) -> Result<c_int, LxError> {
+pub unsafe fn sys_socket(
+    domain: Domain,
+    ty: SocketType,
+    proto: Protocol,
+) -> Result<c_int, LxError> {
     rtenv::net::socket(domain, ty, proto)
 }
 
@@ -570,7 +574,7 @@ pub unsafe fn sys_accept(
     buf: Option<NonNull<u8>>,
     len: Option<NonNull<u32>>,
 ) -> Result<c_int, LxError> {
-    let (addr, fd) = rtenv::net::accept(sock, AcceptFlags::empty())?;
+    let (addr, fd) = rtenv::net::accept(sock, SocketFlags::empty())?;
     if let Some(buf) = buf
         && let Some(len) = len
     {
@@ -590,7 +594,7 @@ pub unsafe fn sys_accept4(
     sock: c_int,
     buf: *mut u8,
     len: *mut u32,
-    flags: AcceptFlags,
+    flags: SocketFlags,
 ) -> Result<c_int, LxError> {
     let (addr, fd) = rtenv::net::accept(sock, flags)?;
     unsafe {
