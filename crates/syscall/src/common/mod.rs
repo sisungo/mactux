@@ -7,7 +7,7 @@ use std::{io::Write, ptr::NonNull, time::Duration};
 use structures::{
     error::LxError,
     fs::{AccessFlags, AtFlags, OpenFlags, Stat},
-    io::{FcntlCmd, FdSet, FlockOp, IoctlCmd, PSelectSigMask, PollFd, Whence},
+    io::{EventFdFlags, FcntlCmd, FdSet, FlockOp, IoctlCmd, PSelectSigMask, PollFd, Whence},
     misc::{GrndFlags, SysInfo, UtsName},
     mm::{Madvice, MmapFlags, MmapProt, MremapFlags, MsyncFlags},
     net::{AcceptFlags, Domain, Protocol, ShutdownHow, SockAddr, Type},
@@ -471,6 +471,18 @@ pub unsafe fn sys_pselect6(
 
         result
     }
+}
+
+// -== Linux Special File Descriptors ==-
+
+#[syscall]
+pub unsafe fn sys_eventfd(initval: u64) -> Result<c_int, LxError> {
+    rtenv::io::eventfd(initval, EventFdFlags::empty())
+}
+
+#[syscall]
+pub unsafe fn sys_eventfd2(initval: u64, flags: EventFdFlags) -> Result<c_int, LxError> {
+    rtenv::io::eventfd(initval, flags)
 }
 
 // -== System Information Functions ==-

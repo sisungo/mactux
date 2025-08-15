@@ -1,10 +1,14 @@
 use super::Session;
-use crate::filesystem::vfs::{NewlyOpen, VfsPath};
+use crate::{
+    filesystem::vfs::{NewlyOpen, VfsPath},
+    server::InterruptibleSession,
+};
 use mactux_ipc::response::{NetworkNames, Response};
 use structures::{
     error::LxError,
     fs::{AccessFlags, OpenFlags},
-    io::{FcntlCmd, IoctlCmd, Whence},
+    io::{EventFdFlags, FcntlCmd, IoctlCmd, Whence},
+    time::Timespec,
 };
 
 impl Session {
@@ -248,6 +252,13 @@ impl Session {
         let new_vfd = vfd.dup().await;
         let new_id = self.process.vfd_register(new_vfd);
         Response::DupVirtualFd(new_id)
+    }
+
+    pub fn eventfd(&self, initval: u64, flags: u32) -> Response {
+        match crate::vfd::eventfd::create(initval, EventFdFlags::from_bits_truncate(flags)) {
+            Ok(vfd) => Response::EventFd(self.process.vfd_register(vfd)),
+            Err(err) => Response::Error(err),
+        }
     }
 
     pub fn set_network_names(&self, nodename: Vec<u8>, domainname: Vec<u8>) -> Response {

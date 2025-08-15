@@ -3,7 +3,7 @@
 use crate::thread;
 use mactux_ipc::{
     handshake::{HandshakeRequest, HandshakeResponse},
-    request::Request,
+    request::{InterruptibleRequest, Request},
     response::Response,
 };
 use std::{
@@ -119,6 +119,23 @@ impl AsRawFd for Client {
     }
 }
 
+#[derive(Debug)]
+pub struct InterruptibleClient(UnixStream);
+impl InterruptibleClient {
+    pub fn wait(&mut self) -> Response {
+        bincode::decode_from_std_read(&mut self.0, bincode::config::standard()).unwrap()
+    }
+
+    pub fn interrupt(mut self) {
+        _ = self.0.write_all(&[0]);
+    }
+}
+impl AsRawFd for InterruptibleClient {
+    fn as_raw_fd(&self) -> std::os::fd::RawFd {
+        self.0.as_raw_fd()
+    }
+}
+
 /// Returns path of the server socket to connect. If there was no path previously set, the path would be set to the default.
 pub fn server_sock_path() -> &'static Path {
     &*SERVER_SOCK_PATH.get_or_init(|| {
@@ -155,6 +172,18 @@ pub fn make_client() -> Client {
     );
     client.force_handshake();
     client
+}
+
+/// Begins an interruptible request.
+pub fn begin_interruptible(ireq: InterruptibleRequest) -> InterruptibleClient {
+    let client = make_client();
+    let buf = bincode::encode_to_vec(
+        &Request::CallInterruptible(ireq),
+        bincode::config::standard(),
+    )
+    .expect("All requests should be valid bincode");
+    client.send(&buf).unwrap();
+    InterruptibleClient(client.0)
 }
 
 /// Updates the thread-local IPC client.

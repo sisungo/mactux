@@ -1,7 +1,9 @@
+mod interruptible;
 mod operations;
 
 use crate::process::ProcessCtx;
 use anyhow::anyhow;
+use interruptible::InterruptibleSession;
 use mactux_ipc::{
     handshake::{HandshakeRequest, HandshakeResponse},
     request::Request,
@@ -79,6 +81,7 @@ impl Session {
                 Request::VirtualFdDup(vfd) => self.vfd_dup(vfd).await,
                 Request::VirtualFdClose(vfd) => self.vfd_close(vfd),
                 Request::VirtualFdOrigPath(vfd) => self.vfd_orig_path(vfd),
+                Request::EventFd(initval, flags) => self.eventfd(initval, flags),
                 Request::GetNetworkNames => self.get_network_names(),
                 Request::SetNetworkNames(nodename, domainname) => {
                     self.set_network_names(nodename, domainname)
@@ -88,6 +91,9 @@ impl Session {
                 Request::BeforeFork => self.before_fork().await,
                 Request::AfterFork(pid) => self.after_fork(pid),
                 Request::AfterExec => self.after_exec(),
+                Request::CallInterruptible(ireq) => {
+                    break InterruptibleSession::from_session(self).run(ireq).await;
+                }
             };
             self.respond(&resp, &mut buf).await?;
         }

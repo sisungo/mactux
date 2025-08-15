@@ -1,3 +1,5 @@
+pub mod eventfd;
+
 use crate::{filesystem::vfs::VfsPath, util::Registry};
 use async_trait::async_trait;
 use crossbeam::atomic::AtomicCell;
@@ -13,7 +15,7 @@ use std::{
 use structures::{
     error::LxError,
     fs::{Dirent64, OpenFlags, Stat},
-    io::{FcntlCmd, IoctlCmd, Whence},
+    io::{FcntlCmd, IoctlCmd, PollEvents, Whence},
 };
 
 /// A virtual file descriptor.
@@ -107,6 +109,10 @@ impl VirtualFd {
         self.inner.get_socket(create).await
     }
 
+    pub async fn poll(&self, interest: PollEvents) -> Result<PollEvents, LxError> {
+        self.inner.poll(interest).await
+    }
+
     pub fn set_orig_path(&self, path: VfsPath<'static>) -> Result<(), LxError> {
         self.orig_path.set(path).map_err(|_| LxError::EACCES)
     }
@@ -175,7 +181,11 @@ pub trait VirtualFile: Send + Sync {
         Err(LxError::EOPNOTSUPP)
     }
 
-    async fn get_socket(&self, create: bool) -> Result<PathBuf, LxError> {
+    async fn get_socket(&self, _create: bool) -> Result<PathBuf, LxError> {
+        Err(LxError::EOPNOTSUPP)
+    }
+
+    async fn poll(&self, interest: PollEvents) -> Result<PollEvents, LxError> {
         Err(LxError::EOPNOTSUPP)
     }
 }

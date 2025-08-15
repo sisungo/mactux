@@ -10,7 +10,7 @@ use std::ptr::NonNull;
 use structures::{
     error::LxError,
     fs::{AccessFlags, AtFlags, OpenFlags},
-    io::{FcntlCmd, FlockOp, IoctlCmd, Whence},
+    io::{EventFdFlags, FcntlCmd, FlockOp, IoctlCmd, Whence},
     misc::GrndFlags,
     mm::{Madvice, MmapFlags, MmapProt, MremapFlags, MsyncFlags},
     net::{AcceptFlags, Domain, Protocol, ShutdownHow, Type},
@@ -122,7 +122,7 @@ macro_rules! impl_from_to_sys_newtype {
 impl_from_to_sys_plain!(i8; u8; i16; u16; i32; u32; i64; u64; isize; usize);
 impl_from_to_sys_bitflags!(
     MmapFlags; OpenFlags; AtFlags; MmapProt; GrndFlags; AccessFlags; WaitOptions; MsyncFlags;
-    MremapFlags; AcceptFlags
+    MremapFlags; AcceptFlags; EventFdFlags
 );
 impl_from_to_sys_newtype!(
     Whence; FcntlCmd; IoctlCmd; FutexOp; ClockId; MaskHowto; SigNum; Domain; Type; Protocol;

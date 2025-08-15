@@ -1,4 +1,5 @@
 use bincode::{Decode, Encode};
+use std::time::Duration;
 use structures::io::Whence;
 
 #[derive(Debug, Clone, Encode, Decode)]
@@ -30,6 +31,8 @@ pub enum Request {
     VirtualFdClose(u64),
     VirtualFdOrigPath(u64),
 
+    EventFd(u64, u32),
+
     GetNetworkNames,
     SetNetworkNames(Vec<u8>, Vec<u8>),
     SysInfo,
@@ -39,4 +42,11 @@ pub enum Request {
     BeforeFork,
     AfterFork(i32),
     AfterExec,
+
+    CallInterruptible(InterruptibleRequest),
+}
+
+#[derive(Debug, Clone, Encode, Decode)]
+pub enum InterruptibleRequest {
+    VirtualFdPoll(Vec<(u64, u16)>, Option<Duration>),
 }

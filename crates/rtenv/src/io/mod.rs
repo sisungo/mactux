@@ -3,13 +3,20 @@ mod native_ioctl;
 mod vfd;
 
 use crate::{ipc_client::with_client, posix_bi, posix_num};
-use mactux_ipc::request::Request;
+use mactux_ipc::{
+    request::{InterruptibleRequest, Request},
+    response::Response,
+};
 use rustc_hash::FxHashMap;
-use std::{ffi::c_int, os::fd::IntoRawFd, time::Duration};
+use std::{
+    ffi::c_int,
+    os::fd::{AsRawFd, IntoRawFd},
+    time::Duration,
+};
 use structures::{
     error::LxError,
     fs::OpenFlags,
-    io::{FcntlCmd, FdSet, FlockOp, IoctlCmd, PollEvents, PollFd, Whence},
+    io::{EventFdFlags, FcntlCmd, FdSet, FlockOp, IoctlCmd, PollEvents, PollFd, Whence},
 };
 
 #[inline]
@@ -175,33 +182,64 @@ pub unsafe fn writev(fd: c_int, vec: &[libc::iovec]) -> Result<usize, LxError> {
 
 #[inline]
 pub unsafe fn poll(fds: &mut [PollFd], timeout: Option<Duration>) -> Result<u32, LxError> {
-    let mut fd_mapping = vec![-1; fds.len()];
     let mut apple_fds = Vec::with_capacity(fds.len());
+    let mut virtual_fds = Vec::new();
+    let mut virtual_fd_map = FxHashMap::default();
+
+    let millis = match timeout {
+        None => -1,
+        Some(dur) => dur.as_millis() as _,
+    };
+
     for (n, poll_fd) in fds.iter_mut().enumerate() {
-        if crate::vfd::get(poll_fd.fd).is_some() {
-            todo!();
+        if let Some(vfd) = crate::vfd::get(poll_fd.fd) {
+            virtual_fds.push((vfd, poll_fd.events.bits()));
+            virtual_fd_map.insert(vfd, n);
+            continue;
         }
         apple_fds.push(libc::pollfd {
             fd: poll_fd.fd,
             events: poll_fd.events.to_apple()?,
             revents: 0,
         });
-        fd_mapping[apple_fds.len() - 1] = n as _;
     }
-    let timeout = match timeout {
-        None => -1,
-        Some(dur) => dur.as_millis() as _,
+
+    let client = if !virtual_fds.is_empty() {
+        let client = crate::ipc_client::begin_interruptible(InterruptibleRequest::VirtualFdPoll(
+            virtual_fds,
+            timeout,
+        ));
+        apple_fds.push(libc::pollfd {
+            fd: client.as_raw_fd(),
+            events: libc::POLLIN,
+            revents: 0,
+        });
+        Some(client)
+    } else {
+        None
     };
 
     unsafe {
-        match libc::poll(apple_fds.as_mut_ptr(), apple_fds.len() as _, timeout) {
+        match libc::poll(apple_fds.as_mut_ptr(), apple_fds.len() as _, millis) {
             -1 => Err(LxError::last_apple_error()),
             n => {
-                for (n, apple_fd) in apple_fds.into_iter().enumerate() {
-                    if fd_mapping[n] != -1 {
-                        fds[fd_mapping[n] as usize].revents =
-                            PollEvents::from_apple(apple_fd.revents);
+                if let Some(mut client) = client {
+                    if (apple_fds.last().unwrap().revents | libc::POLLIN) != 0 {
+                        match client.wait() {
+                            Response::Nothing => (),
+                            Response::Poll(vfd, revent) => {
+                                fds[virtual_fd_map[&vfd]].revents =
+                                    PollEvents::from_bits_retain(revent);
+                            }
+                            Response::Error(err) => {
+                                return Err(err);
+                            }
+                            _ => panic!("unexpected server response"),
+                        }
                     }
+                }
+                for (n, apple_fd) in apple_fds.into_iter().enumerate() {
+                    fds[n].revents = PollEvents::from_apple(apple_fd.revents);
                 }
                 Ok(n as _)
             }
@@ -350,6 +388,20 @@ pub fn pipe(flags: OpenFlags) -> Result<[c_int; 2], LxError> {
         }
         Ok(buf)
     }
+}
+
+#[inline]
+pub fn eventfd(initval: u64, flags: EventFdFlags) -> Result<c_int, LxError> {
+    with_client(|client| {
+        match client
+            .invoke(Request::EventFd(initval, flags.bits()))
+            .unwrap()
+        {
+            Response::EventFd(vfd) => crate::vfd::create(vfd, flags.open_flags()),
+            Response::Error(err) => Err(err),
+            _ => panic!("unexpected server response"),
+        }
+    })
 }
 
 #[inline]

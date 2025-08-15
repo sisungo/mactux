@@ -353,13 +353,13 @@ const SYSTEM_CALL_HANDLERS: &[SystemCallHandler] = &[
     sys_invalid,           // 281
     sys_invalid,           // 282
     sys_invalid,           // 283
-    sys_invalid,           // 284
+    sys_eventfd,           // 284
     sys_invalid,           // 285
     sys_invalid,           // 286
     sys_invalid,           // 287
     sys_accept4,           // 288
     sys_invalid,           // 289
-    sys_invalid,           // 290
+    sys_eventfd2,          // 290
     sys_invalid,           // 291
     sys_invalid,           // 292
     sys_pipe2,             // 293

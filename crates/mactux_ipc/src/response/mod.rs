@@ -12,6 +12,7 @@ pub enum Response {
     OpenNativePath(Vec<u8>),
     OpenVirtualFd(u64),
     SockPath(Vec<u8>),
+    EventFd(u64),
 
     Read(Vec<u8>),
     Write(usize),
@@ -26,6 +27,8 @@ pub enum Response {
 
     NetworkNames(NetworkNames),
     SysInfo(SysInfo),
+
+    Poll(u64, u16),
 
     Error(LxError),
 }

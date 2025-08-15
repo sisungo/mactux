@@ -346,3 +346,24 @@ impl PSelectSigMask {
         Ok(self.sigset)
     }
 }
+
+bitflags! {
+    #[derive(Debug, Clone, Copy)]
+    pub struct EventFdFlags: u32 {
+        const EFD_SEMAPHORE = 1;
+        const EFD_NONBLOCK = 0o4000;
+        const EFD_CLOEXEC = 0o2000000;
+    }
+}
+impl EventFdFlags {
+    pub fn open_flags(self) -> crate::fs::OpenFlags {
+        let mut result = crate::fs::OpenFlags::O_RDWR;
+        if self.contains(Self::EFD_NONBLOCK) {
+            result |= crate::fs::OpenFlags::O_NONBLOCK;
+        }
+        if self.contains(Self::EFD_CLOEXEC) {
+            result |= crate::fs::OpenFlags::O_CLOEXEC;
+        }
+        result
+    }
+}

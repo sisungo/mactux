@@ -1,4 +1,5 @@
 use crate::unixvariants;
+use bincode::{Decode, Encode};
 use libc::c_int;
 use std::time::Duration;
 
@@ -14,7 +15,7 @@ unixvariants! {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Encode, Decode)]
 #[repr(C)]
 pub struct Timespec {
     pub tv_sec: i64,
