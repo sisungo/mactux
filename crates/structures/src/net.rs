@@ -1,4 +1,5 @@
 use crate::{error::LxError, unixvariants};
+use bitflags::bitflags;
 use libc::{c_char, c_int};
 
 unixvariants! {
@@ -45,6 +46,13 @@ unixvariants! {
     }
 }
 
+bitflags! {
+    pub struct AcceptFlags: u32 {
+        const SOCK_NONBLOCK = 0o4000;
+        const SOCK_CLOEXEC = 0o2000000;
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum SockAddr {
     Un(SockAddrUn, usize),
@@ -59,6 +67,13 @@ impl SockAddr {
                 Domain::PF_INET => SockAddrIn::from_bytes(buf).map(Self::In),
                 _ => Err(LxError::EAFNOSUPPORT),
             }
+        }
+    }
+
+    pub fn write_to(&self, buf: &mut [u8]) -> Result<usize, LxError> {
+        match self {
+            Self::Un(addr, len) => addr.write_to(buf, *len),
+            Self::In(addr) => addr.write_to(buf),
         }
     }
 }
@@ -85,6 +100,10 @@ impl SockAddrUn {
         }
         unsafe { Ok(buf.as_ptr().cast::<Self>().read()) }
     }
+
+    pub fn write_to(&self, buf: &mut [u8], size: usize) -> Result<usize, LxError> {
+        todo!()
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -101,6 +120,26 @@ impl SockAddrIn {
             return Err(LxError::ENOMEM);
         }
         unsafe { Ok(buf.as_ptr().cast::<Self>().read()) }
+    }
+
+    pub fn write_to(&self, buf: &mut [u8]) -> Result<usize, LxError> {
+        todo!()
+    }
+
+    pub fn from_apple(buf: &[u8]) -> Result<Self, LxError> {
+        if buf.len() < size_of::<libc::sockaddr_in>() {
+            return Err(LxError::ENOMEM);
+        }
+
+        unsafe {
+            let apple = (buf as *const [u8]).cast::<libc::sockaddr_in>();
+            Ok(Self {
+                sin_family: SaFamily(Domain::PF_INET.0 as _),
+                sin_port: (*apple).sin_port,
+                sin_addr: (*apple).sin_addr.into(),
+                sin_zero: [0; _],
+            })
+        }
     }
 
     pub fn to_apple(&self, buf: &mut [u8]) -> Result<(), LxError> {
@@ -129,3 +168,8 @@ impl SockAddrIn {
 #[derive(Debug, Clone, Copy)]
 #[repr(C)]
 pub struct InAddr(u32);
+impl From<libc::in_addr> for InAddr {
+    fn from(value: libc::in_addr) -> Self {
+        Self(value.s_addr)
+    }
+}

@@ -1,7 +1,6 @@
 use crate::{SystemCallHandler, UcontextExt, common::*};
 use libc::{c_int, siginfo_t, ucontext_t};
 use macros::syscall;
-use std::ptr::NonNull;
 use structures::{
     error::LxError,
     process::{CloneArgs, CloneFlags},
@@ -113,7 +112,7 @@ const SYSTEM_CALL_HANDLERS: &[SystemCallHandler] = &[
     sys_sendfile,          // 40
     sys_socket,            // 41
     sys_connect,           // 42
-    sys_invalid,           // 43
+    sys_accept,            // 43
     sys_invalid,           // 44
     sys_invalid,           // 45
     sys_invalid,           // 46
@@ -358,7 +357,7 @@ const SYSTEM_CALL_HANDLERS: &[SystemCallHandler] = &[
     sys_invalid,           // 285
     sys_invalid,           // 286
     sys_invalid,           // 287
-    sys_invalid,           // 288
+    sys_accept4,           // 288
     sys_invalid,           // 289
     sys_invalid,           // 290
     sys_invalid,           // 291

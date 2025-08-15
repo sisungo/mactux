@@ -4,9 +4,17 @@ use std::{
     cell::{Cell, OnceCell, RefCell, UnsafeCell},
     ffi::c_void,
     ptr::NonNull,
-    sync::{atomic::{self, AtomicPtr, AtomicUsize}, RwLock},
+    sync::{
+        RwLock,
+        atomic::{self, AtomicPtr, AtomicUsize},
+    },
 };
-use structures::{error::LxError, process::CloneArgs, signal::SigNum, sync::{FutexOpts, RobustListHead}};
+use structures::{
+    error::LxError,
+    process::CloneArgs,
+    signal::SigNum,
+    sync::{FutexOpts, RobustListHead},
+};
 
 /// Minimal TID that indicates a non-main thread rather than a process (or, the "main thread").
 const MINIMUM_TID: i32 = 0x40000000;
@@ -155,7 +163,9 @@ impl Clone for ThreadPubCtx {
         Self {
             emulation: self.emulation.clone(),
             robust_list_head: AtomicPtr::new(self.robust_list_head.load(atomic::Ordering::Relaxed)),
-            robust_list_head_size: AtomicUsize::new(self.robust_list_head_size.load(atomic::Ordering::Relaxed)),
+            robust_list_head_size: AtomicUsize::new(
+                self.robust_list_head_size.load(atomic::Ordering::Relaxed),
+            ),
         }
     }
 }
@@ -192,8 +202,10 @@ pub fn set_robust_list(ptr: *mut u8, size: usize) -> Result<(), LxError> {
         return Err(LxError::EINVAL);
     }
     process::context().thread_pubctx_map.with_current(|ctx| {
-        ctx.robust_list_head.store(ptr.cast(), atomic::Ordering::Relaxed);
-        ctx.robust_list_head_size.store(size, atomic::Ordering::Relaxed);
+        ctx.robust_list_head
+            .store(ptr.cast(), atomic::Ordering::Relaxed);
+        ctx.robust_list_head_size
+            .store(size, atomic::Ordering::Relaxed);
     });
     Ok(())
 }

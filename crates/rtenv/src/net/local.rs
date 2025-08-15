@@ -1,6 +1,10 @@
 use libc::c_char;
 use structures::{error::LxError, net::SockAddrUn};
 
+pub fn linux_sockaddr(apple: &[u8]) -> Result<(SockAddrUn, usize), LxError> {
+    todo!()
+}
+
 pub fn apple_sockaddr(
     linux: SockAddrUn,
     len: usize,

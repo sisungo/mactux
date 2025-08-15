@@ -10,7 +10,7 @@ use structures::{
     io::{FcntlCmd, FdSet, FlockOp, IoctlCmd, PSelectSigMask, PollFd, Whence},
     misc::{GrndFlags, SysInfo, UtsName},
     mm::{Madvice, MmapFlags, MmapProt, MremapFlags, MsyncFlags},
-    net::{Domain, Protocol, ShutdownHow, SockAddr, Type},
+    net::{AcceptFlags, Domain, Protocol, ShutdownHow, SockAddr, Type},
     process::{PrctlOp, RLimit64, RLimitable, RUsage, RUsageWho, WaitOptions, WaitStatus},
     signal::{KernelSigSet, MaskHowto, SigAction, SigNum},
     sync::{FutexCmd, FutexOp, RSeq},
@@ -550,6 +550,49 @@ pub unsafe fn sys_socket(domain: Domain, ty: Type, proto: Protocol) -> Result<c_
 #[syscall]
 pub unsafe fn sys_listen(sock: c_int, backlog: c_int) -> Result<(), LxError> {
     rtenv::net::listen(sock, backlog)
+}
+
+#[syscall]
+pub unsafe fn sys_accept(
+    sock: c_int,
+    buf: Option<NonNull<u8>>,
+    len: Option<NonNull<u32>>,
+) -> Result<c_int, LxError> {
+    let (addr, fd) = rtenv::net::accept(sock, AcceptFlags::empty())?;
+    if let Some(buf) = buf
+        && let Some(len) = len
+    {
+        unsafe {
+            let size = addr.write_to(std::slice::from_raw_parts_mut(
+                buf.as_ptr(),
+                len.as_ptr().read() as usize,
+            ))?;
+            len.write(size as _);
+        }
+    }
+    Ok(fd)
+}
+
+#[syscall]
+pub unsafe fn sys_accept4(
+    sock: c_int,
+    buf: Option<NonNull<u8>>,
+    len: Option<NonNull<u32>>,
+    flags: AcceptFlags,
+) -> Result<c_int, LxError> {
+    let (addr, fd) = rtenv::net::accept(sock, flags)?;
+    if let Some(buf) = buf
+        && let Some(len) = len
+    {
+        unsafe {
+            let size = addr.write_to(std::slice::from_raw_parts_mut(
+                buf.as_ptr(),
+                len.as_ptr().read() as usize,
+            ))?;
+            len.write(size as _);
+        }
+    }
+    Ok(fd)
 }
 
 #[syscall]
