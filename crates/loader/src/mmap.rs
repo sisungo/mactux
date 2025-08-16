@@ -8,6 +8,7 @@ pub struct MappedArea {
     auto_unmap: bool,
 }
 impl MappedArea {
+    /// Creates a "null" mapped area that works as a placeholder.
     pub fn null() -> Self {
         Self {
             addr: std::ptr::null_mut(),
@@ -16,10 +17,12 @@ impl MappedArea {
         }
     }
 
+    /// Returns a builder.
     pub fn builder() -> MappedAreaBuilder {
         MappedAreaBuilder::new()
     }
 
+    /// Returns address of the mapped area.
     pub fn addr(&self) -> *mut u8 {
         self.addr
     }
@@ -46,6 +49,7 @@ pub struct MappedAreaBuilder {
     auto_unmap: bool,
 }
 impl MappedAreaBuilder {
+    /// Creates a new [`MappedAreaBuilder`] instance.
     pub fn new() -> Self {
         MappedAreaBuilder {
             addr: 0,
@@ -58,32 +62,38 @@ impl MappedAreaBuilder {
         }
     }
 
+    /// Specifies destination of the mapped area.
     pub fn destination(mut self, addr: usize) -> Self {
         self.addr = addr;
         self.flags |= libc::MAP_FIXED;
         self
     }
 
+    /// Specifies length of the mapped area.
     pub fn len(mut self, len: usize) -> Self {
         self.len = len;
         self
     }
 
+    /// Makes the mapped area readable.
     pub fn readable(mut self) -> Self {
         self.prot |= libc::PROT_READ;
         self
     }
 
+    /// Makes the mapped area writable.
     pub fn writable(mut self) -> Self {
         self.prot |= libc::PROT_WRITE;
         self
     }
 
+    /// Makes the mapped area executable.
     pub fn executable(mut self) -> Self {
         self.prot |= libc::PROT_EXEC;
         self
     }
 
+    /// Specifies file descriptor and offset of the mapped area.
     pub fn file(mut self, fd: RawFd, offset: u64) -> Self {
         self.fd = fd;
         self.offset = offset;

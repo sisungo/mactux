@@ -1,3 +1,4 @@
+/// Information about an auxiliary vector.
 #[derive(Debug)]
 pub struct AuxiliaryInfo {
     pub exec_fd: usize,
@@ -9,6 +10,7 @@ pub struct AuxiliaryInfo {
     pub random: *const [u8; 64],
 }
 impl AuxiliaryInfo {
+    /// Pushes all the information to a [`Vec<usize>`] stack, following the format specified in System V ABI.
     pub fn push_to_stack(&self, stack: &mut Vec<usize>) {
         // The page size is fixed on macOS for each architecture.
         #[cfg(target_arch = "x86_64")]
@@ -54,6 +56,7 @@ impl AuxiliaryInfo {
     }
 }
 
+/// Type of an auxiliary vector entry.
 #[derive(Debug, Clone, Copy)]
 enum AuxType {
     Null = 0,

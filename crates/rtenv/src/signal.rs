@@ -110,6 +110,7 @@ pub fn raise(
     }
 }
 
+/// Implementation of the `rt_sigreturn` system call.
 #[cfg(target_arch = "x86_64")]
 pub unsafe fn sigreturn(ctx: &mut libc::ucontext_t) {
     unsafe {

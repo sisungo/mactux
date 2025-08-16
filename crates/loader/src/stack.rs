@@ -1,6 +1,7 @@
 use crate::auxv::AuxiliaryInfo;
 use std::alloc::Layout;
 
+/// Jumps to a program entry with given information about the initial stack.
 #[cfg(target_arch = "x86_64")]
 pub fn jump<'a, 'b>(
     entry: *const u8,
@@ -27,9 +28,11 @@ pub fn jump<'a, 'b>(
     }
 }
 
+/// Stack information.
 #[derive(Debug)]
 pub struct StackInfo(Vec<usize>);
 impl StackInfo {
+    /// Builds a [`StackInfo`] instance with given information.
     pub fn new<'a, 'b>(
         args: impl ExactSizeIterator<Item = &'a [u8]>,
         envs: impl Iterator<Item = &'b [u8]>,

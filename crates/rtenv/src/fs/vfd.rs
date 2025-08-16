@@ -41,6 +41,7 @@ pub fn chown(vfd: u64, uid: u32, gid: u32) -> Result<(), LxError> {
     })
 }
 
+/// Gets the path that we have used to originally open a virtual file descriptor.
 pub fn orig_path(vfd: u64) -> Result<Vec<u8>, LxError> {
     with_client(
         |client| match client.invoke(Request::VirtualFdOrigPath(vfd)).unwrap() {

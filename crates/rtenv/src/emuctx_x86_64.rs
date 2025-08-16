@@ -49,7 +49,7 @@ pub struct EmulatedThreadInfo {
     in_emulated: Cell<bool>,
 }
 impl EmulatedThreadInfo {
-    /// Creates a [`ThreadInfo`] instance for current thread.
+    /// Creates a [`EmulatedThreadInfo`] instance for current thread.
     pub fn new() -> Self {
         Self {
             native_gsbase: current_gsbase(),
@@ -58,7 +58,7 @@ impl EmulatedThreadInfo {
     }
 }
 
-/// Returns current value of the GSBASE register. This may only be called out of the emulated context, or the behavior
+/// Returns current value of the GSBASE register. This may only be called out of the emulated context, or the return value
 /// is unspecified.
 fn current_gsbase() -> usize {
     let mut tiinfo: libc::thread_identifier_info = unsafe { std::mem::zeroed() };

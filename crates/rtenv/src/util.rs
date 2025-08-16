@@ -1,3 +1,5 @@
+/// Converts a POSIX function that returns something like what `read()`/`write()` returns to [`Result<Integer, LxError>`] in
+/// Rust.
 #[macro_export]
 macro_rules! posix_num {
     ($x:expr) => {
@@ -8,6 +10,7 @@ macro_rules! posix_num {
     };
 }
 
+/// Converts a POSIX function that returns something like what `close()` returns to [`Result<(), LxError>`] in Rust.
 #[macro_export]
 macro_rules! posix_bi {
     ($x:expr) => {

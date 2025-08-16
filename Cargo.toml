@@ -14,7 +14,7 @@ members = [
     "crates/rtenv",
     "crates/structures",
     "crates/syscall",
-    "mactux_server"
+    "mactux_server",
 ]
 
 [dependencies]

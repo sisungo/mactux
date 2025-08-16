@@ -1,6 +1,6 @@
 //! Client implementation of the MacTux IPC protocol.
 
-use crate::thread;
+use crate::{process, thread};
 use mactux_ipc::{
     handshake::{HandshakeRequest, HandshakeResponse},
     request::{InterruptibleRequest, Request},
@@ -13,11 +13,9 @@ use std::{
         fd::{AsRawFd, FromRawFd},
         unix::net::UnixStream,
     },
-    path::{Path, PathBuf},
-    sync::OnceLock,
+    path::PathBuf,
+    sync::Arc,
 };
-
-static SERVER_SOCK_PATH: OnceLock<PathBuf> = OnceLock::new();
 
 /// A MacTux IPC client.
 #[derive(Debug)]
@@ -136,23 +134,12 @@ impl AsRawFd for InterruptibleClient {
     }
 }
 
-/// Returns path of the server socket to connect. If there was no path previously set, the path would be set to the default.
-pub fn server_sock_path() -> &'static Path {
-    &*SERVER_SOCK_PATH.get_or_init(|| {
-        std::env::home_dir()
-            .expect("cannot find home directory")
-            .join(".mactux/mactux.sock")
-    })
-}
-
 /// Sets path of the server socket to connect.
 ///
 /// # Panics
 /// This function would panic if there is already a server socket path set.
 pub fn set_server_sock_path(val: PathBuf) {
-    SERVER_SOCK_PATH
-        .set(val)
-        .expect("cannot set server socket path twice");
+    process::context().server_sock_path.store(Arc::new(val));
 }
 
 /// Executes a closure with the thread-local client.
@@ -168,7 +155,8 @@ pub fn with_client<T, F: FnOnce(&Client) -> T>(f: F) -> T {
 /// Creates a client, performing the handshake.
 pub fn make_client() -> Client {
     let client = Client(
-        UnixStream::connect(server_sock_path()).expect("unable to connect to MacTux server"),
+        UnixStream::connect(&**process::context().server_sock_path.load())
+            .expect("unable to connect to MacTux server"),
     );
     client.force_handshake();
     client

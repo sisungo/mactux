@@ -12,8 +12,8 @@ static GLOBAL: MiMalloc = MiMalloc;
 
 #[derive(Debug, clap::Parser)]
 struct Mactux {
-    #[arg(short = 'd', long)]
-    data_dir: Option<PathBuf>,
+    #[arg(long)]
+    server_sock_path: Option<PathBuf>,
 
     #[arg(long)]
     init_sock_fd: Option<std::ffi::c_int>,
@@ -40,8 +40,8 @@ fn main() {
     let cmdline: Mactux = clap::Parser::parse();
 
     setup_environment();
-    if let Some(path) = &cmdline.data_dir {
-        rtenv::ipc_client::set_server_sock_path(path.join("mactux.sock"));
+    if let Some(path) = &cmdline.server_sock_path {
+        rtenv::ipc_client::set_server_sock_path(path.clone());
     }
     if let Some(fd) = cmdline.init_sock_fd {
         unsafe {

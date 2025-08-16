@@ -6,6 +6,7 @@ use structures::{
     process::{CloneArgs, CloneFlags},
 };
 
+/// Handler of `SIGSYS` signal.
 pub unsafe extern "C" fn handle_sigsys(_: c_int, info: &siginfo_t, uap: &mut ucontext_t) {
     if rtenv::signal::is_async(info) {
         rtenv::error_report::fast_fail();
@@ -58,6 +59,7 @@ fn thread_state_mut(x: &mut libc::ucontext_t) -> &mut libc::__darwin_x86_thread_
     unsafe { &mut (*x.uc_mcontext).__ss }
 }
 
+/// Performs a system call.
 unsafe fn perform(uctx: &mut libc::ucontext_t) {
     unsafe {
         let handler = SYSTEM_CALL_HANDLERS

@@ -76,6 +76,7 @@ pub fn shutdown(sock: c_int, how: ShutdownHow) -> Result<(), LxError> {
     }
 }
 
+/// Prepares a socket with given Linux-specific socket flags.
 fn prepare_new(sock: c_int, flags: SocketFlags) -> Result<(), LxError> {
     unsafe {
         if flags.contains(SocketFlags::SOCK_NONBLOCK) {
@@ -90,6 +91,7 @@ fn prepare_new(sock: c_int, flags: SocketFlags) -> Result<(), LxError> {
     }
 }
 
+/// Converts from an Apple socket address to a Linux one.
 fn linux_sockaddr(apple: &[u8]) -> Result<SockAddr, LxError> {
     if apple.len() < offset_of!(libc::sockaddr, sa_data) {
         return Err(LxError::ENOMEM);
@@ -108,6 +110,7 @@ fn linux_sockaddr(apple: &[u8]) -> Result<SockAddr, LxError> {
     }
 }
 
+/// Converts from a Linux socket address to an Apple one.
 fn apple_sockaddr(
     linux: SockAddr,
     create: bool,

@@ -6,7 +6,6 @@ mod common;
 mod util;
 
 use std::ptr::NonNull;
-
 use structures::{
     error::LxError,
     fs::{AccessFlags, AtFlags, OpenFlags},

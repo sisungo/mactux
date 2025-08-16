@@ -1,6 +1,6 @@
 use crate::{
     ipc_client::{Client, with_client},
-    posix_bi,
+    posix_bi, process,
     thread::{ThreadPubCtxMap, may_fork},
 };
 use arc_swap::ArcSwap;
@@ -11,6 +11,7 @@ use std::{
     ffi::{OsString, c_int},
     mem::MaybeUninit,
     os::{fd::AsRawFd, unix::process::CommandExt},
+    path::PathBuf,
     sync::Arc,
 };
 use structures::{
@@ -29,6 +30,7 @@ pub struct ProcessCtx {
     pub thread_pubctx_map: ThreadPubCtxMap,
     pub sigactions: [ArcSwap<SigAction>; SigNum::_NSIG as usize],
     pub vfd_table: papaya::HashMap<c_int, u64, FxBuildHasher>,
+    pub server_sock_path: ArcSwap<PathBuf>,
 }
 
 /// Installs the process context.
@@ -37,12 +39,18 @@ pub unsafe fn install() -> std::io::Result<()> {
     let thread_pubctx_map = ThreadPubCtxMap::new();
     let sigactions = std::array::from_fn(|_| ArcSwap::from(Arc::new(SigAction::new())));
     let vfd_table = papaya::HashMap::with_capacity_and_hasher(128, FxBuildHasher::default());
+    let server_sock_path = ArcSwap::from(Arc::new(
+        std::env::home_dir()
+            .expect("cannot find home directory")
+            .join(".mactux/mactux.sock"),
+    ));
     unsafe {
         (*&raw mut PROCESS_CTX).as_mut_ptr().write(ProcessCtx {
             cwd,
             thread_pubctx_map,
             sigactions,
             vfd_table,
+            server_sock_path,
         });
     }
     Ok(())
@@ -83,10 +91,10 @@ pub unsafe fn exec(
     argv: &[*const u8],
     envp: &[*const u8],
 ) -> Result<Infallible, LxError> {
-    if crate::fs::access(path.to_vec(), AccessFlags::F_OK).is_err() {
-        return Err(LxError::ENOENT);
-    }
     if crate::fs::access(path.to_vec(), AccessFlags::X_OK).is_err() {
+        if crate::fs::access(path.to_vec(), AccessFlags::F_OK).is_err() {
+            return Err(LxError::ENOENT);
+        }
         return Err(LxError::EPERM);
     }
 
@@ -113,6 +121,16 @@ pub unsafe fn exec(
 
     args.push(String::from("--cwd").into_bytes());
     args.push(crate::fs::getcwd());
+
+    args.push(String::from("--server-sock-path").into_bytes());
+    args.push(
+        process::context()
+            .server_sock_path
+            .load()
+            .as_os_str()
+            .as_encoded_bytes()
+            .to_vec(),
+    );
 
     args.push(String::from("--init-vfd-table").into_bytes());
     args.push(crate::vfd::export_table()?.into_bytes());

@@ -12,10 +12,22 @@ use structures::{
 #[inline]
 pub fn open(path: Vec<u8>, flags: OpenFlags, mode: u32) -> Result<c_int, LxError> {
     with_client(|client| {
-        let response = client
+        match client
             .invoke(Request::Open(full_path(path), flags.bits(), mode))
-            .unwrap();
-        handle_open_like(response, flags, mode)
+            .unwrap()
+        {
+            Response::OpenNativePath(native) => unsafe {
+                let c_path = crate::util::c_path(native);
+                if flags.contains(OpenFlags::O_CREAT) {
+                    posix_num!(libc::open(c_path.as_ptr().cast(), flags.to_apple(), mode))
+                } else {
+                    posix_num!(libc::open(c_path.as_ptr().cast(), flags.to_apple()))
+                }
+            },
+            Response::OpenVirtualFd(vfd) => crate::vfd::create(vfd, flags),
+            Response::Error(err) => Err(err),
+            _ => panic!("unexpected server response"),
+        }
     })
 }
 
@@ -195,6 +207,7 @@ pub fn fchdir(fd: c_int) -> Result<(), LxError> {
     chdir(vfd::orig_path(vfd)?)
 }
 
+/// Gets path of a local socket.
 pub fn get_sock_path(path: Vec<u8>, create: bool) -> Result<Vec<u8>, LxError> {
     with_client(|client| {
         match client
@@ -208,9 +221,10 @@ pub fn get_sock_path(path: Vec<u8>, create: bool) -> Result<Vec<u8>, LxError> {
     })
 }
 
+/// Returns path relative to current root directory for given path at given file descriptor.
 fn at_path(fd: c_int, mut path: Vec<u8>) -> Result<Vec<u8>, LxError> {
     if path.first() == Some(&b'/') {
-        return Ok(full_path(path));
+        return Ok(path);
     }
 
     let mut new_path = at_base_path(fd)?;
@@ -227,22 +241,6 @@ fn at_base_path(fd: c_int) -> Result<Vec<u8>, LxError> {
         Ok(getcwd())
     } else {
         Err(LxError::ENOTDIR)
-    }
-}
-
-fn handle_open_like(resp: Response, flags: OpenFlags, mode: u32) -> Result<c_int, LxError> {
-    match resp {
-        Response::OpenNativePath(native) => unsafe {
-            let c_path = crate::util::c_path(native);
-            if flags.contains(OpenFlags::O_CREAT) {
-                posix_num!(libc::open(c_path.as_ptr().cast(), flags.to_apple(), mode))
-            } else {
-                posix_num!(libc::open(c_path.as_ptr().cast(), flags.to_apple()))
-            }
-        },
-        Response::OpenVirtualFd(vfd) => crate::vfd::create(vfd, flags),
-        Response::Error(err) => Err(err),
-        _ => panic!("unexpected server response"),
     }
 }
 
