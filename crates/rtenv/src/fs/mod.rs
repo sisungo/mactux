@@ -1,6 +1,7 @@
 mod vfd;
 
 use crate::{ipc_client::with_client, posix_bi, posix_num, process};
+use arc_swap::ArcSwap;
 use libc::c_int;
 use mactux_ipc::{request::Request, response::Response};
 use std::sync::Arc;
@@ -8,6 +9,18 @@ use structures::{
     error::LxError,
     fs::{AccessFlags, AtFlags, Dirent64, OpenFlags, Stat},
 };
+
+#[derive(Debug)]
+pub struct FilesystemContext {
+    pub cwd: ArcSwap<Vec<u8>>,
+}
+impl FilesystemContext {
+    pub fn new() -> Self {
+        Self {
+            cwd: ArcSwap::from(Arc::new(vec![b'/'])),
+        }
+    }
+}
 
 #[inline]
 pub fn open(path: Vec<u8>, flags: OpenFlags, mode: u32) -> Result<c_int, LxError> {
@@ -185,7 +198,7 @@ pub fn mkdir(path: Vec<u8>, mode: u32) -> Result<(), LxError> {
 
 #[inline]
 pub fn getcwd() -> Vec<u8> {
-    process::context().cwd.load().to_vec()
+    process::context().fs.cwd.load().to_vec()
 }
 
 #[inline]
@@ -195,7 +208,7 @@ pub fn chdir(new: Vec<u8>) -> Result<(), LxError> {
         OpenFlags::O_PATH | OpenFlags::O_DIRECTORY,
         0,
     )?);
-    process::context().cwd.store(Arc::new(new));
+    process::context().fs.cwd.store(Arc::new(new));
     Ok(())
 }
 
