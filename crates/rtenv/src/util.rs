@@ -26,3 +26,8 @@ pub fn c_path(mut dat: Vec<u8>) -> Vec<u8> {
     dat.push(0);
     dat
 }
+
+/// Fails the process with reason that the server is not giving an expected response.
+pub fn ipc_fail() -> ! {
+    panic!("unexpected server response");
+}

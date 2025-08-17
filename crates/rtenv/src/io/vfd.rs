@@ -1,4 +1,4 @@
-use crate::ipc_client::with_client;
+use crate::{ipc_client::with_client, util::ipc_fail};
 use mactux_ipc::{
     request::Request,
     response::{Response, VirtualFdAvailCtrl},
@@ -11,85 +11,84 @@ use structures::{
 
 pub fn read(vfd: u64, buf: &mut [u8]) -> Result<usize, LxError> {
     with_client(|client| {
-        let response = client
+        match client
             .invoke(Request::VirtualFdRead(vfd, buf.len()))
-            .unwrap();
-        match response {
+            .unwrap()
+        {
             Response::Read(blob) => {
                 debug_assert!(blob.len() <= buf.len());
                 buf[..blob.len()].copy_from_slice(&blob);
                 Ok(blob.len())
             }
             Response::Error(err) => Err(err),
-            _ => panic!("unexpected server response"),
+            _ => ipc_fail(),
         }
     })
 }
 
 pub fn pread(vfd: u64, off: i64, buf: &mut [u8]) -> Result<usize, LxError> {
     with_client(|client| {
-        let response = client
+        match client
             .invoke(Request::VirtualFdPread(vfd, off, buf.len()))
-            .unwrap();
-        match response {
+            .unwrap()
+        {
             Response::Read(blob) => {
                 debug_assert!(blob.len() <= buf.len());
                 buf[..blob.len()].copy_from_slice(&blob);
                 Ok(blob.len())
             }
             Response::Error(err) => Err(err),
-            _ => panic!("unexpected server response"),
+            _ => ipc_fail(),
         }
     })
 }
 
 pub fn write(vfd: u64, buf: &[u8]) -> Result<usize, LxError> {
     with_client(|client| {
-        let response = client
+        match client
             .invoke(Request::VirtualFdWrite(vfd, buf.to_vec()))
-            .unwrap();
-        match response {
+            .unwrap()
+        {
             Response::Write(n) => Ok(n),
             Response::Error(err) => Err(err),
-            _ => panic!("unexpected server response"),
+            _ => ipc_fail(),
         }
     })
 }
 
 pub fn pwrite(vfd: u64, off: i64, buf: &[u8]) -> Result<usize, LxError> {
     with_client(|client| {
-        let response = client
+        match client
             .invoke(Request::VirtualFdPwrite(vfd, off, buf.to_vec()))
-            .unwrap();
-        match response {
+            .unwrap()
+        {
             Response::Write(n) => Ok(n),
             Response::Error(err) => Err(err),
-            _ => panic!("unexpected server response"),
+            _ => ipc_fail(),
         }
     })
 }
 
 pub fn lseek(vfd: u64, whence: Whence, off: i64) -> Result<u64, LxError> {
     with_client(|client| {
-        let response = client
+        match client
             .invoke(Request::VirtualFdLseek(vfd, whence, off))
-            .unwrap();
-        match response {
+            .unwrap()
+        {
             Response::Lseek(n) => Ok(n),
             Response::Error(err) => Err(err),
-            _ => panic!("unexpected server response"),
+            _ => ipc_fail(),
         }
     })
 }
 
 pub fn dup(vfd: u64) -> u64 {
-    with_client(|client| {
-        let response = client.invoke(Request::VirtualFdDup(vfd)).unwrap();
-        match response {
+    with_client(
+        |client| match client.invoke(Request::VirtualFdDup(vfd)).unwrap() {
             Response::DupVirtualFd(x) => x,
-            _ => panic!("unexpected server response"),
-        }
-    })
+            _ => ipc_fail(),
+        },
+    )
 }
 
 pub fn ioctl(vfd: u64, cmd: u32, arg: *mut u8) -> Result<c_int, LxError> {
@@ -100,7 +99,7 @@ pub fn ioctl(vfd: u64, cmd: u32, arg: *mut u8) -> Result<c_int, LxError> {
         {
             Response::VirtualFdAvailCtrl(avail_ctrl) => Ok(avail_ctrl),
             Response::Error(err) => Err(err),
-            _ => panic!("unexpected server response"),
+            _ => ipc_fail(),
         }
     })?;
 
@@ -117,14 +116,13 @@ pub fn fcntl(vfd: u64, cmd: u32, arg: usize) -> Result<c_int, LxError> {
 }
 
 pub fn truncate(vfd: u64, len: u64) -> Result<(), LxError> {
-    with_client(|client| {
-        let response = client.invoke(Request::VirtualFdTruncate(vfd, len)).unwrap();
-        match response {
+    with_client(
+        |client| match client.invoke(Request::VirtualFdTruncate(vfd, len)).unwrap() {
             Response::Nothing => Ok(()),
             Response::Error(err) => Err(err),
-            _ => panic!("unexpected server response"),
-        }
-    })
+            _ => ipc_fail(),
+        },
+    )
 }
 
 pub fn close(vfd: u64) {
@@ -161,7 +159,7 @@ fn ctrl(
                 Ok(stat as _)
             },
             Response::Error(err) => Err(err),
-            _ => panic!("unexpected server response"),
+            _ => ipc_fail(),
         }
     })
 }

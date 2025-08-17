@@ -1,5 +1,8 @@
 use crate::{
-    fs::FilesystemContext, ipc_client::{with_client, Client}, posix_bi, process, thread::{may_fork, ThreadPubCtxMap}
+    fs::FilesystemContext,
+    ipc_client::{Client, with_client},
+    posix_bi, process,
+    thread::{ThreadPubCtxMap, may_fork},
 };
 use arc_swap::ArcSwap;
 use mactux_ipc::request::Request;

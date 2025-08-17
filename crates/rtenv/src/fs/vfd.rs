@@ -1,4 +1,4 @@
-use crate::ipc_client::with_client;
+use crate::{ipc_client::with_client, util::ipc_fail};
 use mactux_ipc::{request::Request, response::Response};
 use structures::{
     error::LxError,
@@ -12,7 +12,7 @@ pub fn getdents64(vfd: u64) -> Result<Option<Dirent64>, LxError> {
             Response::Nothing => Ok(None),
             Response::Dirent64(dent) => Ok(Some(dent)),
             Response::Error(err) => Err(err),
-            _ => panic!("unexpected server response"),
+            _ => ipc_fail(),
         }
     })
 }
@@ -23,7 +23,7 @@ pub fn stat(vfd: u64) -> Result<Stat, LxError> {
         match response {
             Response::Stat(stat) => Ok(stat),
             Response::Error(err) => Err(err),
-            _ => panic!("unexpected server response"),
+            _ => ipc_fail(),
         }
     })
 }
@@ -36,7 +36,7 @@ pub fn chown(vfd: u64, uid: u32, gid: u32) -> Result<(), LxError> {
         match response {
             Response::Nothing => Ok(()),
             Response::Error(err) => Err(err),
-            _ => panic!("unexpected server response"),
+            _ => ipc_fail(),
         }
     })
 }
@@ -47,7 +47,7 @@ pub fn orig_path(vfd: u64) -> Result<Vec<u8>, LxError> {
         |client| match client.invoke(Request::VirtualFdOrigPath(vfd)).unwrap() {
             Response::OrigPath(path) => Ok(path),
             Response::Error(err) => Err(err),
-            _ => panic!("unexpected server response"),
+            _ => ipc_fail(),
         },
     )
 }

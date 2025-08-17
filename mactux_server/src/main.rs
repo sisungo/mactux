@@ -100,7 +100,8 @@ struct Cmdline {
 
 #[tokio::main]
 async fn main() {
-    tracing_subscriber::fmt::init();
+    init_logging();
+
     let cmdline: Cmdline = clap::Parser::parse();
     let app = match App::new(cmdline).await {
         Ok(x) => x,
@@ -116,6 +117,10 @@ async fn main() {
         std::process::exit(1);
     }
     app.wait_for_exit().await;
+}
+
+fn init_logging() {
+    tracing_subscriber::fmt::init();
 }
 
 async fn init_mounts(work_dir: &WorkDir, init_mnt: &MountNamespace) -> anyhow::Result<()> {

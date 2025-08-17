@@ -2,7 +2,7 @@ mod native_fcntl;
 mod native_ioctl;
 mod vfd;
 
-use crate::{ipc_client::with_client, posix_bi, posix_num};
+use crate::{ipc_client::with_client, posix_bi, posix_num, util::ipc_fail};
 use mactux_ipc::{
     request::{InterruptibleRequest, Request},
     response::Response,
@@ -16,7 +16,7 @@ use std::{
 use structures::{
     error::LxError,
     fs::OpenFlags,
-    io::{EventFdFlags, FcntlCmd, FdSet, FlockOp, IoctlCmd, PollEvents, PollFd, Whence},
+    io::{EventFdFlags, FcntlCmd, FdFlags, FdSet, FlockOp, IoctlCmd, PollEvents, PollFd, Whence},
 };
 
 #[inline]
@@ -58,6 +58,14 @@ pub unsafe fn fcntl(fd: c_int, cmd: FcntlCmd, arg: usize) -> Result<c_int, LxErr
         if cmd == FcntlCmd::F_DUPFD_CLOEXEC {
             let new_fd = unsafe { posix_num!(libc::fcntl(fd, libc::F_DUPFD_CLOEXEC, arg))? };
             let new_vfd = vfd::dup(vfd);
+            let orig_flags =
+                vfd::fcntl(new_vfd, FcntlCmd::F_GETFD.0, 0).inspect_err(|_| vfd::close(new_vfd))?;
+            vfd::fcntl(
+                new_vfd,
+                FcntlCmd::F_SETFD.0,
+                (orig_flags as u32 | FdFlags::FD_CLOEXEC.bits()) as usize,
+            )
+            .inspect_err(|_| vfd::close(new_vfd))?;
             crate::vfd::register(new_fd, new_vfd);
             return Ok(new_fd);
         }
@@ -234,7 +242,7 @@ pub unsafe fn poll(fds: &mut [PollFd], timeout: Option<Duration>) -> Result<u32,
                             Response::Error(err) => {
                                 return Err(err);
                             }
-                            _ => panic!("unexpected server response"),
+                            _ => ipc_fail(),
                         }
                     }
                 }
@@ -399,7 +407,7 @@ pub fn eventfd(initval: u64, flags: EventFdFlags) -> Result<c_int, LxError> {
         {
             Response::EventFd(vfd) => crate::vfd::create(vfd, flags.open_flags()),
             Response::Error(err) => Err(err),
-            _ => panic!("unexpected server response"),
+            _ => ipc_fail(),
         }
     })
 }

@@ -15,7 +15,7 @@ use std::{
 use structures::{
     error::LxError,
     fs::{Dirent64, OpenFlags, Stat},
-    io::{FcntlCmd, IoctlCmd, PollEvents, Whence},
+    io::{FcntlCmd, FdFlags, IoctlCmd, PollEvents, Whence},
 };
 
 /// A virtual file descriptor.
@@ -68,6 +68,25 @@ impl VirtualFd {
     pub async fn fcntl(&self, cmd: FcntlCmd, buf: &[u8]) -> Result<Response, LxError> {
         match cmd {
             FcntlCmd::F_GETFL => Ok(Response::Ctrl(self.open_flags().bits() as _)),
+            FcntlCmd::F_GETFD => {
+                if self.open_flags().contains(OpenFlags::O_CLOEXEC) {
+                    Ok(Response::Ctrl(FdFlags::FD_CLOEXEC.bits() as _))
+                } else {
+                    Ok(Response::Ctrl(0))
+                }
+            },
+            FcntlCmd::F_SETFD => {
+                let mut fd_flags = [0u8; size_of::<u32>()];
+                fd_flags.copy_from_slice(buf);
+                let fd_flags = u32::from_ne_bytes(fd_flags);
+                let Some(fd_flags) = FdFlags::from_bits(fd_flags) else {
+                    return Err(LxError::EINVAL);
+                };
+                if fd_flags.contains(FdFlags::FD_CLOEXEC) {
+                    self.open_flags.store(self.open_flags.load() | OpenFlags::O_CLOEXEC);
+                }
+                Ok(Response::Ctrl(0))
+            },
             other => self.inner.fcntl(other.0, buf.to_vec()).await,
         }
     }

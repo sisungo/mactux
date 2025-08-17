@@ -1,6 +1,6 @@
 mod vfd;
 
-use crate::{ipc_client::with_client, posix_bi, posix_num, process};
+use crate::{ipc_client::with_client, posix_bi, posix_num, process, util::ipc_fail};
 use arc_swap::ArcSwap;
 use libc::c_int;
 use mactux_ipc::{request::Request, response::Response};
@@ -39,7 +39,7 @@ pub fn open(path: Vec<u8>, flags: OpenFlags, mode: u32) -> Result<c_int, LxError
             },
             Response::OpenVirtualFd(vfd) => crate::vfd::create(vfd, flags),
             Response::Error(err) => Err(err),
-            _ => panic!("unexpected server response"),
+            _ => ipc_fail(),
         }
     })
 }
@@ -72,7 +72,7 @@ pub fn access(path: Vec<u8>, mode: AccessFlags) -> Result<(), LxError> {
         {
             Response::Nothing => Ok(()),
             Response::Error(err) => Err(err),
-            _ => panic!("unexpected server response"),
+            _ => ipc_fail(),
         }
     })
 }
@@ -141,7 +141,7 @@ pub fn symlink(src: Vec<u8>, dst: Vec<u8>) -> Result<(), LxError> {
         {
             Response::Nothing => Ok(()),
             Response::Error(err) => Err(err),
-            _ => panic!("unexpected server response"),
+            _ => ipc_fail(),
         }
     })
 }
@@ -155,7 +155,7 @@ pub fn rename(src: Vec<u8>, dst: Vec<u8>) -> Result<(), LxError> {
         {
             Response::Nothing => Ok(()),
             Response::Error(err) => Err(err),
-            _ => panic!("unexpected server response"),
+            _ => ipc_fail(),
         }
     })
 }
@@ -166,7 +166,7 @@ pub fn unlink(path: Vec<u8>) -> Result<(), LxError> {
         |client| match client.invoke(Request::Unlink(full_path(path))).unwrap() {
             Response::Nothing => Ok(()),
             Response::Error(err) => Err(err),
-            _ => panic!("unexpected server response"),
+            _ => ipc_fail(),
         },
     )
 }
@@ -177,7 +177,7 @@ pub fn rmdir(path: Vec<u8>) -> Result<(), LxError> {
         |client| match client.invoke(Request::Rmdir(full_path(path))).unwrap() {
             Response::Nothing => Ok(()),
             Response::Error(err) => Err(err),
-            _ => panic!("unexpected server response"),
+            _ => ipc_fail(),
         },
     )
 }
@@ -191,7 +191,7 @@ pub fn mkdir(path: Vec<u8>, mode: u32) -> Result<(), LxError> {
         {
             Response::Nothing => Ok(()),
             Response::Error(err) => Err(err),
-            _ => panic!("unexpected server response"),
+            _ => ipc_fail(),
         }
     })
 }
@@ -229,7 +229,7 @@ pub fn get_sock_path(path: Vec<u8>, create: bool) -> Result<Vec<u8>, LxError> {
         {
             Response::SockPath(path) => Ok(path),
             Response::Error(err) => Err(err),
-            _ => panic!("unexpected server response,"),
+            _ => ipc_fail(),
         }
     })
 }

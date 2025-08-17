@@ -10,11 +10,14 @@ pub struct AbstractNamespace {
     next_id: AtomicU64,
 }
 impl AbstractNamespace {
-    pub fn new(path: PathBuf) -> Self {
-        Self {
+    pub fn new(path: PathBuf) -> std::io::Result<Self> {
+        _ = std::fs::remove_dir_all(&path);
+        std::fs::create_dir(&path)?;
+
+        Ok(Self {
             path,
             next_id: AtomicU64::new(1),
-        }
+        })
     }
 
     pub fn create_named(&self, name: &str) -> Result<u64, LxError> {
