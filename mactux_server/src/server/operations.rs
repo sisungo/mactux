@@ -1,14 +1,12 @@
 use super::Session;
 use crate::{
     filesystem::vfs::{NewlyOpen, VfsPath},
-    server::InterruptibleSession,
 };
 use mactux_ipc::response::{NetworkNames, Response};
 use structures::{
     error::LxError,
     fs::{AccessFlags, OpenFlags},
     io::{EventFdFlags, FcntlCmd, IoctlCmd, Whence},
-    time::Timespec,
 };
 
 impl Session {

@@ -1,3 +1,5 @@
+//! The virtual filesystem.
+
 use crate::{process::PidNamespace, vfd::VirtualFd};
 use async_trait::async_trait;
 use std::{
@@ -14,6 +16,7 @@ use structures::{
     fs::{AccessFlags, OpenFlags},
 };
 
+/// A path used in VFS.
 #[derive(Clone)]
 pub struct VfsPath<'a> {
     pub begin_slash: bool,
@@ -21,6 +24,7 @@ pub struct VfsPath<'a> {
     pub end_slash: bool,
 }
 impl<'a> VfsPath<'a> {
+    /// Gets a [`VfsPath`] instance from human-readable string.
     pub fn from_bytes(mut s: &'a [u8]) -> Self {
         if s.is_empty() {
             s = b".";
@@ -36,6 +40,7 @@ impl<'a> VfsPath<'a> {
         }
     }
 
+    /// Converts the [`VfsPath`] instance to have `'static` lifetime.
     pub fn to_storable(&self) -> VfsPath<'static> {
         let mut segments: Vec<Cow<'static, [u8]>> = Vec::with_capacity(self.segments.len());
         for i in &self.segments {
@@ -48,10 +53,12 @@ impl<'a> VfsPath<'a> {
         }
     }
 
+    /// Returns true if this is an absolute path.
     pub fn is_absolute(&self) -> bool {
         self.begin_slash
     }
 
+    /// Returns true if this path force indicates a directory rather than a regular file.
     pub fn indicates_dir(&self) -> bool {
         self.end_slash
     }
@@ -78,6 +85,7 @@ impl<'a> VfsPath<'a> {
         }
     }
 
+    /// Converts the path to a human-readable format.
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut result = Vec::new();
         if self.begin_slash {
@@ -113,6 +121,9 @@ pub struct MountNamespace {
     mounts: RwLock<Vec<Mount>>,
 }
 impl MountNamespace {
+    /// Creates a new, empty mount namespace.
+    ///
+    /// Note that this does not allocate an ID. Allocate ID before use!
     pub fn new() -> Self {
         MountNamespace {
             id: AtomicU64::new(0),
@@ -120,6 +131,7 @@ impl MountNamespace {
         }
     }
 
+    /// Returns the singleton initial mount namespace.
     pub fn initial() -> Arc<Self> {
         static SINGLETON: OnceLock<Arc<MountNamespace>> = OnceLock::new();
 
@@ -138,6 +150,7 @@ impl MountNamespace {
         id
     }
 
+    /// Mounts a mountable object to a specific path.
     pub async fn mount(
         &self,
         mountpoint: VfsPath<'static>,
@@ -217,6 +230,7 @@ impl MountNamespace {
             .map(|x| x.into_os_string().into_encoded_bytes())
     }
 
+    /// Finds a node by full path in the mount namespace, returning the mountable object and relative path on success.
     fn find_node(
         &self,
         full_path: &VfsPath,
@@ -247,6 +261,7 @@ impl MountNamespace {
     }
 }
 
+/// A mounted filesystem.
 pub struct Mount {
     mountpoint: VfsPath<'static>,
     mount_obj: Arc<dyn Mountable>,
@@ -259,6 +274,7 @@ impl Debug for Mount {
     }
 }
 
+/// A mountable object.
 #[async_trait]
 pub trait Mountable: Send + Sync {
     async fn open(
@@ -277,6 +293,7 @@ pub trait Mountable: Send + Sync {
     async fn mount_bind(&self, path: &VfsPath) -> Result<Box<dyn Mountable>, LxError>;
 }
 
+/// A newly-open file.
 #[derive(Clone)]
 pub enum NewlyOpen {
     AtNative(PathBuf),
@@ -291,11 +308,13 @@ impl Debug for NewlyOpen {
     }
 }
 
+/// Representation of a device name used in `mount`.
 #[derive(Debug, Clone)]
 pub enum MountDev {
     Freeform(String),
 }
 
+/// Gets mountable object.
 pub async fn mountable(fs: &str, dev: MountDev, opts: &str) -> Result<Arc<dyn Mountable>, LxError> {
     match fs {
         "nativefs" => super::nativefs::mountable(dev, opts),

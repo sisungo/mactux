@@ -6,7 +6,7 @@ use rtenv::{error_report::ErrorReport, posix_num};
 use std::{io::Write, ptr::NonNull, time::Duration};
 use structures::{
     error::LxError,
-    fs::{AccessFlags, AtFlags, OpenFlags, Stat},
+    fs::{AccessFlags, AtFlags, OpenFlags, Stat, Statx},
     io::{EventFdFlags, FcntlCmd, FdSet, FlockOp, IoctlCmd, PSelectSigMask, PollFd, Whence},
     misc::{GrndFlags, SysInfo, UtsName},
     mm::{Madvice, MmapFlags, MmapProt, MremapFlags, MsyncFlags},
@@ -62,7 +62,7 @@ pub unsafe fn sys_stat(filename: *const c_char, statbuf: *mut Stat) -> Result<()
     unsafe {
         let fd = rtenv::fs::open(rust_bytes(filename).to_vec(), OpenFlags::O_PATH, 0)?;
         let stat = rtenv::fs::stat(fd).inspect_err(|_| _ = rtenv::io::close(fd))?;
-        statbuf.write(stat);
+        statbuf.write(stat.into());
         rtenv::io::close(fd)
     }
 }
@@ -83,7 +83,7 @@ pub unsafe fn sys_newfstatat(
             0,
         )?;
         let stat = rtenv::fs::stat(fd).inspect_err(|_| _ = rtenv::io::close(fd))?;
-        statbuf.write(stat);
+        statbuf.write(stat.into());
         rtenv::io::close(fd)
     }
 }
@@ -91,7 +91,7 @@ pub unsafe fn sys_newfstatat(
 #[syscall]
 pub unsafe fn sys_fstat(fd: c_int, statbuf: *mut Stat) -> Result<(), LxError> {
     unsafe {
-        statbuf.write(rtenv::fs::stat(fd)?);
+        statbuf.write(rtenv::fs::stat(fd)?.into());
         Ok(())
     }
 }
@@ -111,7 +111,29 @@ pub unsafe fn sys_lstat(filename: *const c_char, statbuf: *mut Stat) -> Result<(
                 return Err(err);
             }
         };
-        statbuf.write(stat);
+        statbuf.write(stat.into());
+        rtenv::io::close(fd)
+    }
+}
+
+#[syscall]
+pub unsafe fn sys_statx(
+    dfd: c_int,
+    pathname: *const c_char,
+    flags: AtFlags,
+    _mask: u32, // TODO
+    buf: *mut Statx,
+) -> Result<(), LxError> {
+    unsafe {
+        let fd = rtenv::fs::openat(
+            dfd,
+            rust_bytes(pathname).to_vec(),
+            OpenFlags::O_PATH,
+            flags,
+            0,
+        )?;
+        let statx = rtenv::fs::stat(fd).inspect_err(|_| _ = rtenv::io::close(fd))?;
+        buf.write(statx);
         rtenv::io::close(fd)
     }
 }

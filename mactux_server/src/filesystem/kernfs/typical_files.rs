@@ -8,7 +8,7 @@ use async_trait::async_trait;
 use std::sync::Arc;
 use structures::{
     error::LxError,
-    fs::{OpenFlags, Stat},
+    fs::{OpenFlags, Statx},
 };
 
 #[derive(Debug, Clone)]
@@ -29,26 +29,35 @@ impl<F: Fn() -> Result<Vec<u8>, LxError> + Clone + Send + Sync> VirtualFile for 
         Ok(bytes_read)
     }
 
-    async fn stat(&self) -> Result<Stat, LxError> {
-        Ok(Stat {
-            st_dev: 0,
-            st_ino: 0,
-            st_nlink: 0,
-            st_mode: self.attrs.mode | 0o20000,
-            st_uid: self.attrs.uid,
-            st_gid: self.attrs.gid,
-            _pad0: 0,
-            st_rdev: 0,
-            st_size: 0,
-            st_blksize: 0,
-            st_blocks: 0,
-            st_atime: self.attrs.atime.tv_sec,
-            st_atimensec: self.attrs.atime.tv_nsec as _,
-            st_mtime: self.attrs.mtime.tv_sec,
-            st_mtimensec: self.attrs.mtime.tv_nsec as _,
-            st_ctime: self.attrs.ctime.tv_sec,
-            st_ctimensec: self.attrs.ctime.tv_nsec as _,
-            _unused: [0; _],
+    async fn stat(&self) -> Result<Statx, LxError> {
+        Ok(Statx {
+            stx_mask: 0,
+            stx_dev_major: 0,
+            stx_dev_minor: 0,
+            stx_ino: 0,
+            stx_nlink: 0,
+            stx_uid: self.attrs.uid,
+            stx_gid: self.attrs.gid,
+            stx_mode: self.attrs.mode as u16 | 0o20000,
+            stx_attributes: 0,
+            stx_attributes_mask: 0,
+            stx_rdev_major: 0,
+            stx_rdev_minor: 0,
+            stx_size: 0,
+            stx_blksize: 0,
+            stx_blocks: 0,
+            stx_atime: self.attrs.atime.into(),
+            stx_btime: self.attrs.btime.into(),
+            stx_ctime: self.attrs.ctime.into(),
+            stx_mtime: self.attrs.mtime.into(),
+            stx_mnt_id: 0,
+            stx_dio_mem_align: 0,
+            stx_dio_offset_align: 0,
+            stx_dio_read_offset_align: 0,
+            stx_atomic_write_segments_max: 0,
+            stx_atomic_write_unit_min: 0,
+            stx_atomic_write_unit_max: 0,
+            stx_subvol: 0,
         })
     }
 }

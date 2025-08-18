@@ -403,7 +403,7 @@ const SYSTEM_CALL_HANDLERS: &[SystemCallHandler] = &[
     sys_invalid,           // 329
     sys_invalid,           // 330
     sys_invalid,           // 331
-    sys_invalid,           // 332
+    sys_statx,             // 332
     sys_invalid,           // 333
     sys_rseq,              // 334
     sys_invalid,           // 335

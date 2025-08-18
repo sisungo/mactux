@@ -7,7 +7,7 @@ use mactux_ipc::{request::Request, response::Response};
 use std::sync::Arc;
 use structures::{
     error::LxError,
-    fs::{AccessFlags, AtFlags, Dirent64, OpenFlags, Stat},
+    fs::{AccessFlags, AtFlags, Dirent64, OpenFlags, Statx},
 };
 
 #[derive(Debug)]
@@ -108,14 +108,14 @@ pub fn getdents64(fd: c_int) -> Result<Option<Dirent64>, LxError> {
 }
 
 #[inline]
-pub unsafe fn stat(fd: c_int) -> Result<Stat, LxError> {
+pub unsafe fn stat(fd: c_int) -> Result<Statx, LxError> {
     if let Some(vfd) = crate::vfd::get(fd) {
         vfd::stat(vfd)
     } else {
         let mut stat = unsafe { std::mem::zeroed() };
         unsafe {
             posix_bi!(libc::fstat(fd, &mut stat))?;
-            Ok(stat.into())
+            Ok(Statx::from_apple(stat))
         }
     }
 }

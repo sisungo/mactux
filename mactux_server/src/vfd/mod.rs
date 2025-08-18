@@ -14,7 +14,7 @@ use std::{
 };
 use structures::{
     error::LxError,
-    fs::{Dirent64, OpenFlags, Stat},
+    fs::{Dirent64, OpenFlags, Stat, Statx},
     io::{FcntlCmd, FdFlags, IoctlCmd, PollEvents, Whence},
 };
 
@@ -61,7 +61,7 @@ impl VirtualFd {
         self.inner.lseek(whence, off).await
     }
 
-    pub async fn stat(&self) -> Result<Stat, LxError> {
+    pub async fn stat(&self) -> Result<Statx, LxError> {
         self.inner.stat().await
     }
 
@@ -74,7 +74,7 @@ impl VirtualFd {
                 } else {
                     Ok(Response::Ctrl(0))
                 }
-            },
+            }
             FcntlCmd::F_SETFD => {
                 let mut fd_flags = [0u8; size_of::<u32>()];
                 fd_flags.copy_from_slice(buf);
@@ -83,10 +83,11 @@ impl VirtualFd {
                     return Err(LxError::EINVAL);
                 };
                 if fd_flags.contains(FdFlags::FD_CLOEXEC) {
-                    self.open_flags.store(self.open_flags.load() | OpenFlags::O_CLOEXEC);
+                    self.open_flags
+                        .store(self.open_flags.load() | OpenFlags::O_CLOEXEC);
                 }
                 Ok(Response::Ctrl(0))
-            },
+            }
             other => self.inner.fcntl(other.0, buf.to_vec()).await,
         }
     }
@@ -168,7 +169,7 @@ pub trait VirtualFile: Send + Sync {
         Err(LxError::EOPNOTSUPP)
     }
 
-    async fn stat(&self) -> Result<Stat, LxError> {
+    async fn stat(&self) -> Result<Statx, LxError> {
         Err(LxError::EOPNOTSUPP)
     }
 
@@ -204,7 +205,7 @@ pub trait VirtualFile: Send + Sync {
         Err(LxError::EOPNOTSUPP)
     }
 
-    async fn poll(&self, interest: PollEvents) -> Result<PollEvents, LxError> {
+    async fn poll(&self, _interest: PollEvents) -> Result<PollEvents, LxError> {
         Err(LxError::EOPNOTSUPP)
     }
 }

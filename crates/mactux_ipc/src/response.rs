@@ -1,7 +1,7 @@
 use bincode::{Decode, Encode};
 use structures::{
     error::LxError,
-    fs::{Dirent64, Stat},
+    fs::{Dirent64, Statx},
     misc::SysInfo,
 };
 
@@ -22,7 +22,7 @@ pub enum Response {
     DupVirtualFd(u64),
     OrigPath(Vec<u8>),
     VirtualFdAvailCtrl(VirtualFdAvailCtrl),
-    Stat(Stat),
+    Stat(Statx),
     Dirent64(Dirent64),
 
     NetworkNames(NetworkNames),

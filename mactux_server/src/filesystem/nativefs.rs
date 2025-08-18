@@ -12,7 +12,7 @@ use mactux_ipc::response::Response;
 use std::{path::PathBuf, sync::Arc};
 use structures::{
     error::LxError,
-    fs::{AccessFlags, Dirent64, Dirent64Hdr, DirentType, OpenFlags, Stat},
+    fs::{AccessFlags, Dirent64, Dirent64Hdr, DirentType, OpenFlags, Statx},
     io::FcntlCmd,
 };
 use tokio::{fs::ReadDir, sync::Mutex};
@@ -147,13 +147,13 @@ impl VirtualFile for NativeDirVirtualFd {
         }
     }
 
-    async fn stat(&self) -> Result<Stat, LxError> {
+    async fn stat(&self) -> Result<Statx, LxError> {
         let c_path = c_str(self.path.clone().into_os_string().into_encoded_bytes());
         tokio::task::spawn_blocking(move || unsafe {
             let mut stat = std::mem::zeroed();
             match libc::stat(c_path.as_ptr().cast(), &mut stat) {
                 -1 => Err(LxError::last_apple_error()),
-                _ => Ok(stat.into()),
+                _ => Ok(Statx::from_apple(stat)),
             }
         })
         .await

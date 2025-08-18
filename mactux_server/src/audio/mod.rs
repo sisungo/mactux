@@ -30,6 +30,9 @@ struct AudioOutput {
     sample_format: AtomicCell<SampleFormat>,
 }
 impl AudioOutput {
+    /// Creates a new audio output instance.
+    ///
+    /// Note that this is costly and may create some sound in the physical audio sink.
     async fn new() -> Result<Self, LxError> {
         let (tx, rx) = oneshot::channel();
         let assoc_thrd = std::thread::spawn(|| {
@@ -60,6 +63,10 @@ impl AudioOutput {
         })
     }
 
+    /// Writes samples to the audio output, returning the number of bytes written.
+    ///
+    /// Currently, partial samples are not written. For example, if we set the audio output to accept 16-bit samples,
+    /// trying to write 3 samples will always return 2.
     fn write_samples(&self, samples: &[u8]) -> Result<usize, LxError> {
         let (samples, bytes) = convert_samples(self.sample_format.load(), samples);
         let buffer = SamplesBuffer::new(
@@ -71,11 +78,13 @@ impl AudioOutput {
         Ok(bytes)
     }
 
+    /// Starts the audio output.
     fn start(&self) -> Result<(), LxError> {
         self.sink.play();
         Ok(())
     }
 
+    /// Stops the audio output.
     fn stop(&self) -> Result<(), LxError> {
         self.sink.pause();
         Ok(())
@@ -93,6 +102,7 @@ fn from_stream_error(err: rodio::StreamError) -> LxError {
     }
 }
 
+/// Converts samples in given format to the F32 format, returning a tuple of samples and number of bytes written.
 fn convert_samples(fmt: SampleFormat, samples: &[u8]) -> (Vec<Sample>, usize) {
     match fmt {
         SampleFormat::I8 => _convert_samples::<i8>(samples),
@@ -109,6 +119,7 @@ fn convert_samples(fmt: SampleFormat, samples: &[u8]) -> (Vec<Sample>, usize) {
     }
 }
 
+/// Converts samples to the F32 format, returning a tuple of samples and number of bytes written.
 fn _convert_samples<I: rodio::cpal::Sample + FromBytes>(rsamples: &[u8]) -> (Vec<Sample>, usize)
 where
     Sample: FromSample<I>,
@@ -129,7 +140,9 @@ where
     (converter.collect(), stream.position() as _)
 }
 
+/// Converts from a byte slice to a certain type.
 trait FromBytes {
+    /// Converts from a byte slice to a certain type.
     fn from_bytes(bytes: &[u8]) -> Self;
 }
 

@@ -2,7 +2,7 @@ use crate::{ipc_client::with_client, util::ipc_fail};
 use mactux_ipc::{request::Request, response::Response};
 use structures::{
     error::LxError,
-    fs::{Dirent64, Stat},
+    fs::{Dirent64, Statx},
 };
 
 pub fn getdents64(vfd: u64) -> Result<Option<Dirent64>, LxError> {
@@ -17,11 +17,11 @@ pub fn getdents64(vfd: u64) -> Result<Option<Dirent64>, LxError> {
     })
 }
 
-pub fn stat(vfd: u64) -> Result<Stat, LxError> {
+pub fn stat(vfd: u64) -> Result<Statx, LxError> {
     with_client(|client| {
         let response = client.invoke(Request::VirtualFdStat(vfd)).unwrap();
         match response {
-            Response::Stat(stat) => Ok(stat),
+            Response::Stat(stat) => Ok(stat.into()),
             Response::Error(err) => Err(err),
             _ => ipc_fail(),
         }

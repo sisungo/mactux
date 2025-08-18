@@ -97,8 +97,9 @@ pub struct FileAttrs {
     pub gid: u32,
     pub mode: u32,
     pub atime: Timespec,
-    pub mtime: Timespec,
+    pub btime: Timespec,
     pub ctime: Timespec,
+    pub mtime: Timespec,
 }
 impl FileAttrs {
     pub fn common() -> FileAttrs {
@@ -107,8 +108,9 @@ impl FileAttrs {
             gid: 0,
             mode: 0o666,
             atime: now(),
-            mtime: now(),
+            btime: now(),
             ctime: now(),
+            mtime: now(),
         }
     }
 }
