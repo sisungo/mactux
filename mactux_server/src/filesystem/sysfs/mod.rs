@@ -1,7 +1,4 @@
-use crate::{
-    filesystem::kernfs::KernFs,
-    filesystem::vfs::Mountable,
-};
+use crate::{filesystem::kernfs::KernFs, filesystem::vfs::Mountable};
 use std::sync::Arc;
 use structures::error::LxError;
 

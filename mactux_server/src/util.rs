@@ -3,7 +3,7 @@ use papaya::Guard;
 use rustc_hash::FxBuildHasher;
 use std::{
     sync::{
-        Arc, Weak,
+        Weak,
         atomic::{self, AtomicU64},
     },
     time::SystemTime,

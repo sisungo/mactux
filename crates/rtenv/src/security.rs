@@ -1,4 +1,8 @@
 use std::ffi::c_uint;
+use structures::{
+    error::LxError,
+    security::{UserCap, UserCapHeader},
+};
 
 pub fn uid() -> c_uint {
     unsafe { libc::getuid() }
@@ -29,4 +33,18 @@ pub fn groups() -> Vec<c_uint> {
             break buf;
         }
     }
+}
+
+pub fn capget(pid: i32) -> Result<UserCap, LxError> {
+    if pid == 0 || pid == crate::process::pid() {
+        todo!()
+    }
+    todo!()
+}
+
+pub fn capset(cap: UserCap) -> Result<(), LxError> {
+    if cap.pid == 0 || cap.pid == crate::process::pid() {
+        todo!()
+    }
+    todo!()
 }

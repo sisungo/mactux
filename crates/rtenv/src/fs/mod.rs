@@ -12,11 +12,13 @@ use structures::{
 
 #[derive(Debug)]
 pub struct FilesystemContext {
+    pub root: ArcSwap<Vec<u8>>,
     pub cwd: ArcSwap<Vec<u8>>,
 }
 impl FilesystemContext {
     pub fn new() -> Self {
         Self {
+            root: ArcSwap::from(Arc::new(vec![b'/'])),
             cwd: ArcSwap::from(Arc::new(vec![b'/'])),
         }
     }
@@ -24,24 +26,7 @@ impl FilesystemContext {
 
 #[inline]
 pub fn open(path: Vec<u8>, flags: OpenFlags, mode: u32) -> Result<c_int, LxError> {
-    with_client(|client| {
-        match client
-            .invoke(Request::Open(full_path(path), flags.bits(), mode))
-            .unwrap()
-        {
-            Response::OpenNativePath(native) => unsafe {
-                let c_path = crate::util::c_path(native);
-                if flags.contains(OpenFlags::O_CREAT) {
-                    posix_num!(libc::open(c_path.as_ptr().cast(), flags.to_apple(), mode))
-                } else {
-                    posix_num!(libc::open(c_path.as_ptr().cast(), flags.to_apple()))
-                }
-            },
-            Response::OpenVirtualFd(vfd) => crate::vfd::create(vfd, flags),
-            Response::Error(err) => Err(err),
-            _ => ipc_fail(),
-        }
-    })
+    openat(-100, full_path(path), flags, AtFlags::empty(), mode)
 }
 
 #[inline]
@@ -60,7 +45,26 @@ pub fn openat(
         return crate::io::dup(dfd);
     }
 
-    open(at_path(dfd, path)?, oflags, mode)
+    let path = at_path(dfd, path)?;
+
+    with_client(|client| {
+        match client
+            .invoke(Request::Open(path, oflags.bits(), mode))
+            .unwrap()
+        {
+            Response::OpenNativePath(native) => unsafe {
+                let c_path = crate::util::c_path(native);
+                if oflags.contains(OpenFlags::O_CREAT) {
+                    posix_num!(libc::open(c_path.as_ptr().cast(), oflags.to_apple(), mode))
+                } else {
+                    posix_num!(libc::open(c_path.as_ptr().cast(), oflags.to_apple()))
+                }
+            },
+            Response::OpenVirtualFd(vfd) => crate::vfd::create(vfd, oflags),
+            Response::Error(err) => Err(err),
+            _ => ipc_fail(),
+        }
+    })
 }
 
 #[inline]
@@ -203,13 +207,14 @@ pub fn getcwd() -> Vec<u8> {
 
 #[inline]
 pub fn chdir(new: Vec<u8>) -> Result<(), LxError> {
-    _ = crate::io::close(open(
-        new.clone(),
-        OpenFlags::O_PATH | OpenFlags::O_DIRECTORY,
-        0,
-    )?);
-    process::context().fs.cwd.store(Arc::new(new));
-    Ok(())
+    let fd = open(new.clone(), OpenFlags::O_PATH | OpenFlags::O_DIRECTORY, 0)?;
+    match fchdir(fd) {
+        Ok(()) => Ok(()),
+        Err(err) => {
+            _ = crate::io::close(fd);
+            Err(err)
+        }
+    }
 }
 
 #[inline]
@@ -217,10 +222,20 @@ pub fn fchdir(fd: c_int) -> Result<(), LxError> {
     let Some(vfd) = crate::vfd::get(fd) else {
         return Err(LxError::ENOTDIR);
     };
-    chdir(vfd::orig_path(vfd)?)
+    process::context()
+        .fs
+        .cwd
+        .store(Arc::new(vfd::orig_path(vfd)?));
+    Ok(())
+}
+
+#[inline]
+pub fn listxattr(fd: c_int) -> Result<Vec<u8>, LxError> {
+    Ok(Vec::new())
 }
 
 /// Gets path of a local socket.
+#[inline]
 pub fn get_sock_path(path: Vec<u8>, create: bool) -> Result<Vec<u8>, LxError> {
     with_client(|client| {
         match client
@@ -258,13 +273,6 @@ fn at_base_path(fd: c_int) -> Result<Vec<u8>, LxError> {
 }
 
 /// Returns a path that can be accepted by the MacTux server from a relative path.
-fn full_path(mut path: Vec<u8>) -> Vec<u8> {
-    if path.first().copied() == Some(b'/') {
-        path
-    } else {
-        let mut full_path = getcwd();
-        full_path.push(b'/');
-        full_path.append(&mut path);
-        full_path
-    }
+fn full_path(path: Vec<u8>) -> Vec<u8> {
+    at_path(-100, path).expect("full path from cwd should never fail")
 }

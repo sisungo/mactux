@@ -1,7 +1,5 @@
 use super::Session;
-use crate::{
-    filesystem::vfs::{NewlyOpen, VfsPath},
-};
+use crate::filesystem::vfs::{NewlyOpen, VfsPath};
 use mactux_ipc::response::{NetworkNames, Response};
 use structures::{
     error::LxError,

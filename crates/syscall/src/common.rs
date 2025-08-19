@@ -1,5 +1,5 @@
 use super::UcontextExt;
-use crate::util::rust_bytes;
+use crate::util::{rust_bytes, with_openat};
 use libc::{c_char, c_int, c_uint, c_void};
 use macros::syscall;
 use rtenv::{error_report::ErrorReport, posix_num};
@@ -60,10 +60,16 @@ pub unsafe fn sys_faccessat2(
 #[syscall]
 pub unsafe fn sys_stat(filename: *const c_char, statbuf: *mut Stat) -> Result<(), LxError> {
     unsafe {
-        let fd = rtenv::fs::open(rust_bytes(filename).to_vec(), OpenFlags::O_PATH, 0)?;
-        let stat = rtenv::fs::stat(fd).inspect_err(|_| _ = rtenv::io::close(fd))?;
+        let stat = with_openat(
+            -100,
+            rust_bytes(filename).to_vec(),
+            OpenFlags::O_PATH,
+            AtFlags::empty(),
+            0,
+            |fd| rtenv::fs::stat(fd),
+        )?;
         statbuf.write(stat.into());
-        rtenv::io::close(fd)
+        Ok(())
     }
 }
 
@@ -75,16 +81,16 @@ pub unsafe fn sys_newfstatat(
     flags: AtFlags,
 ) -> Result<(), LxError> {
     unsafe {
-        let fd = rtenv::fs::openat(
+        let stat = with_openat(
             dfd,
             rust_bytes(filename).to_vec(),
             OpenFlags::O_PATH,
             flags,
             0,
+            |fd| rtenv::fs::stat(fd),
         )?;
-        let stat = rtenv::fs::stat(fd).inspect_err(|_| _ = rtenv::io::close(fd))?;
         statbuf.write(stat.into());
-        rtenv::io::close(fd)
+        Ok(())
     }
 }
 
@@ -99,20 +105,16 @@ pub unsafe fn sys_fstat(fd: c_int, statbuf: *mut Stat) -> Result<(), LxError> {
 #[syscall]
 pub unsafe fn sys_lstat(filename: *const c_char, statbuf: *mut Stat) -> Result<(), LxError> {
     unsafe {
-        let fd = rtenv::fs::open(
+        let stat = with_openat(
+            -100,
             rust_bytes(filename).to_vec(),
             OpenFlags::O_NOFOLLOW | OpenFlags::O_PATH,
+            AtFlags::empty(),
             0,
+            |fd| rtenv::fs::stat(fd),
         )?;
-        let stat = match rtenv::fs::stat(fd) {
-            Ok(stat) => stat,
-            Err(err) => {
-                _ = rtenv::io::close(fd);
-                return Err(err);
-            }
-        };
         statbuf.write(stat.into());
-        rtenv::io::close(fd)
+        Ok(())
     }
 }
 
@@ -125,16 +127,16 @@ pub unsafe fn sys_statx(
     buf: *mut Statx,
 ) -> Result<(), LxError> {
     unsafe {
-        let fd = rtenv::fs::openat(
+        let statx = with_openat(
             dfd,
             rust_bytes(pathname).to_vec(),
             OpenFlags::O_PATH,
             flags,
             0,
+            |fd| rtenv::fs::stat(fd),
         )?;
-        let statx = rtenv::fs::stat(fd).inspect_err(|_| _ = rtenv::io::close(fd))?;
         buf.write(statx);
-        rtenv::io::close(fd)
+        Ok(())
     }
 }
 
@@ -246,6 +248,47 @@ pub unsafe fn sys_chown(path: *const c_char, uid: u32, gid: u32) -> Result<(), L
 #[syscall]
 pub unsafe fn sys_fchown(fd: c_int, uid: u32, gid: u32) -> Result<(), LxError> {
     unsafe { rtenv::fs::chown(fd, uid, gid) }
+}
+
+#[syscall]
+pub unsafe fn sys_listxattr(
+    path: *const c_char,
+    list: *mut u8,
+    size: usize,
+) -> Result<usize, LxError> {
+    unsafe {
+        with_openat(
+            -100,
+            rust_bytes(path).to_vec(),
+            OpenFlags::O_PATH,
+            AtFlags::empty(),
+            0,
+            |fd| crate::util::ret_buf(&rtenv::fs::listxattr(fd)?, list, size),
+        )
+    }
+}
+
+#[syscall]
+pub unsafe fn sys_llistxattr(
+    path: *const c_char,
+    list: *mut u8,
+    size: usize,
+) -> Result<usize, LxError> {
+    unsafe {
+        with_openat(
+            -100,
+            rust_bytes(path).to_vec(),
+            OpenFlags::O_PATH | OpenFlags::O_NOFOLLOW,
+            AtFlags::empty(),
+            0,
+            |fd| crate::util::ret_buf(&rtenv::fs::listxattr(fd)?, list, size),
+        )
+    }
+}
+
+#[syscall]
+pub unsafe fn sys_flistxattr(fd: c_int, list: *mut u8, size: usize) -> Result<usize, LxError> {
+    unsafe { crate::util::ret_buf(&rtenv::fs::listxattr(fd)?, list, size) }
 }
 
 // -== Basic IO Operations ==-

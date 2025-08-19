@@ -30,6 +30,7 @@ unixvariants! {
         const ESPIPE = 29;
         const EROFS = 30;
         const EPIPE = 32;
+        const ERANGE = 34;
         const ENOSYS = 38;
         const ENOTEMPTY = 39;
         const ELOOP = 40;

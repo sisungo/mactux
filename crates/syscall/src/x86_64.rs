@@ -265,9 +265,9 @@ const SYSTEM_CALL_HANDLERS: &[SystemCallHandler] = &[
     sys_invalid,           // 191
     sys_invalid,           // 192
     sys_invalid,           // 193
-    sys_invalid,           // 194
-    sys_invalid,           // 195
-    sys_invalid,           // 196
+    sys_listxattr,         // 194
+    sys_llistxattr,        // 195
+    sys_flistxattr,        // 196
     sys_invalid,           // 197
     sys_invalid,           // 198
     sys_invalid,           // 199
@@ -574,6 +574,14 @@ unsafe fn sys_rt_sigreturn(ctx: &mut libc::ucontext_t) {
     }
 }
 
+/// Convenient macro to implement indirect system calls on x86_64.
+///
+/// Different from normal system calls, indirect system calls do not execute their effective code in the signal handler. They
+/// return from the signal handler, jumping the context to their effective code, and when it completes, it calls the
+/// `pseudo_restorectx` pseudo system call to restore the original user context.
+///
+/// It's slower, but due to macOS limitations, some operations fail in the signal handler context. For example, if we call
+/// `fork()` in the signal handler, the child immediately dies with `SIGTRAP` after returning from the handler.
 macro_rules! impl_syscall_indirect {
     ($name:ident = $blk:expr) => {
         unsafe fn $name(uctx: &mut libc::ucontext_t) {
@@ -645,6 +653,9 @@ impl_syscall_indirect!(
 );
 use sys_fork as sys_vfork;
 
+/// The `restorectx` pseudo system call \(479\).
+///
+/// This is only used to implement indirect system calls. See [`impl_syscall_indirect`] for details.
 unsafe fn pseudo_restorectx(uctx: &mut libc::ucontext_t) {
     unsafe {
         rtenv::emuctx::leave_emulated();

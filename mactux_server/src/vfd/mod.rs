@@ -14,7 +14,7 @@ use std::{
 };
 use structures::{
     error::LxError,
-    fs::{Dirent64, OpenFlags, Stat, Statx},
+    fs::{Dirent64, OpenFlags, Statx},
     io::{FcntlCmd, FdFlags, IoctlCmd, PollEvents, Whence},
 };
 
