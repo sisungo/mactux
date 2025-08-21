@@ -126,5 +126,5 @@ fn apple_sockaddr(
         },
     }
 
-    Ok((buf, 0))
+    Ok((buf, size_of::<libc::sockaddr_storage>()))
 }
