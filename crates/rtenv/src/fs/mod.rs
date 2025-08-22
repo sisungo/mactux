@@ -69,22 +69,13 @@ pub fn openat(
 
 #[inline]
 pub fn access(path: Vec<u8>, mode: AccessFlags) -> Result<(), LxError> {
-    with_client(|client| {
-        match client
-            .invoke(Request::Access(full_path(path), mode.bits()))
-            .unwrap()
-        {
-            Response::Nothing => Ok(()),
-            Response::Error(err) => Err(err),
-            _ => ipc_fail(),
-        }
-    })
+    faccessat2(-100, path, mode, AtFlags::empty())
 }
 
 #[inline]
 pub fn faccessat2(
     dfd: c_int,
-    mut path: Vec<u8>,
+    path: Vec<u8>,
     mode: AccessFlags,
     flags: AtFlags,
 ) -> Result<(), LxError> {
@@ -92,14 +83,16 @@ pub fn faccessat2(
         return Ok(());
     }
 
-    if let Some(dvfd) = crate::vfd::get(dfd) {
-        let mut new_path = vfd::orig_path(dvfd)?;
-        new_path.push(b'/');
-        new_path.append(&mut path);
-        access(new_path, mode)
-    } else {
-        Err(LxError::ENOTDIR)
-    }
+    with_client(|client| {
+        match client
+            .invoke(Request::Access(at_path(dfd, path)?, mode.bits()))
+            .unwrap()
+        {
+            Response::Nothing => Ok(()),
+            Response::Error(err) => Err(err),
+            _ => ipc_fail(),
+        }
+    })
 }
 
 #[inline]

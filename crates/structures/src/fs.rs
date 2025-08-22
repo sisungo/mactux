@@ -293,11 +293,3 @@ impl From<Timespec> for StatxTimestamp {
         }
     }
 }
-
-bitflags! {
-    #[derive(Debug, Clone, Copy)]
-    #[repr(transparent)]
-    pub struct FileMode: u32 {
-
-    }
-}
