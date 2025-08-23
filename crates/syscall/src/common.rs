@@ -10,7 +10,9 @@ use structures::{
     io::{EventFdFlags, FcntlCmd, FdSet, FlockOp, IoctlCmd, PSelectSigMask, PollFd, Whence},
     misc::{GrndFlags, SysInfo, UtsName},
     mm::{Madvice, MmapFlags, MmapProt, MremapFlags, MsyncFlags},
-    net::{Domain, Protocol, ShutdownHow, SockAddr, SocketFlags, SocketType},
+    net::{
+        Domain, Protocol, ShutdownHow, SockAddr, SockOpt, SockOptLevel, SocketFlags, SocketType,
+    },
     process::{PrctlOp, RLimit64, RLimitable, RUsage, RUsageWho, WaitOptions, WaitStatus},
     signal::{KernelSigSet, MaskHowto, SigAction, SigNum},
     sync::{FutexCmd, FutexOp, RSeq},
@@ -719,6 +721,35 @@ pub unsafe fn sys_connect(sock: c_int, addr: *const u8, len: c_int) -> Result<()
             sock,
             SockAddr::from_bytes(std::slice::from_raw_parts(addr, len as usize))?,
         )
+    }
+}
+
+#[syscall]
+pub unsafe fn sys_getsockopt(
+    sock: c_int,
+    level: SockOptLevel,
+    opt: SockOpt,
+    ptr: *mut u8,
+    len: *mut c_int,
+) -> Result<(), LxError> {
+    unsafe {
+        // TODO length
+        let buf = std::slice::from_raw_parts_mut(ptr, len.read() as usize);
+        rtenv::net::getsockopt(sock, level, opt, buf)
+    }
+}
+
+#[syscall]
+pub unsafe fn sys_setsockopt(
+    sock: c_int,
+    level: SockOptLevel,
+    opt: SockOpt,
+    ptr: *const u8,
+    len: c_int,
+) -> Result<(), LxError> {
+    unsafe {
+        let buf = std::slice::from_raw_parts(ptr, len as usize);
+        rtenv::net::setsockopt(sock, level, opt, buf)
     }
 }
 

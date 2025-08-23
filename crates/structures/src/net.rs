@@ -48,37 +48,39 @@ unixvariants! {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct SockOpt(pub u32);
-impl SockOpt {
-    pub const SO_DEBUG: Self = Self(1);
-    pub const SO_REUSEDADDR: Self = Self(2);
-    pub const SO_TYPE: Self = Self(3);
-    pub const SO_ERROR: Self = Self(4);
-    pub const SO_DONTROUTE: Self = Self(5);
-    pub const SO_BROADCAST: Self = Self(6);
-    pub const SO_SNDBUF: Self = Self(7);
-    pub const SO_RCVBUF: Self = Self(8);
-    pub const SO_KEEPALIVE: Self = Self(9);
-    pub const SO_OOBINLINE: Self = Self(10);
-    pub const SO_NO_CHECK: Self = Self(11);
-    pub const SO_PRIORITY: Self = Self(12);
-    pub const SO_LINGER: Self = Self(13);
-    pub const SO_REUSEPORT: Self = Self(15);
-    pub const SO_PASSCRED: Self = Self(16);
-    pub const SO_PEERCRED: Self = Self(17);
-    pub const SO_RCVLOWAT: Self = Self(18);
-    pub const SO_SNDLOWAT: Self = Self(19);
-    pub const SO_RCVTIMEO: Self = Self(20);
-    pub const SO_SNDTIMEO: Self = Self(21);
-    pub const SO_BINDTODEVICE: Self = Self(25);
-    pub const SO_TIMESTAMP: Self = Self(29);
-    pub const SO_ACCEPTCONN: Self = Self(30);
-    pub const SO_PEERSEC: Self = Self(31);
-    pub const SO_SNDBUFFORCE: Self = Self(32);
-    pub const SO_RCVBUFFORCE: Self = Self(33);
-    pub const SO_PROTOCOL: Self = Self(38);
-    pub const SO_DOMAIN: Self = Self(39);
+unixvariants! {
+    pub struct SockOpt: u32 {
+        const SO_DEBUG = 1;
+        const SO_REUSEADDR = 2;
+        const SO_TYPE = 3;
+        const SO_ERROR = 4;
+        const SO_DONTROUTE = 5;
+        const SO_BROADCAST = 6;
+        const SO_SNDBUF = 7;
+        const SO_RCVBUF = 8;
+        const SO_KEEPALIVE = 9;
+        const SO_OOBINLINE = 10;
+        const SO_LINGER = 13;
+        const SO_REUSEPORT = 15;
+        const SO_RCVLOWAT = 18;
+        const SO_SNDLOWAT = 19;
+        const SO_RCVTIMEO = 20;
+        const SO_SNDTIMEO = 21;
+        const SO_TIMESTAMP = 29;
+        const SO_ACCEPTCONN = 30;
+        #[linux_only] const SO_NO_CHECK = 11;
+        #[linux_only] const SO_PRIORITY = 12;
+        #[linux_only] const SO_PASSCRED = 16;
+        #[linux_only] const SO_PEERSEC = 31;
+        #[linux_only] const SO_SNDBUFFORCE = 32;
+        #[linux_only] const SO_RCVBUFFORCE = 33;
+        #[linux_only] const SO_PROTOCOL = 38;
+        #[linux_only] const SO_DOMAIN = 39;
+        #[apple = LOCAL_PEERCRED] const SO_PEERCRED = 17;
+        #[apple = IP_BOUND_IF] const SO_BINDTODEVICE = 25;
+        fn from_apple(apple: c_int) -> Result<Self, LxError>;
+        fn to_apple(self) -> Result<c_int, LxError>;
+    }
 }
 
 unixvariants! {

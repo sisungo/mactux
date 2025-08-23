@@ -1,11 +1,15 @@
 mod local;
+mod sockopt;
 
 use crate::{posix_bi, posix_num};
 use libc::c_int;
 use std::mem::offset_of;
 use structures::{
     error::LxError,
-    net::{Domain, Protocol, ShutdownHow, SockAddr, SockAddrIn, SocketFlags, SocketType},
+    net::{
+        Domain, Protocol, ShutdownHow, SockAddr, SockAddrIn, SockOpt, SockOptLevel, SocketFlags,
+        SocketType,
+    },
 };
 
 pub fn socket(domain: Domain, ty: SocketType, proto: Protocol) -> Result<c_int, LxError> {
@@ -73,6 +77,30 @@ pub fn shutdown(sock: c_int, how: ShutdownHow) -> Result<(), LxError> {
             -1 => Err(LxError::last_apple_error()),
             _ => Ok(()),
         }
+    }
+}
+
+pub fn getsockopt(
+    sock: c_int,
+    level: SockOptLevel,
+    opt: SockOpt,
+    buf: &mut [u8],
+) -> Result<(), LxError> {
+    match level {
+        SockOptLevel::SOL_SOCKET => sockopt::get::<sockopt::SocketLevel>(sock, opt, buf),
+        _ => Err(LxError::EINVAL),
+    }
+}
+
+pub fn setsockopt(
+    sock: c_int,
+    level: SockOptLevel,
+    opt: SockOpt,
+    buf: &[u8],
+) -> Result<(), LxError> {
+    match level {
+        SockOptLevel::SOL_SOCKET => sockopt::set::<sockopt::SocketLevel>(sock, opt, buf),
+        _ => Err(LxError::EINVAL),
     }
 }
 

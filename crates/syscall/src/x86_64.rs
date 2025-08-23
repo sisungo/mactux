@@ -125,8 +125,8 @@ const SYSTEM_CALL_HANDLERS: &[SystemCallHandler] = &[
     sys_getsockname,       // 51
     sys_getpeername,       // 52
     sys_invalid,           // 53
-    sys_invalid,           // 54
-    sys_invalid,           // 55
+    sys_setsockopt,        // 54
+    sys_getsockopt,        // 55
     sys_clone,             // 56
     sys_fork,              // 57
     sys_vfork,             // 58
