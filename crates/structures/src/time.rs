@@ -1,5 +1,6 @@
 use crate::unixvariants;
 use bincode::{Decode, Encode};
+use bitflags::bitflags;
 use libc::c_int;
 use std::time::Duration;
 
@@ -12,6 +13,14 @@ unixvariants! {
         const CLOCK_THREAD_CPUTIME_ID = 3;
         fn from_apple(apple: libc::clockid_t) -> Result<Self, LxError>;
         fn to_apple(self) -> Result<libc::clockid_t, LxError>;
+    }
+}
+
+bitflags! {
+    #[derive(Debug, Clone, Copy)]
+    #[repr(transparent)]
+    pub struct TimerFlags: u32 {
+        const TIMER_ABSTIME = 1;
     }
 }
 

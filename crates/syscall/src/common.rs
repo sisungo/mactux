@@ -16,7 +16,7 @@ use structures::{
     process::{PrctlOp, RLimit64, RLimitable, RUsage, RUsageWho, WaitOptions, WaitStatus},
     signal::{KernelSigSet, MaskHowto, SigAction, SigNum},
     sync::{FutexCmd, FutexOp, RSeq},
-    time::{ClockId, Timespec, Timeval, Timezone},
+    time::{ClockId, TimerFlags, Timespec, Timeval, Timezone},
 };
 
 // -== Filesystem Operations ==-
@@ -910,6 +910,43 @@ pub unsafe fn sys_nanosleep(rqtp: *const Timespec, rmtp: *mut Timespec) -> std::
         let mut rmtp_buf = std::mem::zeroed();
         match libc::nanosleep(&rqtp, &mut rmtp_buf) {
             -1 => Err(std::io::Error::last_os_error()),
+            _ => {
+                rmtp.write(Timespec::from_apple(rmtp_buf));
+                Ok(())
+            }
+        }
+    }
+}
+
+#[syscall]
+pub unsafe fn sys_clock_nanosleep(
+    clock: ClockId,
+    flags: TimerFlags,
+    rqtp: *const Timespec,
+    rmtp: *mut Timespec,
+) -> Result<(), LxError> {
+    unsafe {
+        let mut rqtp = rqtp.read().to_apple();
+        if flags.contains(TimerFlags::TIMER_ABSTIME) {
+            let mut now = std::mem::zeroed();
+            if libc::clock_gettime(clock.to_apple()?, &mut now) == -1 {
+                return Err(LxError::last_apple_error());
+            }
+            if rqtp.tv_sec < now.tv_sec
+                || (rqtp.tv_sec == now.tv_sec && rqtp.tv_nsec <= now.tv_nsec)
+            {
+                rmtp.write(Timespec {
+                    tv_sec: 0,
+                    tv_nsec: 0,
+                });
+                return Ok(());
+            }
+            rqtp.tv_sec -= now.tv_sec;
+            rqtp.tv_nsec -= now.tv_nsec;
+        }
+        let mut rmtp_buf = std::mem::zeroed();
+        match libc::nanosleep(&rqtp, &mut rmtp_buf) {
+            -1 => Err(LxError::last_apple_error()),
             _ => {
                 rmtp.write(Timespec::from_apple(rmtp_buf));
                 Ok(())

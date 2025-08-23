@@ -16,7 +16,7 @@ use structures::{
     process::{PrctlOp, RLimitable, RUsageWho, WaitOptions},
     signal::{MaskHowto, SigNum},
     sync::FutexOp,
-    time::ClockId,
+    time::{ClockId, TimerFlags},
 };
 
 /// Install the system call emulation signal handlers.
@@ -121,7 +121,7 @@ macro_rules! impl_from_to_sys_newtype {
 impl_from_to_sys_plain!(i8; u8; i16; u16; i32; u32; i64; u64; isize; usize);
 impl_from_to_sys_bitflags!(
     MmapFlags; OpenFlags; AtFlags; MmapProt; GrndFlags; AccessFlags; WaitOptions; MsyncFlags;
-    MremapFlags; SocketFlags; EventFdFlags
+    MremapFlags; SocketFlags; EventFdFlags; TimerFlags
 );
 impl_from_to_sys_newtype!(
     Whence; FcntlCmd; IoctlCmd; FutexOp; ClockId; MaskHowto; SigNum; Domain; SocketType; Protocol;

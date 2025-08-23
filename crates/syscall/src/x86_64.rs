@@ -301,7 +301,7 @@ const SYSTEM_CALL_HANDLERS: &[SystemCallHandler] = &[
     sys_invalid,           // 227
     sys_clock_gettime,     // 228
     sys_invalid,           // 229
-    sys_invalid,           // 230
+    sys_clock_nanosleep,   // 230
     sys_exit_group,        // 231
     sys_invalid,           // 232
     sys_invalid,           // 233
@@ -506,7 +506,7 @@ const SYSTEM_CALL_HANDLERS: &[SystemCallHandler] = &[
     sys_invalid,           // 432
     sys_invalid,           // 433
     sys_invalid,           // 434
-    sys_invalid,           // 435
+    sys_clone3,            // 435
     sys_invalid,           // 436
     sys_invalid,           // 437
     sys_invalid,           // 438
@@ -635,6 +635,22 @@ impl_syscall_indirect!(
             Ok(0) => {
                 if stack != 0 {
                     mctx.__ss.__rsp = stack;
+                }
+                0
+            }
+            Ok(n) => n as _,
+            Err(err) => -(err.0 as i32) as u64,
+        }
+    }
+);
+impl_syscall_indirect!(
+    sys_clone3 = |mctx: &mut libc::__darwin_mcontext64| {
+        let clone_args = (mctx.__ss.__rdi as *const CloneArgs).read();
+        let stack = clone_args.stack();
+        match rtenv::process::clone(clone_args) {
+            Ok(0) => {
+                if !stack.is_null() {
+                    mctx.__ss.__rsp = stack as usize as _;
                 }
                 0
             }
