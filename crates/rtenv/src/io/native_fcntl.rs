@@ -3,24 +3,24 @@ use libc::c_int;
 use structures::{
     error::LxError,
     fs::OpenFlags,
-    io::{FcntlCmd, FdFlags, Flock},
+    io::{FcntlCmd, FdFlags, Flock}, FromApple, ToApple,
 };
 
 pub fn native_fcntl(fd: c_int, cmd: FcntlCmd, arg: usize) -> Result<c_int, LxError> {
     match cmd {
         FcntlCmd::F_DUPFD => unsafe { posix_num!(libc::fcntl(fd, libc::F_DUPFD, arg)) },
         FcntlCmd::F_GETFD => unsafe {
-            posix_num!(libc::fcntl(fd, libc::F_GETFD)).map(|x| FdFlags::from_apple(x).bits() as _)
+            posix_num!(libc::fcntl(fd, libc::F_GETFD)).and_then(FdFlags::from_apple).map(|x| x.bits() as _)
         },
         FcntlCmd::F_SETFD => unsafe {
             posix_num!(libc::fcntl(
                 fd,
                 libc::F_SETFD,
-                FdFlags::from_bits_retain(arg as u32).to_apple()
+                FdFlags::from_bits_retain(arg as u32).to_apple()?
             ))
         },
         FcntlCmd::F_GETFL => unsafe {
-            posix_num!(libc::fcntl(fd, libc::F_GETFL)).map(|x| OpenFlags::from_apple(x).bits() as _)
+            posix_num!(libc::fcntl(fd, libc::F_GETFL)).and_then(OpenFlags::from_apple).map(|x| x.bits() as _)
         },
         FcntlCmd::F_SETFL => unsafe {
             posix_num!(libc::fcntl(

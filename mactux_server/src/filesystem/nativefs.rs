@@ -13,7 +13,7 @@ use std::{path::PathBuf, sync::Arc};
 use structures::{
     error::LxError,
     fs::{AccessFlags, Dirent64, Dirent64Hdr, DirentType, OpenFlags, Statx},
-    io::FcntlCmd,
+    io::FcntlCmd, ToApple,
 };
 use tokio::{fs::ReadDir, sync::Mutex};
 
@@ -59,7 +59,7 @@ impl Mountable for NativeFs {
         let path = self.interpret_vpath(path);
         let path = c_str(path.into_os_string().into_encoded_bytes());
         unsafe {
-            match libc::access(path.as_ptr().cast(), mode.to_apple()) {
+            match libc::access(path.as_ptr().cast(), mode.to_apple()?) {
                 -1 => Err(LxError::last_apple_error()),
                 _ => Ok(()),
             }

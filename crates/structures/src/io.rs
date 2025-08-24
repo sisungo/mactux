@@ -1,5 +1,5 @@
 use crate::{
-    FromApple, ToApple, bitflags_impl_from_apple, bitflags_impl_to_apple, error::LxError, mapper,
+    FromApple, ToApple, error::LxError, mapper,
     signal::KernelSigSet, terminal::Termios2, unixvariants,
 };
 use bincode::{Decode, Encode};
@@ -193,41 +193,11 @@ bitflags! {
         const POLLRDHUP = 0x2000;
     }
 }
-impl PollEvents {
-    pub fn to_apple(self) -> Result<i16, LxError> {
-        if self.contains(Self::POLLRDHUP) {
-            return Err(LxError::EINVAL);
-        }
-
-        Ok(bitflags_impl_to_apple!(
-            self = POLLIN,
-            POLLPRI,
-            POLLOUT,
-            POLLERR,
-            POLLHUP,
-            POLLNVAL,
-            POLLRDNORM,
-            POLLRDBAND,
-            POLLWRNORM,
-            POLLWRBAND
-        ))
-    }
-
-    pub fn from_apple(apple: i16) -> Self {
-        bitflags_impl_from_apple!(
-            apple = POLLIN,
-            POLLPRI,
-            POLLOUT,
-            POLLERR,
-            POLLHUP,
-            POLLNVAL,
-            POLLRDNORM,
-            POLLRDBAND,
-            POLLWRNORM,
-            POLLWRBAND
-        )
-    }
-}
+crate::bitflags_impl_from_to_apple!(
+    PollEvents;
+    type Apple = i16;
+    values = POLLIN, POLLPRI, POLLOUT, POLLERR, POLLHUP, POLLNVAL, POLLRDNORM, POLLRDBAND, POLLWRNORM, POLLWRBAND
+);
 
 #[derive(Debug)]
 pub struct FdSet {
@@ -322,15 +292,7 @@ bitflags! {
         const FD_CLOEXEC = 1;
     }
 }
-impl FdFlags {
-    pub fn to_apple(self) -> c_int {
-        bitflags_impl_to_apple!(self = FD_CLOEXEC)
-    }
-
-    pub fn from_apple(apple: c_int) -> Self {
-        bitflags_impl_from_apple!(apple = FD_CLOEXEC)
-    }
-}
+crate::bitflags_impl_from_to_apple!(FdFlags; type Apple = c_int; values = FD_CLOEXEC);
 
 #[derive(Debug, Clone, Copy)]
 #[repr(C)]

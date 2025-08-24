@@ -1,5 +1,5 @@
 use crate::{
-    FromApple, bitflags_impl_to_apple, error::LxError, signal::SigNum, time::Timeval, unixvariants,
+    FromApple, error::LxError, signal::SigNum, time::Timeval, unixvariants,
 };
 use bitflags::bitflags;
 use std::ffi::c_int;
@@ -67,11 +67,11 @@ bitflags! {
         const WNOHANG = 1;
     }
 }
-impl WaitOptions {
-    pub fn to_apple(self) -> c_int {
-        bitflags_impl_to_apple!(self = WNOHANG)
-    }
-}
+crate::bitflags_impl_from_to_apple!(
+    WaitOptions;
+    type Apple = c_int;
+    values = WNOHANG
+);
 
 #[derive(Debug, Clone)]
 #[repr(C)]

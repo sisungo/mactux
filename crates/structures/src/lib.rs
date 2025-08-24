@@ -51,40 +51,31 @@ macro_rules! impl_from_to_apple_plain {
 impl_from_to_apple_plain!(i8, u8, i32, u32, i64, u64, isize, usize);
 
 #[macro_export]
-macro_rules! bitflags_impl_to_apple {
-    ($self:ident = $($x:ident),*) => {{
-        let mut apple = 0;
-        $(
-            if $self.contains(Self::$x) {
-                apple |= libc::$x;
+macro_rules! bitflags_impl_from_to_apple {
+    ($lx:ty; type Apple = $ap:ty; values = $($x:ident),*) => {
+        impl $crate::FromApple for $lx {
+            type Apple = $ap;
+            fn from_apple(apple: Self::Apple) -> Result<Self, $crate::error::LxError> {
+                let mut linux = Self::empty();
+                $(
+                    if (apple & libc::$x) != 0 {
+                        linux |= Self::$x;
+                    }
+                )*
+                Ok(linux)
             }
-        )*
-        apple
-    }};
-}
-
-#[macro_export]
-macro_rules! bitflags_impl_from_apple {
-    ($apple:ident = $($x:ident),*) => {{
-        let mut linux = Self::empty();
-        $(
-            if ($apple & libc::$x) != 0 {
-                linux |= Self::$x;
-            }
-        )*
-        linux
-    }};
-}
-
-#[macro_export]
-macro_rules! bitflags_impl_from_to_apple_permissive {
-    (type Apple = $ty:ty; values = $($x:ident),*) => {
-        pub fn from_apple(apple: $ty) -> Self {
-            $crate::bitflags_impl_from_apple!(apple = $($x),*)
         }
-
-        pub fn to_apple(self) -> $ty {
-            $crate::bitflags_impl_to_apple!(self = $($x),*)
+        impl $crate::ToApple for $lx {
+            type Apple = $ap;
+            fn to_apple(self) -> Result<Self::Apple, $crate::error::LxError> {
+                let mut apple = 0;
+                $(
+                    if self.contains(Self::$x) {
+                        apple |= libc::$x;
+                    }
+                )*
+                Ok(apple)
+            }
         }
     };
 }

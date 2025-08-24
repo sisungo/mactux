@@ -7,7 +7,7 @@ use mactux_ipc::{request::Request, response::Response};
 use std::sync::Arc;
 use structures::{
     error::LxError,
-    fs::{AccessFlags, AtFlags, Dirent64, OpenFlags, Statx},
+    fs::{AccessFlags, AtFlags, Dirent64, OpenFlags, Statx}, ToApple,
 };
 
 #[derive(Debug)]
@@ -55,9 +55,9 @@ pub fn openat(
             Response::OpenNativePath(native) => unsafe {
                 let c_path = crate::util::c_path(native);
                 if oflags.contains(OpenFlags::O_CREAT) {
-                    posix_num!(libc::open(c_path.as_ptr().cast(), oflags.to_apple(), mode))
+                    posix_num!(libc::open(c_path.as_ptr().cast(), oflags.to_apple()?, mode))
                 } else {
-                    posix_num!(libc::open(c_path.as_ptr().cast(), oflags.to_apple()))
+                    posix_num!(libc::open(c_path.as_ptr().cast(), oflags.to_apple()?))
                 }
             },
             Response::OpenVirtualFd(vfd) => crate::vfd::create(vfd, oflags),

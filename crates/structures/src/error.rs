@@ -42,6 +42,7 @@ unixvariants! {
     }
 }
 impl LxError {
+    #[inline]
     pub fn last_apple_error() -> Self {
         Self::from_apple(std::io::Error::last_os_error().raw_os_error().expect(
             "`std::io::Error::last_os_error` should always return an error that has raw OS error",

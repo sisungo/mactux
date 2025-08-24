@@ -14,10 +14,7 @@ use std::{
     time::Duration,
 };
 use structures::{
-    ToApple,
-    error::LxError,
-    fs::OpenFlags,
-    io::{EventFdFlags, FcntlCmd, FdFlags, FdSet, FlockOp, IoctlCmd, PollEvents, PollFd, Whence},
+    error::LxError, fs::OpenFlags, io::{EventFdFlags, FcntlCmd, FdFlags, FdSet, FlockOp, IoctlCmd, PollEvents, PollFd, Whence}, FromApple, ToApple
 };
 
 #[inline]
@@ -248,7 +245,7 @@ pub unsafe fn poll(fds: &mut [PollFd], timeout: Option<Duration>) -> Result<u32,
                     }
                 }
                 for (n, apple_fd) in apple_fds.into_iter().enumerate() {
-                    fds[n].revents = PollEvents::from_apple(apple_fd.revents);
+                    fds[n].revents = PollEvents::from_apple(apple_fd.revents)?;
                 }
                 Ok(n as _)
             }

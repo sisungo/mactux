@@ -1,4 +1,4 @@
-use crate::{bitflags_impl_to_apple, time::Timespec};
+use crate::time::Timespec;
 use bincode::{Decode, Encode};
 use bitflags::bitflags;
 use libc::c_int;
@@ -29,7 +29,21 @@ bitflags! {
     }
 }
 impl OpenFlags {
-    crate::bitflags_impl_from_to_apple_permissive!(
+    pub fn is_readable(self) -> bool {
+        let path_only = self.contains(Self::O_PATH);
+        let write_only = self.contains(Self::O_WRONLY);
+        !(path_only || write_only)
+    }
+
+    pub fn is_writable(self) -> bool {
+        let write_only = self.contains(Self::O_WRONLY);
+        let read_write = self.contains(Self::O_RDWR);
+        let path_only = self.contains(Self::O_PATH);
+        write_only || read_write && !path_only
+    }
+}
+crate::bitflags_impl_from_to_apple!(
+    OpenFlags;
         type Apple = c_int;
         values = O_RDONLY,
         O_WRONLY,
@@ -46,20 +60,6 @@ impl OpenFlags {
         O_CLOEXEC,
         O_SYNC
     );
-
-    pub fn is_readable(self) -> bool {
-        let path_only = self.contains(Self::O_PATH);
-        let write_only = self.contains(Self::O_WRONLY);
-        !(path_only || write_only)
-    }
-
-    pub fn is_writable(self) -> bool {
-        let write_only = self.contains(Self::O_WRONLY);
-        let read_write = self.contains(Self::O_RDWR);
-        let path_only = self.contains(Self::O_PATH);
-        write_only || read_write && !path_only
-    }
-}
 
 bitflags! {
     #[derive(Debug, Clone, Copy)]
@@ -78,11 +78,11 @@ bitflags! {
         const X_OK = 1;
     }
 }
-impl AccessFlags {
-    pub fn to_apple(self) -> c_int {
-        bitflags_impl_to_apple!(self = F_OK, R_OK, W_OK, X_OK)
-    }
-}
+crate::bitflags_impl_from_to_apple!(
+    AccessFlags;
+    type Apple = c_int;
+    values = F_OK, R_OK, W_OK, X_OK
+);
 
 #[derive(Debug, Clone, Copy, Encode, Decode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(C)]

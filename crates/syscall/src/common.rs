@@ -774,17 +774,17 @@ pub unsafe fn sys_mmap(
     flags: MmapFlags,
     fd: c_int,
     offset: i64,
-) -> std::io::Result<*mut c_void> {
+) -> Result<*mut c_void, LxError> {
     unsafe {
         match libc::mmap(
             addr.cast(),
             len,
-            prot.to_apple(),
-            flags.to_apple(),
+            prot.to_apple()?,
+            flags.to_apple()?,
             fd,
             offset,
         ) {
-            libc::MAP_FAILED => Err(std::io::Error::last_os_error()),
+            libc::MAP_FAILED => Err(LxError::last_apple_error()),
             addr => Ok(addr),
         }
     }
@@ -803,7 +803,7 @@ pub unsafe fn sys_mprotect(addr: *mut u8, len: usize, prot: i32) -> Result<(), L
 #[syscall]
 pub unsafe fn sys_msync(addr: *mut u8, len: usize, flags: MsyncFlags) -> Result<(), LxError> {
     unsafe {
-        match libc::msync(addr.cast(), len, flags.to_apple()) {
+        match libc::msync(addr.cast(), len, flags.to_apple()?) {
             -1 => Err(LxError::last_apple_error()),
             _ => Ok(()),
         }
@@ -1171,7 +1171,7 @@ pub unsafe fn sys_wait4(
     unsafe {
         let mut status = 0;
         let mut apple_ru = std::mem::zeroed();
-        let pid = match libc::wait4(pid, &mut status, options.to_apple(), &mut apple_ru) {
+        let pid = match libc::wait4(pid, &mut status, options.to_apple()?, &mut apple_ru) {
             -1 => Err(LxError::last_apple_error()),
             n => Ok(n),
         }?;

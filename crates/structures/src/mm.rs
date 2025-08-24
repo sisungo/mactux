@@ -1,4 +1,4 @@
-use crate::{bitflags_impl_to_apple, unixvariants};
+use crate::{error::LxError, unixvariants, ToApple};
 use bitflags::bitflags;
 use libc::c_int;
 
@@ -11,9 +11,10 @@ bitflags! {
         const PROT_EXEC = 4;
     }
 }
-impl MmapProt {
-    #[inline]
-    pub fn to_apple(self) -> c_int {
+impl ToApple for MmapProt {
+    type Apple = c_int;
+
+    fn to_apple(self) -> Result<c_int, LxError> {
         let mut apple = 0;
         if self.contains(Self::PROT_READ) {
             apple |= libc::PROT_READ;
@@ -24,7 +25,7 @@ impl MmapProt {
         if self.contains(Self::PROT_EXEC) {
             apple |= libc::PROT_EXEC | libc::PROT_WRITE;
         }
-        apple
+        Ok(apple)
     }
 }
 
@@ -37,12 +38,11 @@ bitflags! {
         const MAP_FIXED = 0x10;
     }
 }
-impl MmapFlags {
-    #[inline]
-    pub fn to_apple(self) -> c_int {
-        bitflags_impl_to_apple!(self = MAP_ANON, MAP_PRIVATE, MAP_FIXED)
-    }
-}
+crate::bitflags_impl_from_to_apple!(
+    MmapFlags;
+    type Apple = c_int;
+    values = MAP_ANON, MAP_PRIVATE, MAP_FIXED
+);
 
 bitflags! {
     #[derive(Debug, Clone, Copy)]
@@ -53,12 +53,11 @@ bitflags! {
         const MS_SYNC = 4;
     }
 }
-impl MsyncFlags {
-    #[inline]
-    pub fn to_apple(self) -> c_int {
-        bitflags_impl_to_apple!(self = MS_ASYNC, MS_INVALIDATE, MS_SYNC)
-    }
-}
+crate::bitflags_impl_from_to_apple!(
+    MsyncFlags;
+    type Apple = c_int;
+    values = MS_ASYNC, MS_INVALIDATE, MS_SYNC
+);
 
 bitflags! {
     #[derive(Debug, Clone, Copy)]

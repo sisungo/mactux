@@ -1,17 +1,5 @@
-use crate::unixvariants;
+use crate::{bitflags_impl_from_to_apple, error::LxError, unixvariants, FromApple, ToApple};
 use bitflags::bitflags;
-
-macro_rules! impl_from_to_apple {
-    ($($x:ident),*) => {
-        pub fn from_apple(apple: u64) -> Self {
-            crate::bitflags_impl_from_apple!(apple = $($x),*)
-        }
-
-        pub fn to_apple(self) -> u64 {
-            crate::bitflags_impl_to_apple!(self = $($x),*)
-        }
-    };
-}
 
 #[derive(Debug, Clone)]
 #[repr(C)]
@@ -22,19 +10,6 @@ pub struct Termios {
     c_lflag: LocalFlags,
     c_line: u8,
     c_cc: ControlCharacters,
-}
-impl Termios {
-    pub fn to_apple(&self) -> libc::termios {
-        libc::termios {
-            c_iflag: self.c_iflag.to_apple(),
-            c_oflag: self.c_oflag.to_apple(),
-            c_cflag: self.c_cflag.to_apple(),
-            c_lflag: self.c_lflag.to_apple(),
-            c_cc: self.c_cc.to_apple(),
-            c_ispeed: 0,
-            c_ospeed: 0,
-        }
-    }
 }
 impl From<Termios2> for Termios {
     #[inline]
@@ -49,10 +24,26 @@ impl From<Termios2> for Termios {
         }
     }
 }
-impl From<libc::termios> for Termios {
-    #[inline]
-    fn from(value: libc::termios) -> Self {
-        Self::from(Termios2::from(value))
+impl FromApple for Termios {
+    type Apple = libc::termios;
+
+    fn from_apple(value: libc::termios) -> Result<Self, LxError> {
+        Ok(Self::from(Termios2::from_apple(value)?))
+    }
+}
+impl ToApple for Termios {
+    type Apple = libc::termios;
+
+    fn to_apple(self) -> Result<libc::termios, LxError> {
+        Ok(libc::termios {
+            c_iflag: self.c_iflag.to_apple()?,
+            c_oflag: self.c_oflag.to_apple()?,
+            c_cflag: self.c_cflag.to_apple()?,
+            c_lflag: self.c_lflag.to_apple()?,
+            c_cc: self.c_cc.to_apple(),
+            c_ispeed: 0,
+            c_ospeed: 0,
+        })
     }
 }
 
@@ -68,32 +59,35 @@ pub struct Termios2 {
     c_ispeed: u32,
     c_ospeed: u32,
 }
-impl Termios2 {
-    pub fn to_apple(&self) -> libc::termios {
-        libc::termios {
-            c_iflag: self.c_iflag.to_apple(),
-            c_oflag: self.c_oflag.to_apple(),
-            c_cflag: self.c_cflag.to_apple(),
-            c_lflag: self.c_lflag.to_apple(),
+impl ToApple for Termios2 {
+    type Apple = libc::termios;
+
+    fn to_apple(self) -> Result<libc::termios, LxError> {
+        Ok(libc::termios {
+            c_iflag: self.c_iflag.to_apple()?,
+            c_oflag: self.c_oflag.to_apple()?,
+            c_cflag: self.c_cflag.to_apple()?,
+            c_lflag: self.c_lflag.to_apple()?,
             c_cc: self.c_cc.to_apple(),
             c_ispeed: self.c_ispeed as _,
             c_ospeed: self.c_ospeed as _,
-        }
+        })
     }
 }
-impl From<libc::termios> for Termios2 {
-    #[inline]
-    fn from(value: libc::termios) -> Self {
-        Self {
-            c_iflag: InputFlags::from_apple(value.c_iflag),
-            c_oflag: OutputFlags::from_apple(value.c_oflag),
-            c_cflag: ControlFlags::from_apple(value.c_cflag),
-            c_lflag: LocalFlags::from_apple(value.c_lflag),
+impl FromApple for Termios2 {
+    type Apple = libc::termios;
+
+    fn from_apple(value: libc::termios) -> Result<Self, LxError> {
+        Ok(Self {
+            c_iflag: InputFlags::from_apple(value.c_iflag)?,
+            c_oflag: OutputFlags::from_apple(value.c_oflag)?,
+            c_cflag: ControlFlags::from_apple(value.c_cflag)?,
+            c_lflag: LocalFlags::from_apple(value.c_lflag)?,
             c_line: 0,
             c_cc: ControlCharacters::from_apple(value.c_cc),
             c_ispeed: value.c_ispeed as _,
             c_ospeed: value.c_ospeed as _,
-        }
+        })
     }
 }
 
@@ -118,12 +112,12 @@ bitflags! {
         const IUTF8 = 0x4000;
     }
 }
-impl InputFlags {
-    impl_from_to_apple!(
-        IGNBRK, BRKINT, IGNPAR, PARMRK, INPCK, ISTRIP, INLCR, IGNCR, ICRNL, IXON, IXANY, IXOFF,
-        IMAXBEL, IUTF8
-    );
-}
+bitflags_impl_from_to_apple!(
+    InputFlags;
+    type Apple = u64;
+    values = IGNBRK, BRKINT, IGNPAR, PARMRK, INPCK, ISTRIP, INLCR, IGNCR, ICRNL, IXON, IXANY, IXOFF,
+             IMAXBEL, IUTF8
+);
 
 bitflags! {
     #[derive(Debug, Clone, Copy)]
@@ -145,11 +139,11 @@ bitflags! {
         const FFDLY = 0x2000;
     }
 }
-impl OutputFlags {
-    impl_from_to_apple!(
-        OPOST, OCRNL, ONLCR, ONOCR, ONLRET, OFILL, NLDLY, CRDLY, TABDLY, BSDLY, VTDLY, FFDLY
-    );
-}
+bitflags_impl_from_to_apple!(
+    OutputFlags;
+    type Apple = u64;
+    values = OPOST, ONLCR, OCRNL, ONOCR, ONLRET, OFILL, OFDEL, NLDLY, CRDLY, TABDLY, BSDLY, VTDLY, FFDLY
+);
 
 bitflags! {
     #[derive(Debug, Clone, Copy)]
@@ -172,11 +166,11 @@ bitflags! {
         const CRTSCTS = 0o20000000000;
     }
 }
-impl ControlFlags {
-    impl_from_to_apple!(
-        CS5, CS6, CS7, CS8, CSTOPB, CREAD, PARENB, PARODD, HUPCL, CLOCAL, CRTSCTS
-    );
-}
+bitflags_impl_from_to_apple!(
+    ControlFlags;
+    type Apple = u64;
+    values = CS5, CS6, CS7, CS8, CSTOPB, CREAD, PARENB, PARODD, HUPCL, CLOCAL, CRTSCTS
+);
 
 bitflags! {
     #[derive(Debug, Clone, Copy)]
@@ -198,11 +192,11 @@ bitflags! {
         const IEXTEN = 0x4000;
     }
 }
-impl LocalFlags {
-    impl_from_to_apple!(
-        ISIG, ICANON, ECHO, ECHOE, ECHOK, ECHONL, NOFLSH, TOSTOP, ECHOCTL, ECHOPRT, ECHOKE, IEXTEN
-    );
-}
+bitflags_impl_from_to_apple!(
+    LocalFlags;
+    type Apple = u64;
+    values = ISIG, ICANON, ECHO, ECHOE, ECHOK, ECHONL, NOFLSH, TOSTOP, ECHOCTL, ECHOPRT, ECHOKE, IEXTEN
+);
 
 #[derive(Debug, Clone, Copy)]
 #[repr(transparent)]

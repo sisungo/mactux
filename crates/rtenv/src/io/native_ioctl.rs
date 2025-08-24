@@ -1,10 +1,7 @@
 use crate::{posix_bi, posix_num};
 use libc::c_int;
 use structures::{
-    ToApple,
-    error::LxError,
-    io::IoctlCmd,
-    terminal::{TcFlowAction, Termios, Termios2, WinSize},
+    error::LxError, io::IoctlCmd, terminal::{TcFlowAction, Termios, Termios2, WinSize}, FromApple, ToApple
 };
 
 pub fn native_ioctl(fd: c_int, cmd: IoctlCmd, arg: *mut u8) -> Result<c_int, LxError> {
@@ -22,21 +19,21 @@ pub fn native_ioctl(fd: c_int, cmd: IoctlCmd, arg: *mut u8) -> Result<c_int, LxE
         IoctlCmd::TCGETS => unsafe {
             let mut apple_termios: libc::termios = std::mem::zeroed();
             posix_bi!(libc::tcgetattr(fd, &mut apple_termios))?;
-            arg.cast::<Termios>().write(apple_termios.into());
+            arg.cast::<Termios>().write(Termios::from_apple(apple_termios)?);
             Ok(0)
         },
         IoctlCmd::TCSETS => unsafe {
-            let apple_termios = arg.cast::<Termios>().read().to_apple();
+            let apple_termios = arg.cast::<Termios>().read().to_apple()?;
             posix_bi!(libc::tcsetattr(fd, libc::TCSANOW, &apple_termios))?;
             Ok(0)
         },
         IoctlCmd::TCSETSW => unsafe {
-            let apple_termios = arg.cast::<Termios>().read().to_apple();
+            let apple_termios = arg.cast::<Termios>().read().to_apple()?;
             posix_bi!(libc::tcsetattr(fd, libc::TCSADRAIN, &apple_termios))?;
             Ok(0)
         },
         IoctlCmd::TCSETSF => unsafe {
-            let apple_termios = arg.cast::<Termios>().read().to_apple();
+            let apple_termios = arg.cast::<Termios>().read().to_apple()?;
             posix_bi!(libc::tcsetattr(fd, libc::TCSAFLUSH, &apple_termios))?;
             Ok(0)
         },
@@ -54,21 +51,21 @@ pub fn native_ioctl(fd: c_int, cmd: IoctlCmd, arg: *mut u8) -> Result<c_int, LxE
         IoctlCmd::TCGETS2 => unsafe {
             let mut apple_termios: libc::termios = std::mem::zeroed();
             posix_bi!(libc::tcgetattr(fd, &mut apple_termios))?;
-            arg.cast::<Termios2>().write(apple_termios.into());
+            arg.cast::<Termios2>().write(Termios2::from_apple(apple_termios)?);
             Ok(0)
         },
         IoctlCmd::TCSETS2 => unsafe {
-            let apple_termios = arg.cast::<Termios2>().read().to_apple();
+            let apple_termios = arg.cast::<Termios2>().read().to_apple()?;
             posix_bi!(libc::tcsetattr(fd, libc::TCSANOW, &apple_termios))?;
             Ok(0)
         },
         IoctlCmd::TCSETSW2 => unsafe {
-            let apple_termios = arg.cast::<Termios2>().read().to_apple();
+            let apple_termios = arg.cast::<Termios2>().read().to_apple()?;
             posix_bi!(libc::tcsetattr(fd, libc::TCSADRAIN, &apple_termios))?;
             Ok(0)
         },
         IoctlCmd::TCSETSF2 => unsafe {
-            let apple_termios = arg.cast::<Termios2>().read().to_apple();
+            let apple_termios = arg.cast::<Termios2>().read().to_apple()?;
             posix_bi!(libc::tcsetattr(fd, libc::TCSAFLUSH, &apple_termios))?;
             Ok(0)
         },

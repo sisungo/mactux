@@ -17,8 +17,8 @@ pub unsafe fn remap(
         let new_addr = match libc::mmap(
             new_addr.cast(),
             new_size,
-            (MmapProt::PROT_READ | MmapProt::PROT_WRITE).to_apple(),
-            (MmapFlags::MAP_PRIVATE | MmapFlags::MAP_ANON).to_apple(),
+            (MmapProt::PROT_READ | MmapProt::PROT_WRITE).to_apple()?,
+            (MmapFlags::MAP_PRIVATE | MmapFlags::MAP_ANON).to_apple()?,
             -1,
             0,
         ) {
