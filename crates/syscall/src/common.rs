@@ -5,6 +5,7 @@ use macros::syscall;
 use rtenv::{error_report::ErrorReport, posix_num};
 use std::{io::Write, ptr::NonNull, time::Duration};
 use structures::{
+    ToApple,
     error::LxError,
     fs::{AccessFlags, AtFlags, OpenFlags, Stat, Statx},
     io::{EventFdFlags, FcntlCmd, FdSet, FlockOp, IoctlCmd, PSelectSigMask, PollFd, Whence},

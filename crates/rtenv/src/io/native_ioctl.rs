@@ -1,6 +1,7 @@
 use crate::{posix_bi, posix_num};
 use libc::c_int;
 use structures::{
+    ToApple,
     error::LxError,
     io::IoctlCmd,
     terminal::{TcFlowAction, Termios, Termios2, WinSize},

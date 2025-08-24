@@ -1,8 +1,5 @@
 use std::ffi::c_uint;
-use structures::{
-    error::LxError,
-    security::{UserCap, UserCapHeader},
-};
+use structures::{error::LxError, security::UserCap};
 
 pub fn uid() -> c_uint {
     unsafe { libc::getuid() }

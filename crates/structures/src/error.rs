@@ -1,4 +1,4 @@
-use crate::unixvariants;
+use crate::{FromApple, unixvariants};
 use bincode::{Decode, Encode};
 use std::ffi::c_int;
 

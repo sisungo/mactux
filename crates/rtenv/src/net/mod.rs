@@ -5,6 +5,7 @@ use crate::{posix_bi, posix_num};
 use libc::c_int;
 use std::mem::offset_of;
 use structures::{
+    ToApple,
     error::LxError,
     net::{
         Domain, Protocol, ShutdownHow, SockAddr, SockAddrIn, SockOpt, SockOptLevel, SocketFlags,

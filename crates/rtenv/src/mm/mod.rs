@@ -1,5 +1,6 @@
 use crate::posix_bi;
 use structures::{
+    ToApple,
     error::LxError,
     mm::{Madvice, MmapFlags, MmapProt, MremapFlags},
 };

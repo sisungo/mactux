@@ -17,6 +17,39 @@ pub mod thread;
 pub mod time;
 pub mod ucontext;
 
+pub trait FromApple: Sized {
+    type Apple;
+
+    fn from_apple(apple: Self::Apple) -> Result<Self, error::LxError>;
+}
+
+pub trait ToApple {
+    type Apple;
+
+    fn to_apple(self) -> Result<Self::Apple, error::LxError>;
+}
+
+macro_rules! impl_from_to_apple_plain {
+    ($t:ty) => {
+        impl FromApple for $t {
+            type Apple = $t;
+            fn from_apple(apple: Self::Apple) -> Result<Self, error::LxError> {
+                Ok(apple)
+            }
+        }
+        impl ToApple for $t {
+            type Apple = $t;
+            fn to_apple(self) -> Result<Self::Apple, error::LxError> {
+                Ok(self)
+            }
+        }
+    };
+    ($($t:ty),*) => {
+        $(impl_from_to_apple_plain!($t);)*
+    };
+}
+impl_from_to_apple_plain!(i8, u8, i32, u32, i64, u64, isize, usize);
+
 #[macro_export]
 macro_rules! bitflags_impl_to_apple {
     ($self:ident = $($x:ident),*) => {{
@@ -83,17 +116,23 @@ macro_rules! unixvariants {
             $(
                 pub const $l: Self = Self($m);
             )*
+        }
+        impl $crate::FromApple for $n {
+            type Apple = $ati;
 
             #[allow(unreachable_patterns)]
-            pub const fn from_apple(apple: $ati) -> Result<Self, $crate::error::LxError> {
+            fn from_apple(apple: $ati) -> Result<Self, $crate::error::LxError> {
                 match apple {
                     $(libc::$j => Ok(Self::$j),)*
                     $(libc::$an => Ok(Self::$l),)*
                     _ => Err($crate::error::LxError::EINVAL),
                 }
             }
+        }
+        impl $crate::ToApple for $n {
+            type Apple = $ato;
 
-            pub const fn to_apple(self) -> Result<$ato, $crate::error::LxError> {
+            fn to_apple(self) -> Result<$ato, $crate::error::LxError> {
                 match self {
                     $(Self::$j => Ok(libc::$j),)*
                     $(Self::$l => Ok(libc::$an),)*

@@ -14,6 +14,7 @@ use std::{
     time::Duration,
 };
 use structures::{
+    ToApple,
     error::LxError,
     fs::OpenFlags,
     io::{EventFdFlags, FcntlCmd, FdFlags, FdSet, FlockOp, IoctlCmd, PollEvents, PollFd, Whence},

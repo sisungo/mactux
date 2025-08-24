@@ -7,6 +7,7 @@ mod util;
 
 use std::ptr::NonNull;
 use structures::{
+    FromApple,
     error::LxError,
     fs::{AccessFlags, AtFlags, OpenFlags},
     io::{EventFdFlags, FcntlCmd, FlockOp, IoctlCmd, Whence},

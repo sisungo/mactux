@@ -8,6 +8,7 @@ use std::{
     },
 };
 use structures::{
+    FromApple, ToApple,
     error::LxError,
     signal::{KernelSigSet, MaskHowto, SigAction, SigActionFlags, SigHandler, SigInfo, SigNum},
     time::ClockId,
@@ -67,6 +68,8 @@ pub fn raise(
     };
     let action = sigaction(signum, None).unwrap();
     if action.handler == SigHandler::SIG_DFL {
+        use structures::ToApple;
+
         let Ok(apple_signum) = signum.to_apple() else {
             crate::error_report::fast_fail();
         };

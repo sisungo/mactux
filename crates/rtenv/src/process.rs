@@ -16,6 +16,7 @@ use std::{
     sync::Arc,
 };
 use structures::{
+    ToApple,
     error::LxError,
     fs::AccessFlags,
     process::{ChildType, CloneArgs, CloneFlags},
