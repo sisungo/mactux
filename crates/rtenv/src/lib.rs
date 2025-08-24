@@ -28,6 +28,7 @@ pub unsafe fn install() -> std::io::Result<()> {
         process::install()?;
         thread::install()?;
         signal::install()?;
+        structures::mapper::set_pid_mapper(Box::new(util::RtenvPidMapper));
 
         Ok(())
     }

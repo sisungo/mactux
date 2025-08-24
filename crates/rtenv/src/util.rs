@@ -1,3 +1,5 @@
+use structures::{error::LxError, mapper::PidMapper};
+
 /// Converts a POSIX function that returns something like what `read()`/`write()` returns to [`Result<Integer, LxError>`] in
 /// Rust.
 #[macro_export]
@@ -30,4 +32,17 @@ pub fn c_path(mut dat: Vec<u8>) -> Vec<u8> {
 /// Fails the process with reason that the server is not giving an expected response.
 pub fn ipc_fail() -> ! {
     panic!("unexpected server response");
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct RtenvPidMapper;
+impl PidMapper for RtenvPidMapper {
+    // TODO
+    fn apple_to_linux(&self, apple: libc::pid_t) -> Result<i32, LxError> {
+        Ok(apple)
+    }
+
+    fn linux_to_apple(&self, linux: i32) -> Result<libc::pid_t, LxError> {
+        Ok(linux)
+    }
 }

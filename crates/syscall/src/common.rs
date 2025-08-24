@@ -317,7 +317,7 @@ pub unsafe fn sys_readv(fd: c_int, vec: *const libc::iovec, vlen: usize) -> Resu
 }
 
 #[syscall]
-pub unsafe fn sys_write(fd: c_int, buf: *mut u8, count: usize) -> Result<usize, LxError> {
+pub unsafe fn sys_write(fd: c_int, buf: *const u8, count: usize) -> Result<usize, LxError> {
     unsafe { rtenv::io::write(fd, std::slice::from_raw_parts(buf, count)) }
 }
 
