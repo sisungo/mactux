@@ -350,10 +350,13 @@ pub fn syncfs(fd: c_int) -> Result<(), LxError> {
 
 #[inline]
 pub fn close(fd: c_int) -> Result<(), LxError> {
+    if crate::process::context().important_fds.pin().contains(&fd) {
+        return Err(LxError::EPERM);
+    }
+
     if let Some(vfd) = crate::vfd::take(fd) {
         vfd::close(vfd);
     }
-
     unsafe { posix_bi!(libc::close(fd)) }
 }
 

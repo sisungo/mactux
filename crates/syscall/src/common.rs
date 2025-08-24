@@ -396,6 +396,27 @@ pub unsafe fn sys_close(fd: c_int) -> Result<(), LxError> {
 }
 
 #[syscall]
+pub unsafe fn sys_close_range(first: c_int, last: c_int, flags: u32) -> Result<(), LxError> {
+    let mut open_fds = Vec::new();
+    for entry in std::fs::read_dir("/dev/fd")? {
+        let entry = entry?;
+        let Ok(filename) = entry.file_name().into_string() else {
+            continue;
+        };
+        let Ok(fd) = filename.parse::<c_int>() else {
+            continue;
+        };
+        open_fds.push(fd);
+    }
+    for fd in open_fds {
+        if (first..=last).contains(&fd) {
+            _ = rtenv::io::close(fd);
+        }
+    }
+    Ok(())
+}
+
+#[syscall]
 pub unsafe fn sys_pipe(fildes: *mut [c_int; 2]) -> Result<(), LxError> {
     let fds = rtenv::io::pipe(OpenFlags::empty())?;
     unsafe {
@@ -924,7 +945,7 @@ pub unsafe fn sys_clock_nanosleep(
     clock: ClockId,
     flags: TimerFlags,
     rqtp: *const Timespec,
-    rmtp: *mut Timespec,
+    rmtp: Option<NonNull<Timespec>>,
 ) -> Result<(), LxError> {
     unsafe {
         let mut rqtp = rqtp.read().to_apple();
@@ -936,10 +957,12 @@ pub unsafe fn sys_clock_nanosleep(
             if rqtp.tv_sec < now.tv_sec
                 || (rqtp.tv_sec == now.tv_sec && rqtp.tv_nsec <= now.tv_nsec)
             {
-                rmtp.write(Timespec {
-                    tv_sec: 0,
-                    tv_nsec: 0,
-                });
+                if let Some(rmtp) = rmtp {
+                    rmtp.write(Timespec {
+                        tv_sec: 0,
+                        tv_nsec: 0,
+                    });
+                }
                 return Ok(());
             }
             rqtp.tv_sec -= now.tv_sec;
@@ -949,7 +972,9 @@ pub unsafe fn sys_clock_nanosleep(
         match libc::nanosleep(&rqtp, &mut rmtp_buf) {
             -1 => Err(LxError::last_apple_error()),
             _ => {
-                rmtp.write(Timespec::from_apple(rmtp_buf));
+                if let Some(rmtp) = rmtp {
+                    rmtp.write(Timespec::from_apple(rmtp_buf));
+                }
                 Ok(())
             }
         }

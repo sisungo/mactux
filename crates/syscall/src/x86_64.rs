@@ -507,7 +507,7 @@ const SYSTEM_CALL_HANDLERS: &[SystemCallHandler] = &[
     sys_invalid,           // 433
     sys_invalid,           // 434
     sys_clone3,            // 435
-    sys_invalid,           // 436
+    sys_close_range,       // 436
     sys_invalid,           // 437
     sys_invalid,           // 438
     sys_faccessat2,        // 439

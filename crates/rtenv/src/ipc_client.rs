@@ -116,6 +116,11 @@ impl AsRawFd for Client {
         self.0.as_raw_fd()
     }
 }
+impl Drop for Client {
+    fn drop(&mut self) {
+        process::context().important_fds.pin().remove(&self.as_raw_fd());
+    }
+}
 
 #[derive(Debug)]
 pub struct InterruptibleClient(UnixStream);
@@ -131,6 +136,11 @@ impl InterruptibleClient {
 impl AsRawFd for InterruptibleClient {
     fn as_raw_fd(&self) -> std::os::fd::RawFd {
         self.0.as_raw_fd()
+    }
+}
+impl Drop for InterruptibleClient {
+    fn drop(&mut self) {
+        process::context().important_fds.pin().remove(&self.as_raw_fd());
     }
 }
 
@@ -159,6 +169,7 @@ pub fn make_client() -> Client {
             .expect("unable to connect to MacTux server"),
     );
     client.force_handshake();
+    process::context().important_fds.pin().insert(client.as_raw_fd());
     client
 }
 
@@ -171,7 +182,9 @@ pub fn begin_interruptible(ireq: InterruptibleRequest) -> InterruptibleClient {
     )
     .expect("All requests should be valid bincode");
     client.send(&buf).unwrap();
-    InterruptibleClient(client.0)
+    let stream = unsafe { (&raw const client.0).read() };
+    std::mem::forget(client);
+    InterruptibleClient(stream)
 }
 
 /// Updates the thread-local IPC client.
@@ -189,6 +202,7 @@ pub unsafe fn set_client_fd(fd: libc::c_int) {
         let client = Client(UnixStream::from_raw_fd(fd));
         _ = client.enable_cloexec();
         client.invoke(Request::AfterExec).unwrap();
+        process::context().important_fds.pin().insert(client.as_raw_fd());
         thread::with_context(|ctx| ctx.client.set(RefCell::new(client)).unwrap());
     }
 }

@@ -33,6 +33,7 @@ pub struct ProcessCtx {
     pub sigactions: [ArcSwap<SigAction>; SigNum::_NSIG as usize],
     pub vfd_table: papaya::HashMap<c_int, u64, FxBuildHasher>,
     pub server_sock_path: ArcSwap<PathBuf>,
+    pub important_fds: papaya::HashSet<c_int, FxBuildHasher>,
 }
 
 /// Installs the process context.
@@ -53,6 +54,7 @@ pub unsafe fn install() -> std::io::Result<()> {
             sigactions,
             vfd_table,
             server_sock_path,
+            important_fds: papaya::HashSet::default(),
         });
     }
     Ok(())
