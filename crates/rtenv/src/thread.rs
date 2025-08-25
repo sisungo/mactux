@@ -12,7 +12,7 @@ use std::{
 use structures::{
     error::LxError,
     process::CloneArgs,
-    signal::SigNum,
+    signal::{SigAltStack, SigNum},
     sync::{FutexOpts, RobustListHead},
 };
 
@@ -45,6 +45,7 @@ pub struct ThreadCtx {
     pub thread_info_ptr: Cell<*const EmulatedThreadInfo>,
     pub client: OnceCell<RefCell<Client>>,
     pub clear_tid: Cell<Option<NonNull<u32>>>,
+    pub sigaltstack: Cell<SigAltStack>,
 }
 impl ThreadCtx {
     pub fn new() -> Self {
@@ -54,6 +55,7 @@ impl ThreadCtx {
             thread_info_ptr: Cell::new(std::ptr::null()),
             client: OnceCell::new(),
             clear_tid: Cell::new(None),
+            sigaltstack: Cell::new(SigAltStack::default()),
         }
     }
 

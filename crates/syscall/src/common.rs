@@ -5,19 +5,9 @@ use macros::syscall;
 use rtenv::{error_report::ErrorReport, posix_num};
 use std::{io::Write, ptr::NonNull, time::Duration};
 use structures::{
-    ToApple,
-    error::LxError,
-    fs::{AccessFlags, AtFlags, OpenFlags, Stat, Statx},
-    io::{EventFdFlags, FcntlCmd, FdSet, FlockOp, IoctlCmd, PSelectSigMask, PollFd, Whence},
-    misc::{GrndFlags, SysInfo, UtsName},
-    mm::{Madvice, MmapFlags, MmapProt, MremapFlags, MsyncFlags},
-    net::{
+    error::LxError, fs::{AccessFlags, AtFlags, OpenFlags, Stat, Statx}, io::{EventFdFlags, FcntlCmd, FdSet, FlockOp, IoctlCmd, PSelectSigMask, PollFd, Whence}, misc::{GrndFlags, SysInfo, UtsName}, mm::{Madvice, MmapFlags, MmapProt, MremapFlags, MsyncFlags}, net::{
         Domain, Protocol, ShutdownHow, SockAddr, SockOpt, SockOptLevel, SocketFlags, SocketType,
-    },
-    process::{PrctlOp, RLimit64, RLimitable, RUsage, RUsageWho, WaitOptions, WaitStatus},
-    signal::{KernelSigSet, MaskHowto, SigAction, SigNum},
-    sync::{FutexCmd, FutexOp, RSeq},
-    time::{ClockId, TimerFlags, Timespec, Timeval, Timezone},
+    }, process::{PrctlOp, RLimit64, RLimitable, RUsage, RUsageWho, WaitOptions, WaitStatus}, signal::{KernelSigSet, MaskHowto, SigAction, SigAltStack, SigNum}, sync::{FutexCmd, FutexOp, RSeq}, time::{ClockId, TimerFlags, Timespec, Timeval, Timezone}, ToApple
 };
 
 // -== Filesystem Operations ==-
@@ -907,6 +897,20 @@ pub unsafe fn sys_rt_sigprocmask(
             oset.write(old_set);
         }
         Ok(())
+    }
+}
+
+#[syscall]
+pub unsafe fn sys_sigaltstack(
+    new_ptr: Option<NonNull<SigAltStack>>,
+    old_ptr: Option<NonNull<SigAltStack>>,
+) {
+    unsafe {
+        let new = new_ptr.map(|x| x.read());
+        let old = rtenv::signal::sigaltstack(new);
+        if let Some(old_ptr) = old_ptr {
+            old_ptr.write(old);
+        }
     }
 }
 

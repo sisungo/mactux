@@ -8,11 +8,7 @@ use std::{
     },
 };
 use structures::{
-    FromApple, ToApple,
-    error::LxError,
-    signal::{KernelSigSet, MaskHowto, SigAction, SigActionFlags, SigHandler, SigInfo, SigNum},
-    time::ClockId,
-    ucontext::UContext,
+    error::LxError, signal::{KernelSigSet, MaskHowto, SigAction, SigActionFlags, SigAltStack, SigHandler, SigInfo, SigNum}, time::ClockId, ucontext::UContext, FromApple, ToApple
 };
 
 /// macOS signals that can be handled.
@@ -96,6 +92,10 @@ pub fn raise(
             ucontext: UContext::from_apple(ctx),
             prev_in_emulated,
         };
+        let sigaltstack = sigaltstack(None);
+        if !sigaltstack.ss_sp.is_null() {
+            (*ctx.uc_mcontext).__ss.__rsp = sigaltstack.ss_sp.add(sigaltstack.ss_size) as usize as u64;
+        }
         (*ctx.uc_mcontext).__ss.__rsp -= size_of::<SignalStackFrame>() as u64;
         ((*ctx.uc_mcontext).__ss.__rsp as usize as *mut SignalStackFrame).write(sigframe);
 
@@ -221,6 +221,15 @@ pub fn sigaction(signum: SigNum, new: Option<SigAction>) -> Result<SigAction, Lx
             _ => Ok(*old),
         }
     }
+}
+
+pub fn sigaltstack(new: Option<SigAltStack>) -> SigAltStack {
+    crate::thread::with_context(|ctx| {
+        if let Some(new) = new {
+            ctx.sigaltstack.set(new);
+        }
+        ctx.sigaltstack.get()
+    })
 }
 
 /// Converts from apple `siginfo` to the Linux one.

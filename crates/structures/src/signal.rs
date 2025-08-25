@@ -245,3 +245,31 @@ impl Iterator for KernelSigSetIter {
         None
     }
 }
+
+#[derive(Debug, Default, Clone, Copy)]
+#[repr(C)]
+pub struct SigAltStack {
+    pub ss_sp: *mut u8,
+    pub ss_flags: SigAltStackFlags,
+    pub ss_size: usize,
+}
+impl SigAltStack {
+    pub fn from_apple(apple: libc::stack_t) -> Self {
+        Self {
+            ss_sp: apple.ss_sp.cast(),
+            ss_flags: SigAltStackFlags::from_apple(apple.ss_flags),
+            ss_size: apple.ss_size,
+        }
+    }
+}
+
+bitflags! {
+    #[derive(Debug, Default, Clone, Copy)]
+    #[repr(transparent)]
+    pub struct SigAltStackFlags: u32 {}
+}
+impl SigAltStackFlags {
+    pub fn from_apple(_apple: i32) -> Self {
+        Self::empty()
+    }
+}
