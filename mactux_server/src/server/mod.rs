@@ -58,6 +58,7 @@ impl Session {
             let req = self.recv_request(&mut buf).await?;
             let resp = match req {
                 Request::SetMountNamespace(id) => self.set_mount_namespace(id),
+                Request::Umount(path, flags) => self.umount(path, flags),
                 Request::Open(path, flags, mode) => self.open(path, flags, mode).await,
                 Request::Access(path, mode) => self.access(path, mode).await,
                 Request::Symlink(src, dst) => self.symlink(src, dst).await,

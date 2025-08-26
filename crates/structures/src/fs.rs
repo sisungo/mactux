@@ -6,6 +6,7 @@ use std::{fs::FileType, mem::offset_of};
 
 bitflags! {
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    #[repr(transparent)]
     pub struct OpenFlags: u32 {
         const O_RDONLY = 0;
         const O_WRONLY = 1;
@@ -63,6 +64,7 @@ crate::bitflags_impl_from_to_apple!(
 
 bitflags! {
     #[derive(Debug, Clone, Copy)]
+    #[repr(transparent)]
     pub struct AtFlags: u32 {
         const AT_EMPTY_PATH = 0x1000;
         const AT_SYMLINK_NOFOLLOW = 0x100;
@@ -71,6 +73,7 @@ bitflags! {
 
 bitflags! {
     #[derive(Debug, Clone, Copy)]
+    #[repr(transparent)]
     pub struct AccessFlags: u32 {
         const F_OK = 0;
         const R_OK = 4;
@@ -83,6 +86,17 @@ crate::bitflags_impl_from_to_apple!(
     type Apple = c_int;
     values = F_OK, R_OK, W_OK, X_OK
 );
+
+bitflags! {
+    #[derive(Debug, Clone, Copy)]
+    #[repr(transparent)]
+    pub struct UmountFlags: u32 {
+        const MNT_FORCE = 1;
+        const MNT_DETACH = 2;
+        const MNT_EXPIRE = 4;
+        const UMOUNT_NOFOLLOW = 8;
+    }
+}
 
 #[derive(Debug, Clone, Copy, Encode, Decode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(C)]

@@ -236,7 +236,7 @@ const SYSTEM_CALL_HANDLERS: &[SystemCallHandler] = &[
     sys_sync,              // 162
     sys_acct,              // 163
     sys_invalid,           // 164
-    sys_invalid,           // 165
+    sys_umount2,           // 165
     sys_invalid,           // 166
     sys_invalid,           // 167
     sys_invalid,           // 168

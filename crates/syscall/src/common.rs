@@ -5,7 +5,7 @@ use macros::syscall;
 use rtenv::{error_report::ErrorReport, posix_num};
 use std::{io::Write, ptr::NonNull, time::Duration};
 use structures::{
-    error::LxError, fs::{AccessFlags, AtFlags, OpenFlags, Stat, Statx}, io::{EventFdFlags, FcntlCmd, FdSet, FlockOp, IoctlCmd, PSelectSigMask, PollFd, Whence}, misc::{GrndFlags, SysInfo, UtsName}, mm::{Madvice, MmapFlags, MmapProt, MremapFlags, MsyncFlags}, net::{
+    error::LxError, fs::{AccessFlags, AtFlags, OpenFlags, Stat, Statx, UmountFlags}, io::{EventFdFlags, FcntlCmd, FdSet, FlockOp, IoctlCmd, PSelectSigMask, PollFd, Whence}, misc::{GrndFlags, SysInfo, UtsName}, mm::{Madvice, MmapFlags, MmapProt, MremapFlags, MsyncFlags}, net::{
         Domain, Protocol, ShutdownHow, SockAddr, SockOpt, SockOptLevel, SocketFlags, SocketType,
     }, process::{PrctlOp, RLimit64, RLimitable, RUsage, RUsageWho, WaitOptions, WaitStatus}, signal::{KernelSigSet, MaskHowto, SigAction, SigAltStack, SigNum}, sync::{FutexCmd, FutexOp, RSeq}, time::{ClockId, TimerFlags, Timespec, Timeval, Timezone}, ToApple
 };
@@ -282,6 +282,11 @@ pub unsafe fn sys_llistxattr(
 #[syscall]
 pub unsafe fn sys_flistxattr(fd: c_int, list: *mut u8, size: usize) -> Result<usize, LxError> {
     unsafe { crate::util::ret_buf(&rtenv::fs::listxattr(fd)?, list, size) }
+}
+
+#[syscall]
+pub unsafe fn sys_umount2(path: *const c_char, flags: UmountFlags) -> Result<(), LxError> {
+    unsafe { rtenv::fs::umount(rust_bytes(path).to_vec(), flags) }
 }
 
 // -== Basic IO Operations ==-

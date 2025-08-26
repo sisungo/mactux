@@ -7,7 +7,7 @@ use mactux_ipc::{request::Request, response::Response};
 use std::sync::Arc;
 use structures::{
     error::LxError,
-    fs::{AccessFlags, AtFlags, Dirent64, OpenFlags, Statx}, ToApple,
+    fs::{AccessFlags, AtFlags, Dirent64, OpenFlags, Statx, UmountFlags}, ToApple,
 };
 
 #[derive(Debug)]
@@ -236,6 +236,20 @@ pub fn get_sock_path(path: Vec<u8>, create: bool) -> Result<Vec<u8>, LxError> {
             .unwrap()
         {
             Response::SockPath(path) => Ok(path),
+            Response::Error(err) => Err(err),
+            _ => ipc_fail(),
+        }
+    })
+}
+
+#[inline]
+pub fn umount(path: Vec<u8>, flags: UmountFlags) -> Result<(), LxError> {
+    with_client(|client| {
+        match client
+            .invoke(Request::Umount(full_path(path), flags.bits()))
+            .unwrap()
+        {
+            Response::Nothing => Ok(()),
             Response::Error(err) => Err(err),
             _ => ipc_fail(),
         }

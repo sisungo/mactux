@@ -3,13 +3,24 @@ use crate::filesystem::vfs::{NewlyOpen, VfsPath};
 use mactux_ipc::response::{NetworkNames, Response};
 use structures::{
     error::LxError,
-    fs::{AccessFlags, OpenFlags},
+    fs::{AccessFlags, OpenFlags, UmountFlags},
     io::{EventFdFlags, FcntlCmd, IoctlCmd, Whence},
 };
 
 impl Session {
     pub fn set_mount_namespace(&self, id: u64) -> Response {
         match self.process.set_mnt_ns(id) {
+            Ok(()) => Response::Nothing,
+            Err(err) => Response::Error(err),
+        }
+    }
+
+    pub fn umount(&self, path: Vec<u8>, flags: u32) -> Response {
+        match self
+            .process
+            .mnt_ns()
+            .umount(&VfsPath::from_bytes(&path), UmountFlags::from_bits_retain(flags))
+        {
             Ok(()) => Response::Nothing,
             Err(err) => Response::Error(err),
         }

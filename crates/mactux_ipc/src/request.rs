@@ -5,6 +5,7 @@ use structures::io::Whence;
 #[derive(Debug, Clone, Encode, Decode)]
 pub enum Request {
     SetMountNamespace(u64),
+    Umount(Vec<u8>, u32),
 
     Open(Vec<u8>, u32, u32),
     Access(Vec<u8>, u32),

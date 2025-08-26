@@ -13,7 +13,7 @@ use std::{
 };
 use structures::{
     error::LxError,
-    fs::{AccessFlags, OpenFlags},
+    fs::{AccessFlags, OpenFlags, UmountFlags},
 };
 
 /// A path used in VFS.
@@ -168,6 +168,19 @@ impl MountNamespace {
             mount_obj,
         });
         Ok(())
+    }
+
+    pub fn umount(&self, path: &VfsPath<'_>, flags: UmountFlags) -> Result<(), LxError> {
+        let path = path.clearize();
+        let mut mounts = self.mounts.write().unwrap();
+        let nelem = mounts.iter().enumerate().rev()
+            .find(|(_, m)| m.mountpoint.segments == path.segments);
+        if let Some((i, _)) = nelem {
+            mounts.remove(i);
+            Ok(())
+        } else {
+            Err(LxError::EINVAL)
+        }
     }
 
     pub async fn open(
