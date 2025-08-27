@@ -1,4 +1,4 @@
-use crate::{error::LxError, unixvariants, FromApple, ToApple};
+use crate::{FromApple, ToApple, error::LxError, unixvariants};
 use bincode::{Decode, Encode};
 use bitflags::bitflags;
 use libc::c_int;
@@ -84,7 +84,6 @@ impl ToApple for Timeval {
         })
     }
 }
-
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(C)]

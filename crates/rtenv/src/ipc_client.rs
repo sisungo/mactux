@@ -118,7 +118,10 @@ impl AsRawFd for Client {
 }
 impl Drop for Client {
     fn drop(&mut self) {
-        process::context().important_fds.pin().remove(&self.as_raw_fd());
+        process::context()
+            .important_fds
+            .pin()
+            .remove(&self.as_raw_fd());
     }
 }
 
@@ -140,7 +143,10 @@ impl AsRawFd for InterruptibleClient {
 }
 impl Drop for InterruptibleClient {
     fn drop(&mut self) {
-        process::context().important_fds.pin().remove(&self.as_raw_fd());
+        process::context()
+            .important_fds
+            .pin()
+            .remove(&self.as_raw_fd());
     }
 }
 
@@ -169,7 +175,10 @@ pub fn make_client() -> Client {
             .expect("unable to connect to MacTux server"),
     );
     client.force_handshake();
-    process::context().important_fds.pin().insert(client.as_raw_fd());
+    process::context()
+        .important_fds
+        .pin()
+        .insert(client.as_raw_fd());
     client
 }
 
@@ -202,7 +211,10 @@ pub unsafe fn set_client_fd(fd: libc::c_int) {
         let client = Client(UnixStream::from_raw_fd(fd));
         _ = client.enable_cloexec();
         client.invoke(Request::AfterExec).unwrap();
-        process::context().important_fds.pin().insert(client.as_raw_fd());
+        process::context()
+            .important_fds
+            .pin()
+            .insert(client.as_raw_fd());
         thread::with_context(|ctx| ctx.client.set(RefCell::new(client)).unwrap());
     }
 }

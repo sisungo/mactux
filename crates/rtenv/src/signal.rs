@@ -8,7 +8,14 @@ use std::{
     },
 };
 use structures::{
-    error::LxError, signal::{KernelSigSet, MaskHowto, SigAction, SigActionFlags, SigAltStack, SigHandler, SigInfo, SigNum}, time::ClockId, ucontext::UContext, FromApple, ToApple
+    FromApple, ToApple,
+    error::LxError,
+    signal::{
+        KernelSigSet, MaskHowto, SigAction, SigActionFlags, SigAltStack, SigHandler, SigInfo,
+        SigNum,
+    },
+    time::ClockId,
+    ucontext::UContext,
 };
 
 /// macOS signals that can be handled.
@@ -94,7 +101,8 @@ pub fn raise(
         };
         let sigaltstack = sigaltstack(None);
         if !sigaltstack.ss_sp.is_null() {
-            (*ctx.uc_mcontext).__ss.__rsp = sigaltstack.ss_sp.add(sigaltstack.ss_size) as usize as u64;
+            (*ctx.uc_mcontext).__ss.__rsp =
+                sigaltstack.ss_sp.add(sigaltstack.ss_size) as usize as u64;
         }
         (*ctx.uc_mcontext).__ss.__rsp -= size_of::<SignalStackFrame>() as u64;
         ((*ctx.uc_mcontext).__ss.__rsp as usize as *mut SignalStackFrame).write(sigframe);

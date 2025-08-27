@@ -5,9 +5,19 @@ use macros::syscall;
 use rtenv::{error_report::ErrorReport, posix_num};
 use std::{io::Write, ptr::NonNull, time::Duration};
 use structures::{
-    error::LxError, fs::{AccessFlags, AtFlags, OpenFlags, Stat, Statx, UmountFlags}, io::{EventFdFlags, FcntlCmd, FdSet, FlockOp, IoctlCmd, PSelectSigMask, PollFd, Whence}, misc::{GrndFlags, SysInfo, UtsName}, mm::{Madvice, MmapFlags, MmapProt, MremapFlags, MsyncFlags}, net::{
+    FromApple, ToApple,
+    error::LxError,
+    fs::{AccessFlags, AtFlags, OpenFlags, Stat, Statx, UmountFlags},
+    io::{EventFdFlags, FcntlCmd, FdSet, FlockOp, IoctlCmd, PSelectSigMask, PollFd, Whence},
+    misc::{GrndFlags, SysInfo, UtsName},
+    mm::{Madvice, MmapFlags, MmapProt, MremapFlags, MsyncFlags},
+    net::{
         Domain, Protocol, ShutdownHow, SockAddr, SockOpt, SockOptLevel, SocketFlags, SocketType,
-    }, process::{PrctlOp, RLimit64, RLimitable, RUsage, RUsageWho, WaitOptions, WaitStatus}, signal::{KernelSigSet, MaskHowto, SigAction, SigAltStack, SigNum}, sync::{FutexCmd, FutexOp, RSeq}, time::{ClockId, TimerFlags, Timespec, Timeval, Timezone}, FromApple, ToApple
+    },
+    process::{PrctlOp, RLimit64, RLimitable, RUsage, RUsageWho, WaitOptions, WaitStatus},
+    signal::{KernelSigSet, MaskHowto, SigAction, SigAltStack, SigNum},
+    sync::{FutexCmd, FutexOp, RSeq},
+    time::{ClockId, TimerFlags, Timespec, Timeval, Timezone},
 };
 
 // -== Filesystem Operations ==-

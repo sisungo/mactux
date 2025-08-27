@@ -1,4 +1,4 @@
-use crate::{error::LxError, unixvariants, ToApple};
+use crate::{ToApple, error::LxError, unixvariants};
 use bitflags::bitflags;
 use libc::c_int;
 

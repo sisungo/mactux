@@ -44,23 +44,23 @@ impl OpenFlags {
     }
 }
 crate::bitflags_impl_from_to_apple!(
-    OpenFlags;
-        type Apple = c_int;
-        values = O_RDONLY,
-        O_WRONLY,
-        O_RDWR,
-        O_CREAT,
-        O_EXCL,
-        O_NOCTTY,
-        O_TRUNC,
-        O_NONBLOCK,
-        O_DSYNC,
-        O_ASYNC,
-        O_DIRECTORY,
-        O_NOFOLLOW,
-        O_CLOEXEC,
-        O_SYNC
-    );
+OpenFlags;
+    type Apple = c_int;
+    values = O_RDONLY,
+    O_WRONLY,
+    O_RDWR,
+    O_CREAT,
+    O_EXCL,
+    O_NOCTTY,
+    O_TRUNC,
+    O_NONBLOCK,
+    O_DSYNC,
+    O_ASYNC,
+    O_DIRECTORY,
+    O_NOFOLLOW,
+    O_CLOEXEC,
+    O_SYNC
+);
 
 bitflags! {
     #[derive(Debug, Clone, Copy)]

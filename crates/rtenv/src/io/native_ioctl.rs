@@ -1,7 +1,10 @@
 use crate::{posix_bi, posix_num};
 use libc::c_int;
 use structures::{
-    error::LxError, io::IoctlCmd, terminal::{TcFlowAction, Termios, Termios2, WinSize}, FromApple, ToApple
+    FromApple, ToApple,
+    error::LxError,
+    io::IoctlCmd,
+    terminal::{TcFlowAction, Termios, Termios2, WinSize},
 };
 
 pub fn native_ioctl(fd: c_int, cmd: IoctlCmd, arg: *mut u8) -> Result<c_int, LxError> {
@@ -19,7 +22,8 @@ pub fn native_ioctl(fd: c_int, cmd: IoctlCmd, arg: *mut u8) -> Result<c_int, LxE
         IoctlCmd::TCGETS => unsafe {
             let mut apple_termios: libc::termios = std::mem::zeroed();
             posix_bi!(libc::tcgetattr(fd, &mut apple_termios))?;
-            arg.cast::<Termios>().write(Termios::from_apple(apple_termios)?);
+            arg.cast::<Termios>()
+                .write(Termios::from_apple(apple_termios)?);
             Ok(0)
         },
         IoctlCmd::TCSETS => unsafe {
@@ -51,7 +55,8 @@ pub fn native_ioctl(fd: c_int, cmd: IoctlCmd, arg: *mut u8) -> Result<c_int, LxE
         IoctlCmd::TCGETS2 => unsafe {
             let mut apple_termios: libc::termios = std::mem::zeroed();
             posix_bi!(libc::tcgetattr(fd, &mut apple_termios))?;
-            arg.cast::<Termios2>().write(Termios2::from_apple(apple_termios)?);
+            arg.cast::<Termios2>()
+                .write(Termios2::from_apple(apple_termios)?);
             Ok(0)
         },
         IoctlCmd::TCSETS2 => unsafe {

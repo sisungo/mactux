@@ -1,4 +1,4 @@
-use crate::{bitflags_impl_from_to_apple, error::LxError, unixvariants, FromApple, ToApple};
+use crate::{FromApple, ToApple, bitflags_impl_from_to_apple, error::LxError, unixvariants};
 use bitflags::bitflags;
 
 #[derive(Debug, Clone)]

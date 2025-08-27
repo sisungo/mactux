@@ -7,7 +7,9 @@ mod util;
 
 use std::ptr::NonNull;
 use structures::{
-    error::LxError, fs::{AccessFlags, AtFlags, OpenFlags, UmountFlags},
+    FromApple,
+    error::LxError,
+    fs::{AccessFlags, AtFlags, OpenFlags, UmountFlags},
     io::{EventFdFlags, FcntlCmd, FlockOp, IoctlCmd, Whence},
     misc::GrndFlags,
     mm::{Madvice, MmapFlags, MmapProt, MremapFlags, MsyncFlags},
@@ -16,7 +18,6 @@ use structures::{
     signal::{MaskHowto, SigNum},
     sync::FutexOp,
     time::{ClockId, TimerFlags},
-    FromApple,
 };
 
 /// Install the system call emulation signal handlers.

@@ -175,7 +175,9 @@ impl MountNamespace {
         let mut mounts = self.mounts.write().unwrap();
         let mut nelem = None;
         for (n, mount) in mounts.iter().rev().enumerate() {
-            if (path.segments.len() > mount.mountpoint.segments.len()) && (path.segments[..mount.mountpoint.segments.len()] == mount.mountpoint.segments) {
+            if (path.segments.len() > mount.mountpoint.segments.len())
+                && (path.segments[..mount.mountpoint.segments.len()] == mount.mountpoint.segments)
+            {
                 return Err(LxError::EBUSY);
             }
             if mount.mountpoint.segments == path.segments {

@@ -16,11 +16,10 @@ impl Session {
     }
 
     pub fn umount(&self, path: Vec<u8>, flags: u32) -> Response {
-        match self
-            .process
-            .mnt_ns()
-            .umount(&VfsPath::from_bytes(&path), UmountFlags::from_bits_retain(flags))
-        {
+        match self.process.mnt_ns().umount(
+            &VfsPath::from_bytes(&path),
+            UmountFlags::from_bits_retain(flags),
+        ) {
             Ok(()) => Response::Nothing,
             Err(err) => Response::Error(err),
         }

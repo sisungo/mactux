@@ -1,6 +1,6 @@
 use crate::{
-    FromApple, ToApple, error::LxError, mapper,
-    signal::KernelSigSet, terminal::Termios2, unixvariants,
+    FromApple, ToApple, error::LxError, mapper, signal::KernelSigSet, terminal::Termios2,
+    unixvariants,
 };
 use bincode::{Decode, Encode};
 use bitflags::bitflags;

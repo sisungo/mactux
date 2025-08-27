@@ -1,6 +1,9 @@
 use libc::c_int;
 use structures::{
-    error::LxError, net::{Linger, SockOpt, SocketKind}, time::Timeval, ToApple
+    ToApple,
+    error::LxError,
+    net::{Linger, SockOpt, SocketKind},
+    time::Timeval,
 };
 
 macro_rules! sockopt_impl {

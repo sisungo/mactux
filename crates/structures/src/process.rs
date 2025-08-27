@@ -1,6 +1,4 @@
-use crate::{
-    FromApple, error::LxError, signal::SigNum, time::Timeval, unixvariants,
-};
+use crate::{FromApple, error::LxError, signal::SigNum, time::Timeval, unixvariants};
 use bitflags::bitflags;
 use std::ffi::c_int;
 

@@ -11,9 +11,10 @@ use async_trait::async_trait;
 use mactux_ipc::response::Response;
 use std::{path::PathBuf, sync::Arc};
 use structures::{
+    ToApple,
     error::LxError,
     fs::{AccessFlags, Dirent64, Dirent64Hdr, DirentType, OpenFlags, Statx},
-    io::FcntlCmd, ToApple,
+    io::FcntlCmd,
 };
 use tokio::{fs::ReadDir, sync::Mutex};
 

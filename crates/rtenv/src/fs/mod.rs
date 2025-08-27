@@ -6,8 +6,9 @@ use libc::c_int;
 use mactux_ipc::{request::Request, response::Response};
 use std::sync::Arc;
 use structures::{
+    ToApple,
     error::LxError,
-    fs::{AccessFlags, AtFlags, Dirent64, OpenFlags, Statx, UmountFlags}, ToApple,
+    fs::{AccessFlags, AtFlags, Dirent64, OpenFlags, Statx, UmountFlags},
 };
 
 #[derive(Debug)]
