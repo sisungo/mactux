@@ -173,9 +173,17 @@ impl MountNamespace {
     pub fn umount(&self, path: &VfsPath<'_>, flags: UmountFlags) -> Result<(), LxError> {
         let path = path.clearize();
         let mut mounts = self.mounts.write().unwrap();
-        let nelem = mounts.iter().enumerate().rev()
-            .find(|(_, m)| m.mountpoint.segments == path.segments);
-        if let Some((i, _)) = nelem {
+        let mut nelem = None;
+        for (n, mount) in mounts.iter().rev().enumerate() {
+            if (path.segments.len() > mount.mountpoint.segments.len()) && (path.segments[..mount.mountpoint.segments.len()] == mount.mountpoint.segments) {
+                return Err(LxError::EBUSY);
+            }
+            if mount.mountpoint.segments == path.segments {
+                nelem = Some(n);
+                break;
+            }
+        }
+        if let Some(i) = nelem {
             mounts.remove(i);
             Ok(())
         } else {

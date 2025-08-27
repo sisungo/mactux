@@ -1,4 +1,4 @@
-use crate::{error::LxError, unixvariants};
+use crate::{error::LxError, unixvariants, FromApple, ToApple};
 use bitflags::bitflags;
 use libc::{c_char, c_int};
 
@@ -252,6 +252,26 @@ impl From<libc::in_addr> for InAddr {
 pub struct Linger {
     pub l_onoff: c_int,
     pub l_linger: c_int,
+}
+impl FromApple for Linger {
+    type Apple = libc::linger;
+
+    fn from_apple(apple: libc::linger) -> Result<Self, LxError> {
+        Ok(Self {
+            l_onoff: apple.l_onoff,
+            l_linger: apple.l_linger,
+        })
+    }
+}
+impl ToApple for Linger {
+    type Apple = libc::linger;
+
+    fn to_apple(self) -> Result<libc::linger, LxError> {
+        Ok(libc::linger {
+            l_onoff: self.l_onoff,
+            l_linger: self.l_linger,
+        })
+    }
 }
 
 #[derive(Debug, Clone)]

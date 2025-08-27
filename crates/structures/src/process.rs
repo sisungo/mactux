@@ -161,11 +161,13 @@ pub struct RUsage {
     pub ru_nivcsw: i64,
     pub __reserved: [i64; 16],
 }
-impl RUsage {
-    pub fn from_apple(apple: libc::rusage) -> Self {
-        Self {
-            ru_utime: Timeval::from_apple(apple.ru_utime),
-            ru_stime: Timeval::from_apple(apple.ru_stime),
+impl FromApple for RUsage {
+    type Apple = libc::rusage;
+
+    fn from_apple(apple: libc::rusage) -> Result<Self, LxError> {
+        Ok(Self {
+            ru_utime: Timeval::from_apple(apple.ru_utime)?,
+            ru_stime: Timeval::from_apple(apple.ru_stime)?,
             ru_maxrss: apple.ru_maxrss,
             ru_ixrss: apple.ru_ixrss,
             ru_idrss: apple.ru_idrss,
@@ -181,7 +183,7 @@ impl RUsage {
             ru_nvcsw: apple.ru_nvcsw,
             ru_nivcsw: apple.ru_nivcsw,
             __reserved: [0; _],
-        }
+        })
     }
 }
 

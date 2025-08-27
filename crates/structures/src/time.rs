@@ -1,4 +1,4 @@
-use crate::unixvariants;
+use crate::{error::LxError, unixvariants, FromApple, ToApple};
 use bincode::{Decode, Encode};
 use bitflags::bitflags;
 use libc::c_int;
@@ -57,20 +57,34 @@ pub struct Timeval {
     pub tv_usec: i64,
 }
 impl Timeval {
-    pub fn from_apple(apple: libc::timeval) -> Self {
-        Self {
-            tv_sec: apple.tv_sec,
-            tv_usec: apple.tv_usec as _,
-        }
-    }
-
-    pub fn to_timespec(self) -> Timespec {
+    pub const fn to_timespec(self) -> Timespec {
         Timespec {
             tv_sec: self.tv_sec,
             tv_nsec: self.tv_usec * 1000,
         }
     }
 }
+impl FromApple for Timeval {
+    type Apple = libc::timeval;
+
+    fn from_apple(apple: libc::timeval) -> Result<Self, LxError> {
+        Ok(Self {
+            tv_sec: apple.tv_sec,
+            tv_usec: apple.tv_usec as _,
+        })
+    }
+}
+impl ToApple for Timeval {
+    type Apple = libc::timeval;
+
+    fn to_apple(self) -> Result<libc::timeval, LxError> {
+        Ok(libc::timeval {
+            tv_sec: self.tv_sec,
+            tv_usec: self.tv_usec as _,
+        })
+    }
+}
+
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(C)]

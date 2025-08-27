@@ -7,7 +7,7 @@ use std::{io::Write, ptr::NonNull, time::Duration};
 use structures::{
     error::LxError, fs::{AccessFlags, AtFlags, OpenFlags, Stat, Statx, UmountFlags}, io::{EventFdFlags, FcntlCmd, FdSet, FlockOp, IoctlCmd, PSelectSigMask, PollFd, Whence}, misc::{GrndFlags, SysInfo, UtsName}, mm::{Madvice, MmapFlags, MmapProt, MremapFlags, MsyncFlags}, net::{
         Domain, Protocol, ShutdownHow, SockAddr, SockOpt, SockOptLevel, SocketFlags, SocketType,
-    }, process::{PrctlOp, RLimit64, RLimitable, RUsage, RUsageWho, WaitOptions, WaitStatus}, signal::{KernelSigSet, MaskHowto, SigAction, SigAltStack, SigNum}, sync::{FutexCmd, FutexOp, RSeq}, time::{ClockId, TimerFlags, Timespec, Timeval, Timezone}, ToApple
+    }, process::{PrctlOp, RLimit64, RLimitable, RUsage, RUsageWho, WaitOptions, WaitStatus}, signal::{KernelSigSet, MaskHowto, SigAction, SigAltStack, SigNum}, sync::{FutexCmd, FutexOp, RSeq}, time::{ClockId, TimerFlags, Timespec, Timeval, Timezone}, FromApple, ToApple
 };
 
 // -== Filesystem Operations ==-
@@ -1016,7 +1016,7 @@ pub unsafe fn sys_gettimeofday(
             -1 => Err(LxError::last_apple_error()),
             _ => {
                 if let Some(tv) = tv {
-                    tv.write(Timeval::from_apple(tvbuf));
+                    tv.write(Timeval::from_apple(tvbuf)?);
                 }
                 if let Some(tz) = tz {
                     tz.write(tzbuf);
@@ -1198,7 +1198,7 @@ pub unsafe fn sys_prlimit64(
 #[syscall]
 pub unsafe fn sys_wait4(
     pid: i32,
-    stat_addr: *mut WaitStatus,
+    stat_addr: Option<NonNull<WaitStatus>>,
     options: WaitOptions,
     ru: Option<NonNull<RUsage>>,
 ) -> Result<i32, LxError> {
@@ -1209,9 +1209,11 @@ pub unsafe fn sys_wait4(
             -1 => Err(LxError::last_apple_error()),
             n => Ok(n),
         }?;
-        stat_addr.write(WaitStatus::from_apple(status));
+        if let Some(stat_addr) = stat_addr {
+            stat_addr.write(WaitStatus::from_apple(status));
+        }
         if let Some(ru) = ru {
-            ru.write(RUsage::from_apple(apple_ru));
+            ru.write(RUsage::from_apple(apple_ru)?);
         }
         Ok(pid)
     }
@@ -1224,7 +1226,7 @@ pub unsafe fn sys_getrusage(who: RUsageWho, rusage: *mut RUsage) -> Result<(), L
         if libc::getrusage(who.to_apple()?, &mut buf) == -1 {
             return Err(LxError::last_apple_error());
         }
-        rusage.write(RUsage::from_apple(buf));
+        rusage.write(RUsage::from_apple(buf)?);
         Ok(())
     }
 }

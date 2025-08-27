@@ -1,8 +1,6 @@
 use libc::c_int;
 use structures::{
-    ToApple,
-    error::LxError,
-    net::{SockOpt, SocketKind},
+    error::LxError, net::{Linger, SockOpt, SocketKind}, time::Timeval, ToApple
 };
 
 macro_rules! sockopt_impl {
@@ -79,6 +77,33 @@ impl SockOptLevel for SocketLevel {
             sockopt_impl!(c_int, c_int),               // 1
             sockopt_impl!(c_int, c_int),               // 2
             sockopt_impl!(readonly SocketKind, c_int), // 3
+            sockopt_impl!(readonly LxError, c_int),    // 4
+            sockopt_impl!(c_int, c_int),               // 5
+            sockopt_impl!(c_int, c_int),               // 6
+            sockopt_impl!(c_int, c_int),               // 7
+            sockopt_impl!(c_int, c_int),               // 8
+            sockopt_impl!(c_int, c_int),               // 9
+            sockopt_impl!(c_int, c_int),               // 10
+            sockopt_impl!(invalid),                    // 11
+            sockopt_impl!(invalid),                    // 12
+            sockopt_impl!(Linger, libc::linger),       // 13
+            sockopt_impl!(invalid),                    // 14
+            sockopt_impl!(c_int, c_int),               // 15
+            sockopt_impl!(invalid),                    // 16
+            sockopt_impl!(invalid),                    // 17
+            sockopt_impl!(c_int, c_int),               // 18
+            sockopt_impl!(c_int, c_int),               // 19
+            sockopt_impl!(Timeval, libc::timeval),     // 20
+            sockopt_impl!(Timeval, libc::timeval),     // 21
+            sockopt_impl!(invalid),                    // 22
+            sockopt_impl!(invalid),                    // 23
+            sockopt_impl!(invalid),                    // 24
+            sockopt_impl!(invalid),                    // 25
+            sockopt_impl!(invalid),                    // 26
+            sockopt_impl!(invalid),                    // 27
+            sockopt_impl!(invalid),                    // 28
+            sockopt_impl!(c_int, c_int),               // 29
+            sockopt_impl!(readonly c_int, c_int),      // 30
         ]
     }
 
