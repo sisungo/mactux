@@ -48,6 +48,7 @@ pub struct ThreadCtx {
     pub sigaltstack: Cell<SigAltStack>,
 }
 impl ThreadCtx {
+    /// Creates a new thread context. All fields are initialized to the "empty" values.
     pub fn new() -> Self {
         Self {
             tid: Cell::new(0),
@@ -59,6 +60,7 @@ impl ThreadCtx {
         }
     }
 
+    /// The thread-local storage destructor. Not intended to be used directly in Rust code.
     unsafe extern "C" fn destructor(data: *mut c_void) {
         unsafe {
             (data as *mut Self).drop_in_place();
@@ -145,6 +147,9 @@ pub fn may_fork<T>(fork: impl FnOnce() -> T, is_new: impl FnOnce(&T) -> bool) ->
     result
 }
 
+/// Public thread context that does not require POSIX thread-local storage and may be accessed from another thread. This can
+/// be used for shared thread data, or emulator environment, since we have no access to thread-local storage inside the emulated
+/// context.
 #[derive(Debug)]
 pub struct ThreadPubCtx {
     pub emulation: EmulatedThreadInfo,
@@ -152,6 +157,7 @@ pub struct ThreadPubCtx {
     pub robust_list_head_size: AtomicUsize,
 }
 impl ThreadPubCtx {
+    /// Creates a new [`ThreadPubCtx`] instance. All fields are initialized to their proper initial values.
     pub fn new() -> Self {
         Self {
             emulation: EmulatedThreadInfo::new(),

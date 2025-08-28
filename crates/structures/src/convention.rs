@@ -1,5 +1,6 @@
 use std::{fmt::Display, str::FromStr};
 
+/// Structure that represents to `/dev/fstab`.
 #[derive(Debug, Clone)]
 pub struct Fstab(pub Vec<FstabEntry>);
 impl FromStr for Fstab {
@@ -16,6 +17,7 @@ impl FromStr for Fstab {
     }
 }
 
+/// An entry in `/dev/fstab`.
 #[derive(Debug, Clone)]
 pub struct FstabEntry {
     pub device: String,
@@ -55,6 +57,7 @@ impl FromStr for FstabEntry {
     }
 }
 
+/// An error while parsing a data structure.
 #[derive(Debug, Clone)]
 pub struct ParseError;
 impl Display for ParseError {

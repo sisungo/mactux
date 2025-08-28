@@ -13,6 +13,7 @@ pub struct UtsName {
     pub domainname: [u8; 65],
 }
 
+/// Converts a byte string to the format that fits [`UtsName`].
 #[inline]
 pub fn uname_str(s: &[u8]) -> Result<[u8; 65], LxError> {
     if s.len() >= 65 {

@@ -1,3 +1,5 @@
+//! Implementations of cross-architecture system calls.
+
 use super::UcontextExt;
 use crate::util::{rust_bytes, with_openat};
 use libc::{c_char, c_int, c_uint, c_void};

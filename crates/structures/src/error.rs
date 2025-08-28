@@ -3,6 +3,7 @@ use bincode::{Decode, Encode};
 use std::ffi::c_int;
 
 unixvariants! {
+    /// A Linux error.
     #[derive(Encode, Decode)]
     pub struct LxError: u32 {
         const EPERM = 1;
@@ -56,6 +57,7 @@ unixvariants! {
     }
 }
 impl LxError {
+    /// Returns the [`LxError`] instance converted from last macOS error.
     #[inline]
     pub fn last_apple_error() -> Self {
         Self::from_apple(std::io::Error::last_os_error().raw_os_error().expect(

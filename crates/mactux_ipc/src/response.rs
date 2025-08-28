@@ -5,6 +5,7 @@ use structures::{
     misc::SysInfo,
 };
 
+/// A response to a MacTux IPC request.
 #[derive(Debug, Clone, Encode, Decode)]
 pub enum Response {
     Nothing,
@@ -33,12 +34,14 @@ pub enum Response {
     Error(LxError),
 }
 
+/// Information about a virtual file descriptor's specific "ioctl" availability.
 #[derive(Debug, Clone, Encode, Decode)]
 pub struct VirtualFdAvailCtrl {
     pub in_size: isize,
     pub out_size: usize,
 }
 
+/// Network names of current UTS namespace.
 #[derive(Debug, Clone, Encode, Decode)]
 pub struct NetworkNames {
     pub nodename: Vec<u8>,

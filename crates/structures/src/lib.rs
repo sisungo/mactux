@@ -17,15 +17,21 @@ pub mod thread;
 pub mod time;
 pub mod ucontext;
 
+/// Converts a value from the Apple platform to the Linux platform.
 pub trait FromApple: Sized {
+    /// The type of the Apple platform representation.
     type Apple;
 
+    /// Converts a value from the Apple platform to the Linux platform.
     fn from_apple(apple: Self::Apple) -> Result<Self, error::LxError>;
 }
 
+/// Converts a value from the Linux platform to the Apple platform.
 pub trait ToApple {
+    /// The type of the Apple platform representation.
     type Apple;
 
+    /// Converts a value from the Linux platform to the Apple platform.
     fn to_apple(self) -> Result<Self::Apple, error::LxError>;
 }
 

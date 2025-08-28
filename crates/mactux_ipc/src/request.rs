@@ -2,6 +2,7 @@ use bincode::{Decode, Encode};
 use std::time::Duration;
 use structures::io::Whence;
 
+/// An uninterruptible MacTux IPC request.
 #[derive(Debug, Clone, Encode, Decode)]
 pub enum Request {
     SetMountNamespace(u64),
@@ -47,6 +48,7 @@ pub enum Request {
     CallInterruptible(InterruptibleRequest),
 }
 
+/// An interruptible MacTux IPC request.
 #[derive(Debug, Clone, Encode, Decode)]
 pub enum InterruptibleRequest {
     VirtualFdPoll(Vec<(u64, u16)>, Option<Duration>),

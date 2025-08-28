@@ -73,5 +73,5 @@ fn release() -> [u8; 65] {
 }
 
 fn version() -> [u8; 65] {
-    uname_str(b"#1~0.1.0-MacTux SMP Fri July 25 00:52:43 UTC 2025").unwrap()
+    uname_str(b"#1~0.1.0-MacTux SMP Fri Aug 28 14:01:22 UTC 2025").unwrap()
 }

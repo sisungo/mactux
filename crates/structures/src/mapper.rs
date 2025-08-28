@@ -17,7 +17,8 @@ pub fn set_pid_mapper(val: Box<dyn PidMapper>) {
     *PID_MAPPER.write().unwrap() = val;
 }
 
-#[derive(Debug)]
+/// A mapper that always fails.
+#[derive(Debug, Clone, Copy)]
 struct FailMapper;
 impl PidMapper for FailMapper {
     fn apple_to_linux(&self, _: libc::pid_t) -> Result<i32, LxError> {

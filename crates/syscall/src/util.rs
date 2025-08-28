@@ -22,6 +22,7 @@ pub unsafe fn ret_sockaddr(addr: SockAddr, buf: *mut u8, len: *mut u32) -> Resul
     Ok(())
 }
 
+/// Executes a closure with a temporary file descriptor.
 pub fn with_openat<T>(
     dfd: c_int,
     path: Vec<u8>,
@@ -36,6 +37,7 @@ pub fn with_openat<T>(
     Ok(ret)
 }
 
+/// Returns a buffer to the userspace.
 pub unsafe fn ret_buf(buf: &[u8], ptr: *mut u8, len: usize) -> Result<usize, LxError> {
     unsafe {
         if buf.len() > len {

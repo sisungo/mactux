@@ -1,3 +1,6 @@
+//! Implementation for the x86_64 architecture, including architecture-specific system calls, general trait implementations,
+//! the system call table, etc.
+
 use crate::{SystemCallHandler, UcontextExt, common::*};
 use libc::{c_int, siginfo_t, ucontext_t};
 use macros::syscall;
