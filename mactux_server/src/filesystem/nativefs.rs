@@ -14,7 +14,6 @@ use structures::{
     ToApple,
     error::LxError,
     fs::{AccessFlags, Dirent64, Dirent64Hdr, DirentType, OpenFlags, Statx},
-    io::FcntlCmd,
 };
 use tokio::{fs::ReadDir, sync::Mutex};
 
@@ -138,14 +137,8 @@ impl VirtualFile for NativeDirVirtualFd {
         }
     }
 
-    async fn fcntl(&self, cmd: u32, data: Vec<u8>) -> Result<Response, LxError> {
-        let cmd = FcntlCmd(cmd);
-        match cmd {
-            FcntlCmd::F_SETFD => Ok(Response::Ctrl(0)),
-            FcntlCmd::F_GETFL => Ok(Response::Ctrl((OpenFlags::O_DIRECTORY).bits() as _)),
-            FcntlCmd::F_SETFL => Ok(Response::Ctrl(0)),
-            _ => Err(LxError::EINVAL),
-        }
+    async fn fcntl(&self, _: u32, _: Vec<u8>) -> Result<Response, LxError> {
+        Err(LxError::EINVAL)
     }
 
     async fn stat(&self) -> Result<Statx, LxError> {

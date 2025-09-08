@@ -228,21 +228,6 @@ pub fn listxattr(fd: c_int) -> Result<Vec<u8>, LxError> {
     Ok(Vec::new())
 }
 
-/// Gets path of a local socket.
-#[inline]
-pub fn get_sock_path(path: Vec<u8>, create: bool) -> Result<Vec<u8>, LxError> {
-    with_client(|client| {
-        match client
-            .invoke(Request::GetSockPath(full_path(path), create))
-            .unwrap()
-        {
-            Response::SockPath(path) => Ok(path),
-            Response::Error(err) => Err(err),
-            _ => ipc_fail(),
-        }
-    })
-}
-
 #[inline]
 pub fn umount(path: Vec<u8>, flags: UmountFlags) -> Result<(), LxError> {
     with_client(|client| {
@@ -251,6 +236,30 @@ pub fn umount(path: Vec<u8>, flags: UmountFlags) -> Result<(), LxError> {
             .unwrap()
         {
             Response::Nothing => Ok(()),
+            Response::Error(err) => Err(err),
+            _ => ipc_fail(),
+        }
+    })
+}
+
+#[inline]
+pub fn readlink(path: Vec<u8>) -> Result<Vec<u8>, LxError> {
+    readlinkat(-100, path)
+}
+
+#[inline]
+pub fn readlinkat(dfd: c_int, path: Vec<u8>) -> Result<Vec<u8>, LxError> {
+    Err(LxError::EINVAL)
+}
+
+/// Gets path of a local socket.
+pub fn get_sock_path(path: Vec<u8>, create: bool) -> Result<Vec<u8>, LxError> {
+    with_client(|client| {
+        match client
+            .invoke(Request::GetSockPath(full_path(path), create))
+            .unwrap()
+        {
+            Response::SockPath(path) => Ok(path),
             Response::Error(err) => Err(err),
             _ => ipc_fail(),
         }

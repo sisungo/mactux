@@ -135,6 +135,7 @@ pub struct KernFsDirVirtualFd {
     attrs: FileAttrs,
     keys: Mutex<Vec<Vec<u8>>>,
     dir: Arc<Directory>,
+    ino: u64,
 }
 impl KernFsDirVirtualFd {
     fn new(dir: Arc<Directory>, attrs: FileAttrs) -> Self {
@@ -149,7 +150,12 @@ impl KernFsDirVirtualFd {
         keys.push(vec![b'.', b'.']);
         let keys = Mutex::new(keys);
 
-        Self { attrs, keys, dir }
+        Self {
+            attrs,
+            keys,
+            dir,
+            ino: crate::util::pseudo_unique_id(),
+        }
     }
 }
 #[async_trait]
@@ -159,7 +165,7 @@ impl VirtualFile for KernFsDirVirtualFd {
             stx_mask: 0,
             stx_dev_major: 0,
             stx_dev_minor: 0,
-            stx_ino: 0,
+            stx_ino: self.ino,
             stx_nlink: 0,
             stx_uid: self.attrs.uid,
             stx_gid: self.attrs.gid,
@@ -221,7 +227,7 @@ impl VirtualFile for KernFsDirVirtualFd {
             DirEntry::Directory(_) => DirentType::DT_DIR,
         };
         let hdr = Dirent64Hdr {
-            d_ino: 0,
+            d_ino: crate::util::pseudo_unique_id(),
             d_off: 0,
             d_reclen: 0,
             d_type,

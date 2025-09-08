@@ -341,7 +341,7 @@ const SYSTEM_CALL_HANDLERS: &[SystemCallHandler] = &[
     sys_invalid,           // 264
     sys_invalid,           // 265
     sys_invalid,           // 266
-    sys_invalid,           // 267
+    sys_readlinkat,        // 267
     sys_invalid,           // 268
     sys_invalid,           // 269
     sys_pselect6,          // 270

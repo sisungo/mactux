@@ -131,6 +131,11 @@ pub fn c_str(mut rs: Vec<u8>) -> Vec<u8> {
     rs
 }
 
+pub fn pseudo_unique_id() -> u64 {
+    static NEXT_ID: AtomicU64 = AtomicU64::new(1);
+    NEXT_ID.fetch_add(1, atomic::Ordering::Relaxed)
+}
+
 pub unsafe fn sysctl_read<T: Copy, const N: usize>(mut name: [c_int; N]) -> Result<T, LxError> {
     unsafe {
         let mut data: T = std::mem::zeroed();

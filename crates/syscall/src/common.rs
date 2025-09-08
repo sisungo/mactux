@@ -161,7 +161,23 @@ pub unsafe fn sys_readlink(
     buf: *mut c_char,
     bufsiz: usize,
 ) -> Result<(), LxError> {
-    Err(LxError::EOPNOTSUPP)
+    unsafe {
+        let result = rtenv::fs::readlink(rust_bytes(path).to_vec())?;
+        crate::util::ret_buf(&result, buf.cast(), bufsiz).map(|_| ())
+    }
+}
+
+#[syscall]
+pub unsafe fn sys_readlinkat(
+    dfd: c_int,
+    path: *const c_char,
+    buf: *mut c_char,
+    bufsiz: usize,
+) -> Result<(), LxError> {
+    unsafe {
+        let result = rtenv::fs::readlinkat(dfd, rust_bytes(path).to_vec())?;
+        crate::util::ret_buf(&result, buf.cast(), bufsiz).map(|_| ())
+    }
 }
 
 #[syscall]
