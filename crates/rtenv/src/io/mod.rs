@@ -422,3 +422,16 @@ pub fn set_mount_namespace(new: u64) {
         client.invoke(Request::SetMountNamespace(new)).unwrap();
     });
 }
+
+#[inline]
+pub fn set_cloexec(fd: c_int) -> Result<(), LxError> {
+    unsafe {
+        let flags = fcntl(fd, FcntlCmd::F_GETFD, 0)?;
+        fcntl(
+            fd,
+            FcntlCmd::F_SETFD,
+            flags as usize | FdFlags::FD_CLOEXEC.bits() as usize,
+        )?;
+        Ok(())
+    }
+}

@@ -329,3 +329,12 @@ impl EventFdFlags {
         result
     }
 }
+
+bitflags! {
+    #[derive(Debug, Clone, Copy)]
+    #[repr(transparent)]
+    pub struct CloseRangeFlags: u32 {
+        const CLOSE_RANGE_UNSHARE = 2;
+        const CLOSE_RANGE_CLOEXEC = 4;
+    }
+}

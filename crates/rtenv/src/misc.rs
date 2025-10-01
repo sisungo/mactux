@@ -1,4 +1,4 @@
-use crate::ipc_client::with_client;
+use crate::{ipc_client::with_client, util::ipc_fail};
 use mactux_ipc::{request::Request, response::Response};
 use structures::{
     error::LxError,
@@ -9,7 +9,7 @@ pub fn sysinfo() -> Result<SysInfo, LxError> {
     with_client(|client| match client.invoke(Request::SysInfo).unwrap() {
         Response::SysInfo(sysinfo) => Ok(sysinfo),
         Response::Error(err) => Err(err),
-        _ => panic!("unexpected server response"),
+        _ => ipc_fail(),
     })
 }
 
@@ -39,7 +39,7 @@ pub fn get_network_names() -> Result<(Vec<u8>, Vec<u8>), LxError> {
             |client| match client.invoke(Request::GetNetworkNames).unwrap() {
                 Response::NetworkNames(names) => Ok(names),
                 Response::Error(err) => Err(err),
-                _ => panic!("unexpected server response"),
+                _ => ipc_fail(),
             },
         )?;
     Ok((network_names.nodename, network_names.domainname))
@@ -53,7 +53,7 @@ pub fn set_network_names(nodename: Vec<u8>, domainname: Vec<u8>) -> Result<(), L
         {
             Response::Nothing => Ok(()),
             Response::Error(err) => Err(err),
-            _ => panic!("unexpected server response"),
+            _ => ipc_fail(),
         }
     })
 }

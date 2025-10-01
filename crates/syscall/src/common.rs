@@ -10,7 +10,10 @@ use structures::{
     FromApple, ToApple,
     error::LxError,
     fs::{AccessFlags, AtFlags, OpenFlags, Stat, Statx, UmountFlags},
-    io::{EventFdFlags, FcntlCmd, FdSet, FlockOp, IoctlCmd, PSelectSigMask, PollFd, Whence},
+    io::{
+        CloseRangeFlags, EventFdFlags, FcntlCmd, FdSet, FlockOp, IoctlCmd, PSelectSigMask, PollFd,
+        Whence,
+    },
     misc::{GrndFlags, SysInfo, UtsName},
     mm::{Madvice, MmapFlags, MmapProt, MremapFlags, MsyncFlags},
     net::{
@@ -419,7 +422,14 @@ pub unsafe fn sys_close(fd: c_int) -> Result<(), LxError> {
 }
 
 #[syscall]
-pub unsafe fn sys_close_range(first: c_int, last: c_int, flags: u32) -> Result<(), LxError> {
+pub unsafe fn sys_close_range(
+    first: c_int,
+    last: c_int,
+    flags: CloseRangeFlags,
+) -> Result<(), LxError> {
+    if first > last {
+        return Err(LxError::EINVAL);
+    }
     let mut open_fds = Vec::new();
     for entry in std::fs::read_dir("/dev/fd")? {
         let entry = entry?;
@@ -433,7 +443,11 @@ pub unsafe fn sys_close_range(first: c_int, last: c_int, flags: u32) -> Result<(
     }
     for fd in open_fds {
         if (first..=last).contains(&fd) {
-            _ = rtenv::io::close(fd);
+            if flags.contains(CloseRangeFlags::CLOSE_RANGE_CLOEXEC) {
+                _ = rtenv::io::set_cloexec(fd);
+            } else {
+                _ = rtenv::io::close(fd);
+            }
         }
     }
     Ok(())

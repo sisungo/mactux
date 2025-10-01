@@ -249,7 +249,7 @@ pub fn readlink(path: Vec<u8>) -> Result<Vec<u8>, LxError> {
 
 #[inline]
 pub fn readlinkat(dfd: c_int, path: Vec<u8>) -> Result<Vec<u8>, LxError> {
-    Err(LxError::EINVAL)
+    todo!()
 }
 
 /// Gets path of a local socket.

@@ -10,7 +10,7 @@ use structures::{
     FromApple,
     error::LxError,
     fs::{AccessFlags, AtFlags, OpenFlags, UmountFlags},
-    io::{EventFdFlags, FcntlCmd, FlockOp, IoctlCmd, Whence},
+    io::{CloseRangeFlags, EventFdFlags, FcntlCmd, FlockOp, IoctlCmd, Whence},
     misc::GrndFlags,
     mm::{Madvice, MmapFlags, MmapProt, MremapFlags, MsyncFlags},
     net::{Domain, Protocol, ShutdownHow, SockOpt, SockOptLevel, SocketFlags, SocketType},
@@ -122,7 +122,7 @@ macro_rules! impl_from_to_sys_newtype {
 impl_from_to_sys_plain!(i8; u8; i16; u16; i32; u32; i64; u64; isize; usize);
 impl_from_to_sys_bitflags!(
     MmapFlags; OpenFlags; AtFlags; MmapProt; GrndFlags; AccessFlags; WaitOptions; MsyncFlags;
-    MremapFlags; SocketFlags; EventFdFlags; TimerFlags; UmountFlags
+    MremapFlags; SocketFlags; EventFdFlags; TimerFlags; UmountFlags; CloseRangeFlags
 );
 impl_from_to_sys_newtype!(
     Whence; FcntlCmd; IoctlCmd; FutexOp; ClockId; MaskHowto; SigNum; Domain; SocketType; Protocol;

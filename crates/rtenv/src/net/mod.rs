@@ -113,8 +113,7 @@ fn prepare_new(sock: c_int, flags: SocketFlags) -> Result<(), LxError> {
             posix_bi!(libc::fcntl(sock, libc::F_SETFL, flags | libc::O_NONBLOCK))?;
         }
         if flags.contains(SocketFlags::SOCK_CLOEXEC) {
-            let flags: c_int = posix_num!(libc::fcntl(sock, libc::F_GETFD))?;
-            posix_bi!(libc::fcntl(sock, libc::F_SETFD, flags | libc::FD_CLOEXEC))?;
+            crate::io::set_cloexec(sock)?;
         }
         Ok(())
     }

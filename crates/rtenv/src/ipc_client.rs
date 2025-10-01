@@ -1,6 +1,6 @@
 //! Client implementation of the MacTux IPC protocol.
 
-use crate::{process, thread};
+use crate::{posix_bi, posix_num, process, thread};
 use mactux_ipc::{
     handshake::{HandshakeRequest, HandshakeResponse},
     request::{InterruptibleRequest, Request},
@@ -16,45 +16,29 @@ use std::{
     path::PathBuf,
     sync::Arc,
 };
+use structures::error::LxError;
 
 /// A MacTux IPC client.
 #[derive(Debug)]
 pub struct Client(UnixStream);
 impl Client {
     /// Enables close-on-exec for this client.
-    pub fn enable_cloexec(&self) -> std::io::Result<()> {
+    pub fn enable_cloexec(&self) -> Result<(), LxError> {
         let fd = self.0.as_raw_fd();
-        let original = unsafe {
-            match libc::fcntl(fd, libc::F_GETFD) {
-                -1 => Err(std::io::Error::last_os_error()),
-                n => Ok(n),
-            }
-        }?;
-        let new = original | libc::FD_CLOEXEC;
-        unsafe {
-            match libc::fcntl(fd, libc::F_SETFD, new) {
-                -1 => Err(std::io::Error::last_os_error()),
-                _ => Ok(()),
-            }
-        }?;
+        crate::io::set_cloexec(fd)?;
         Ok(())
     }
 
     /// Disables close-on-exec for this client.
-    pub fn disable_cloexec(&self) -> std::io::Result<()> {
+    pub fn disable_cloexec(&self) -> Result<(), LxError> {
         let fd = self.0.as_raw_fd();
-        let original = unsafe {
-            match libc::fcntl(fd, libc::F_GETFD) {
-                -1 => Err(std::io::Error::last_os_error()),
-                n => Ok(n),
-            }
-        }?;
-        let new = original & !libc::FD_CLOEXEC;
+        let original: i32 = unsafe { posix_num!(libc::fcntl(fd, libc::F_GETFD)) }?;
         unsafe {
-            match libc::fcntl(fd, libc::F_SETFD, new) {
-                -1 => Err(std::io::Error::last_os_error()),
-                _ => Ok(()),
-            }
+            posix_bi!(libc::fcntl(
+                fd,
+                libc::F_SETFD,
+                (original & !libc::FD_CLOEXEC) as usize
+            ))
         }?;
         Ok(())
     }
