@@ -14,20 +14,20 @@ use structures::{
 #[derive(Debug)]
 pub struct FilesystemContext {
     pub root: ArcSwap<Vec<u8>>,
-    pub cwd: ArcSwap<Vec<u8>>,
+    pub cwd: ArcSwap<Option<Vec<u8>>>,
 }
 impl FilesystemContext {
     pub fn new() -> Self {
         Self {
             root: ArcSwap::from(Arc::new(vec![b'/'])),
-            cwd: ArcSwap::from(Arc::new(vec![b'/'])),
+            cwd: ArcSwap::from(Arc::new(None)),
         }
     }
 }
 
 #[inline]
 pub fn open(path: Vec<u8>, flags: OpenFlags, mode: u32) -> Result<c_int, LxError> {
-    openat(-100, full_path(path), flags, AtFlags::empty(), mode)
+    openat(-100, full_path(path)?, flags, AtFlags::empty(), mode)
 }
 
 #[inline]
@@ -134,7 +134,7 @@ pub unsafe fn chown(fd: c_int, uid: u32, gid: u32) -> Result<(), LxError> {
 pub fn symlink(src: Vec<u8>, dst: Vec<u8>) -> Result<(), LxError> {
     with_client(|client| {
         match client
-            .invoke(Request::Symlink(src, full_path(dst)))
+            .invoke(Request::Symlink(src, full_path(dst)?))
             .unwrap()
         {
             Response::Nothing => Ok(()),
@@ -148,7 +148,7 @@ pub fn symlink(src: Vec<u8>, dst: Vec<u8>) -> Result<(), LxError> {
 pub fn rename(src: Vec<u8>, dst: Vec<u8>) -> Result<(), LxError> {
     with_client(|client| {
         match client
-            .invoke(Request::Rename(full_path(src), full_path(dst)))
+            .invoke(Request::Rename(full_path(src)?, full_path(dst)?))
             .unwrap()
         {
             Response::Nothing => Ok(()),
@@ -161,7 +161,7 @@ pub fn rename(src: Vec<u8>, dst: Vec<u8>) -> Result<(), LxError> {
 #[inline]
 pub fn unlink(path: Vec<u8>) -> Result<(), LxError> {
     with_client(
-        |client| match client.invoke(Request::Unlink(full_path(path))).unwrap() {
+        |client| match client.invoke(Request::Unlink(full_path(path)?)).unwrap() {
             Response::Nothing => Ok(()),
             Response::Error(err) => Err(err),
             _ => ipc_fail(),
@@ -172,7 +172,7 @@ pub fn unlink(path: Vec<u8>) -> Result<(), LxError> {
 #[inline]
 pub fn rmdir(path: Vec<u8>) -> Result<(), LxError> {
     with_client(
-        |client| match client.invoke(Request::Rmdir(full_path(path))).unwrap() {
+        |client| match client.invoke(Request::Rmdir(full_path(path)?)).unwrap() {
             Response::Nothing => Ok(()),
             Response::Error(err) => Err(err),
             _ => ipc_fail(),
@@ -184,7 +184,7 @@ pub fn rmdir(path: Vec<u8>) -> Result<(), LxError> {
 pub fn mkdir(path: Vec<u8>, mode: u32) -> Result<(), LxError> {
     with_client(|client| {
         match client
-            .invoke(Request::Mkdir(full_path(path), mode))
+            .invoke(Request::Mkdir(full_path(path)?, mode))
             .unwrap()
         {
             Response::Nothing => Ok(()),
@@ -195,13 +195,19 @@ pub fn mkdir(path: Vec<u8>, mode: u32) -> Result<(), LxError> {
 }
 
 #[inline]
-pub fn getcwd() -> Vec<u8> {
-    process::context().fs.cwd.load().to_vec()
+pub fn getcwd() -> Result<Vec<u8>, LxError> {
+    process::context()
+        .fs
+        .cwd
+        .load()
+        .as_ref()
+        .clone()
+        .ok_or(LxError::ENOENT)
 }
 
 #[inline]
 pub fn chdir(new: Vec<u8>) -> Result<(), LxError> {
-    let fd = open(new.clone(), OpenFlags::O_PATH | OpenFlags::O_DIRECTORY, 0)?;
+    let fd = open(new, OpenFlags::O_PATH | OpenFlags::O_DIRECTORY, 0)?;
     match fchdir(fd) {
         Ok(()) => Ok(()),
         Err(err) => {
@@ -219,7 +225,7 @@ pub fn fchdir(fd: c_int) -> Result<(), LxError> {
     process::context()
         .fs
         .cwd
-        .store(Arc::new(vfd::orig_path(vfd)?));
+        .store(Arc::new(Some(vfd::orig_path(vfd)?)));
     Ok(())
 }
 
@@ -232,7 +238,7 @@ pub fn listxattr(fd: c_int) -> Result<Vec<u8>, LxError> {
 pub fn umount(path: Vec<u8>, flags: UmountFlags) -> Result<(), LxError> {
     with_client(|client| {
         match client
-            .invoke(Request::Umount(full_path(path), flags.bits()))
+            .invoke(Request::Umount(full_path(path)?, flags.bits()))
             .unwrap()
         {
             Response::Nothing => Ok(()),
@@ -249,14 +255,14 @@ pub fn readlink(path: Vec<u8>) -> Result<Vec<u8>, LxError> {
 
 #[inline]
 pub fn readlinkat(dfd: c_int, path: Vec<u8>) -> Result<Vec<u8>, LxError> {
-    todo!()
+    Err(LxError::EINVAL)
 }
 
 /// Gets path of a local socket.
 pub fn get_sock_path(path: Vec<u8>, create: bool) -> Result<Vec<u8>, LxError> {
     with_client(|client| {
         match client
-            .invoke(Request::GetSockPath(full_path(path), create))
+            .invoke(Request::GetSockPath(full_path(path)?, create))
             .unwrap()
         {
             Response::SockPath(path) => Ok(path),
@@ -283,13 +289,13 @@ fn at_base_path(fd: c_int) -> Result<Vec<u8>, LxError> {
     if let Some(dvfd) = crate::vfd::get(fd) {
         vfd::orig_path(dvfd)
     } else if fd == -100 {
-        Ok(getcwd())
+        getcwd()
     } else {
         Err(LxError::ENOTDIR)
     }
 }
 
 /// Returns a path that can be accepted by the MacTux server from a relative path.
-fn full_path(path: Vec<u8>) -> Vec<u8> {
-    at_path(-100, path).expect("full path from cwd should never fail")
+fn full_path(path: Vec<u8>) -> Result<Vec<u8>, LxError> {
+    at_path(-100, path)
 }

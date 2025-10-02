@@ -199,7 +199,7 @@ pub unsafe fn sys_getdents64(fd: c_int, dp: *mut u8, count: c_int) -> Result<usi
 
 #[syscall]
 pub unsafe fn sys_getcwd(buf: *mut u8, bufsz: usize) -> Result<*mut u8, LxError> {
-    let cwd = rtenv::fs::getcwd();
+    let cwd = rtenv::fs::getcwd()?;
     if bufsz < cwd.len() + 1 {
         return Err(LxError::ENOMEM);
     }
