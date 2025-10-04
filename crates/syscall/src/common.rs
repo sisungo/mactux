@@ -278,6 +278,11 @@ pub unsafe fn sys_unlink(path: *const c_char) -> Result<(), LxError> {
 }
 
 #[syscall]
+pub unsafe fn sys_unlinkat(dfd: c_int, path: *const c_char, flags: AtFlags) -> Result<(), LxError> {
+    unsafe { rtenv::fs::unlinkat(dfd, rust_bytes(path).to_vec(), flags) }
+}
+
+#[syscall]
 pub unsafe fn sys_rmdir(path: *const c_char) -> Result<(), LxError> {
     unsafe { rtenv::fs::rmdir(rust_bytes(path).to_vec()) }
 }

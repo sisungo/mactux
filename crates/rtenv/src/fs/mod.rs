@@ -161,6 +161,21 @@ pub fn unlink(path: Vec<u8>) -> Result<(), LxError> {
 }
 
 #[inline]
+pub fn unlinkat(dfd: c_int, path: Vec<u8>, flags: AtFlags) -> Result<(), LxError> {
+    let full_path = at_path(dfd, path)?;
+    let method = if flags.contains(AtFlags::AT_REMOVEDIR) {
+        Request::Rmdir
+    } else {
+        Request::Unlink
+    };
+    with_client(|client| match client.invoke(method(full_path)).unwrap() {
+        Response::Nothing => Ok(()),
+        Response::Error(err) => Err(err),
+        _ => ipc_fail(),
+    })
+}
+
+#[inline]
 pub fn rmdir(path: Vec<u8>) -> Result<(), LxError> {
     with_client(
         |client| match client.invoke(Request::Rmdir(full_path(path)?)).unwrap() {
