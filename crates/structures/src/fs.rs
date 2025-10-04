@@ -68,6 +68,7 @@ bitflags! {
     pub struct AtFlags: u32 {
         const AT_EMPTY_PATH = 0x1000;
         const AT_SYMLINK_NOFOLLOW = 0x100;
+        const _AT_APPLE_SYMLINK = 0x8000;
     }
 }
 

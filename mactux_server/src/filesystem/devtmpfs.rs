@@ -38,6 +38,10 @@ pub fn mountable() -> Result<Arc<dyn Mountable>, LxError> {
         "urandom".into(),
         DirEntry::RegularFile(Arc::new(crate::device::URandom)),
     );
+    writer.insert(
+        "tty".into(),
+        DirEntry::RegularFile(Arc::new(crate::device::Tty)),
+    );
 
     drop(writer);
     Ok(Arc::new(kernfs))

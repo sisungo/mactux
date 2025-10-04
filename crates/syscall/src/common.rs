@@ -163,10 +163,17 @@ pub unsafe fn sys_readlink(
     path: *const c_char,
     buf: *mut c_char,
     bufsiz: usize,
-) -> Result<(), LxError> {
+) -> Result<usize, LxError> {
     unsafe {
-        let result = rtenv::fs::readlink(rust_bytes(path).to_vec())?;
-        crate::util::ret_buf(&result, buf.cast(), bufsiz).map(|_| ())
+        let result = with_openat(
+            -100,
+            rust_bytes(path).to_vec(),
+            OpenFlags::empty(),
+            AtFlags::_AT_APPLE_SYMLINK,
+            0,
+            rtenv::fs::readlink,
+        )?;
+        crate::util::ret_buf(&result, buf.cast(), bufsiz)
     }
 }
 
@@ -176,10 +183,17 @@ pub unsafe fn sys_readlinkat(
     path: *const c_char,
     buf: *mut c_char,
     bufsiz: usize,
-) -> Result<(), LxError> {
+) -> Result<usize, LxError> {
     unsafe {
-        let result = rtenv::fs::readlinkat(dfd, rust_bytes(path).to_vec())?;
-        crate::util::ret_buf(&result, buf.cast(), bufsiz).map(|_| ())
+        let result = with_openat(
+            -dfd,
+            rust_bytes(path).to_vec(),
+            OpenFlags::empty(),
+            AtFlags::_AT_APPLE_SYMLINK,
+            0,
+            rtenv::fs::readlink,
+        )?;
+        crate::util::ret_buf(&result, buf.cast(), bufsiz)
     }
 }
 
@@ -214,12 +228,21 @@ pub unsafe fn sys_getcwd(buf: *mut u8, bufsz: usize) -> Result<*mut u8, LxError>
 
 #[syscall]
 pub unsafe fn sys_chdir(buf: *const c_char) -> Result<(), LxError> {
-    unsafe { rtenv::fs::chdir(rust_bytes(buf).to_vec()) }
+    unsafe {
+        with_openat(
+            -100,
+            rust_bytes(buf).to_vec(),
+            OpenFlags::O_PATH | OpenFlags::O_DIRECTORY,
+            AtFlags::empty(),
+            0,
+            rtenv::fs::chdir,
+        )
+    }
 }
 
 #[syscall]
 pub unsafe fn sys_fchdir(fd: c_int) -> Result<(), LxError> {
-    rtenv::fs::fchdir(fd)
+    rtenv::fs::chdir(fd)
 }
 
 #[syscall]

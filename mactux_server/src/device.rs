@@ -40,3 +40,12 @@ impl KernFsFile for URandom {
         Ok(NewlyOpen::AtNative(PathBuf::from("/dev/urandom")))
     }
 }
+
+#[derive(Debug, Clone, Copy)]
+pub struct Tty;
+#[async_trait]
+impl KernFsFile for Tty {
+    async fn open(&self, _: OpenFlags) -> Result<NewlyOpen, LxError> {
+        Ok(NewlyOpen::AtNative(PathBuf::from("/dev/tty")))
+    }
+}

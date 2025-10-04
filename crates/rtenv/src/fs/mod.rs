@@ -53,14 +53,7 @@ pub fn openat(
             .invoke(Request::Open(path, oflags.bits(), mode))
             .unwrap()
         {
-            Response::OpenNativePath(native) => unsafe {
-                let c_path = crate::util::c_path(native);
-                if oflags.contains(OpenFlags::O_CREAT) {
-                    posix_num!(libc::open(c_path.as_ptr().cast(), oflags.to_apple()?, mode))
-                } else {
-                    posix_num!(libc::open(c_path.as_ptr().cast(), oflags.to_apple()?))
-                }
-            },
+            Response::OpenNativePath(native) => open_native(native, oflags, atflags, mode),
             Response::OpenVirtualFd(vfd) => crate::vfd::create(vfd, oflags),
             Response::Error(err) => Err(err),
             _ => ipc_fail(),
@@ -98,23 +91,21 @@ pub fn faccessat2(
 
 #[inline]
 pub fn getdents64(fd: c_int) -> Result<Option<Dirent64>, LxError> {
-    if let Some(vfd) = crate::vfd::get(fd) {
-        vfd::getdents64(vfd)
-    } else {
-        Err(LxError::EBADF)
+    match crate::vfd::get(fd) {
+        Some(vfd) => vfd::getdents64(vfd),
+        None => Err(LxError::EBADF),
     }
 }
 
 #[inline]
 pub unsafe fn stat(fd: c_int) -> Result<Statx, LxError> {
-    if let Some(vfd) = crate::vfd::get(fd) {
-        vfd::stat(vfd)
-    } else {
-        let mut stat = unsafe { std::mem::zeroed() };
-        unsafe {
+    match crate::vfd::get(fd) {
+        Some(vfd) => vfd::stat(vfd),
+        None => unsafe {
+            let mut stat = unsafe { std::mem::zeroed() };
             posix_bi!(libc::fstat(fd, &mut stat))?;
             Ok(Statx::from_apple(stat))
-        }
+        },
     }
 }
 
@@ -200,19 +191,7 @@ pub fn getcwd() -> Vec<u8> {
 }
 
 #[inline]
-pub fn chdir(new: Vec<u8>) -> Result<(), LxError> {
-    let fd = open(new, OpenFlags::O_PATH | OpenFlags::O_DIRECTORY, 0)?;
-    match fchdir(fd) {
-        Ok(()) => Ok(()),
-        Err(err) => {
-            _ = crate::io::close(fd);
-            Err(err)
-        }
-    }
-}
-
-#[inline]
-pub fn fchdir(fd: c_int) -> Result<(), LxError> {
+pub fn chdir(fd: c_int) -> Result<(), LxError> {
     let Some(vfd) = crate::vfd::get(fd) else {
         return Err(LxError::ENOTDIR);
     };
@@ -252,13 +231,17 @@ pub fn umount(path: Vec<u8>, flags: UmountFlags) -> Result<(), LxError> {
 }
 
 #[inline]
-pub fn readlink(path: Vec<u8>) -> Result<Vec<u8>, LxError> {
-    readlinkat(-100, path)
-}
-
-#[inline]
-pub fn readlinkat(dfd: c_int, path: Vec<u8>) -> Result<Vec<u8>, LxError> {
-    Err(LxError::EINVAL)
+pub fn readlink(fd: c_int) -> Result<Vec<u8>, LxError> {
+    match crate::vfd::get(fd) {
+        Some(vfd) => todo!(),
+        None => unsafe {
+            let mut buf = vec![0u8; libc::PATH_MAX as usize];
+            let nbytes: usize =
+                posix_num!(libc::freadlink(fd, buf.as_mut_ptr().cast(), buf.len()))?;
+            buf.truncate(nbytes);
+            Ok(buf)
+        },
+    }
 }
 
 /// Gets path of a local socket.
@@ -273,6 +256,28 @@ pub fn get_sock_path(path: Vec<u8>, create: bool) -> Result<Vec<u8>, LxError> {
             _ => ipc_fail(),
         }
     })
+}
+
+fn open_native(
+    native: Vec<u8>,
+    oflags: OpenFlags,
+    atflags: AtFlags,
+    mode: u32,
+) -> Result<c_int, LxError> {
+    unsafe {
+        let c_path = crate::util::c_path(native);
+        let mut oflags = oflags.to_apple()?;
+
+        if atflags.contains(AtFlags::_AT_APPLE_SYMLINK) {
+            oflags |= libc::O_SYMLINK;
+        }
+
+        if (oflags & libc::O_CREAT) != 0 {
+            posix_num!(libc::open(c_path.as_ptr().cast(), oflags, mode))
+        } else {
+            posix_num!(libc::open(c_path.as_ptr().cast(), oflags))
+        }
+    }
 }
 
 /// Returns path relative to current root directory for given path at given file descriptor.
