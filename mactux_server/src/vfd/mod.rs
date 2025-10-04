@@ -133,6 +133,10 @@ impl VirtualFd {
         self.inner.poll(interest).await
     }
 
+    pub async fn sync(&self) -> Result<(), LxError> {
+        self.inner.sync().await
+    }
+
     pub fn set_orig_path(&self, path: VfsPath<'static>) -> Result<(), LxError> {
         self.orig_path.set(path).map_err(|_| LxError::EACCES)
     }
@@ -207,6 +211,10 @@ pub trait VirtualFile: Send + Sync {
 
     async fn poll(&self, _interest: PollEvents) -> Result<PollEvents, LxError> {
         Err(LxError::EOPNOTSUPP)
+    }
+
+    async fn sync(&self) -> Result<(), LxError> {
+        Ok(())
     }
 }
 

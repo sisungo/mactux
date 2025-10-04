@@ -335,7 +335,7 @@ pub fn truncate(fd: c_int, len: u64) -> Result<(), LxError> {
 #[inline]
 pub fn fsync(fd: c_int) -> Result<(), LxError> {
     if let Some(vfd) = crate::vfd::get(fd) {
-        todo!()
+        vfd::sync(vfd)
     } else {
         unsafe { posix_bi!(libc::fsync(fd)) }
     }

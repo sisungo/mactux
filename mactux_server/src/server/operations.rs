@@ -175,6 +175,16 @@ impl Session {
         }
     }
 
+    pub async fn vfd_sync(&self, vfd: u64) -> Response {
+        let Ok(vfd) = self.process.vfd(vfd) else {
+            return Response::Error(LxError::EBADF);
+        };
+        match vfd.sync().await {
+            Ok(()) => Response::Nothing,
+            Err(err) => Response::Error(err),
+        }
+    }
+
     pub async fn vfd_fcntl(&self, vfd: u64, cmd: u32, data: &[u8]) -> Response {
         let Ok(vfd) = self.process.vfd(vfd) else {
             return Response::Error(LxError::EBADF);

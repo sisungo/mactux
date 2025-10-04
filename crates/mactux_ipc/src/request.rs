@@ -32,6 +32,7 @@ pub enum Request {
     VirtualFdDup(u64),
     VirtualFdClose(u64),
     VirtualFdOrigPath(u64),
+    VirtualFdSync(u64),
 
     EventFd(u64, u32),
 

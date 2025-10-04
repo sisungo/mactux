@@ -125,6 +125,16 @@ pub fn truncate(vfd: u64, len: u64) -> Result<(), LxError> {
     )
 }
 
+pub fn sync(vfd: u64) -> Result<(), LxError> {
+    with_client(
+        |client| match client.invoke(Request::VirtualFdSync(vfd)).unwrap() {
+            Response::Nothing => Ok(()),
+            Response::Error(err) => Err(err),
+            _ => ipc_fail(),
+        },
+    )
+}
+
 pub fn close(vfd: u64) {
     with_client(|client| {
         client.invoke(Request::VirtualFdClose(vfd)).unwrap();

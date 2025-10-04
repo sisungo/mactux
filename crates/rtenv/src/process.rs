@@ -126,7 +126,7 @@ pub unsafe fn exec(
     // Pass current working directory.
     // If current value is "invalid", a '?' string just makes a false initialization, which inherits the "invalid" state.
     args.push(String::from("--cwd").into_bytes());
-    args.push(crate::fs::getcwd().unwrap_or_else(|_| b"?".to_vec()));
+    args.push(crate::fs::getcwd());
 
     args.push(String::from("--server-sock-path").into_bytes());
     args.push(

@@ -14,13 +14,13 @@ use structures::{
 #[derive(Debug)]
 pub struct FilesystemContext {
     pub root: ArcSwap<Vec<u8>>,
-    pub cwd: ArcSwap<Option<Vec<u8>>>,
+    pub cwd: ArcSwap<Vec<u8>>,
 }
 impl FilesystemContext {
     pub fn new() -> Self {
         Self {
             root: ArcSwap::from(Arc::new(vec![b'/'])),
-            cwd: ArcSwap::from(Arc::new(None)),
+            cwd: ArcSwap::from(Arc::new(vec![b'/'])),
         }
     }
 }
@@ -195,14 +195,8 @@ pub fn mkdir(path: Vec<u8>, mode: u32) -> Result<(), LxError> {
 }
 
 #[inline]
-pub fn getcwd() -> Result<Vec<u8>, LxError> {
-    process::context()
-        .fs
-        .cwd
-        .load()
-        .as_ref()
-        .clone()
-        .ok_or(LxError::ENOENT)
+pub fn getcwd() -> Vec<u8> {
+    process::context().fs.cwd.load().to_vec()
 }
 
 #[inline]
@@ -225,7 +219,16 @@ pub fn fchdir(fd: c_int) -> Result<(), LxError> {
     process::context()
         .fs
         .cwd
-        .store(Arc::new(Some(vfd::orig_path(vfd)?)));
+        .store(Arc::new(vfd::orig_path(vfd)?));
+    Ok(())
+}
+
+#[inline]
+pub fn init_cwd(new: Vec<u8>) -> Result<(), LxError> {
+    if !new.starts_with(b"/") {
+        return Err(LxError::EINVAL);
+    }
+    process::context().fs.cwd.store(Arc::new(new));
     Ok(())
 }
 
@@ -289,7 +292,7 @@ fn at_base_path(fd: c_int) -> Result<Vec<u8>, LxError> {
     if let Some(dvfd) = crate::vfd::get(fd) {
         vfd::orig_path(dvfd)
     } else if fd == -100 {
-        getcwd()
+        Ok(getcwd())
     } else {
         Err(LxError::ENOTDIR)
     }
