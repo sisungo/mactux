@@ -41,6 +41,17 @@ pub fn chown(vfd: u64, uid: u32, gid: u32) -> Result<(), LxError> {
     })
 }
 
+pub fn readlink(vfd: u64) -> Result<Vec<u8>, LxError> {
+    with_client(|client| {
+        let response = client.invoke(Request::VirtualFdReadlink(vfd)).unwrap();
+        match response {
+            Response::Readlink(path) => Ok(path),
+            Response::Error(err) => Err(err),
+            _ => ipc_fail(),
+        }
+    })
+}
+
 /// Gets the path that we have used to originally open a virtual file descriptor.
 pub fn orig_path(vfd: u64) -> Result<Vec<u8>, LxError> {
     with_client(

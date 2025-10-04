@@ -133,6 +133,10 @@ impl VirtualFd {
         self.inner.poll(interest).await
     }
 
+    pub async fn readlink(&self) -> Result<Vec<u8>, LxError> {
+        self.inner.readlink().await
+    }
+
     pub async fn sync(&self) -> Result<(), LxError> {
         self.inner.sync().await
     }
@@ -202,6 +206,10 @@ pub trait VirtualFile: Send + Sync {
     }
 
     async fn chown(&self, _uid: u32, _gid: u32) -> Result<(), LxError> {
+        Err(LxError::EOPNOTSUPP)
+    }
+
+    async fn readlink(&self) -> Result<Vec<u8>, LxError> {
         Err(LxError::EOPNOTSUPP)
     }
 

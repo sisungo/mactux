@@ -1302,8 +1302,21 @@ pub unsafe fn sys_getrusage(who: RUsageWho, rusage: *mut RUsage) -> Result<(), L
 }
 
 #[syscall]
-pub unsafe fn sys_prctl(op: PrctlOp) -> Result<(), LxError> {
-    Err(LxError::EINVAL)
+pub unsafe fn sys_prctl(
+    op: PrctlOp,
+    arg0: usize,
+    arg1: usize,
+    arg2: usize,
+    arg3: usize,
+    arg4: usize,
+) -> Result<(), LxError> {
+    match op {
+        PrctlOp::PR_GET_TID_ADDRESS => unsafe {
+            (arg0 as *mut Option<NonNull<u32>>).write(rtenv::thread::get_clear_tid());
+            Ok(())
+        },
+        _ => Err(LxError::EINVAL),
+    }
 }
 
 #[syscall]

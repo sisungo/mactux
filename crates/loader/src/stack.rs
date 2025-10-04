@@ -6,7 +6,7 @@ use std::alloc::Layout;
 pub fn jump<'a, 'b>(
     entry: *const u8,
     args: impl ExactSizeIterator<Item = &'a [u8]>,
-    envs: impl Iterator<Item = &'a [u8]>,
+    envs: impl ExactSizeIterator<Item = &'a [u8]>,
     auxv: AuxiliaryInfo,
 ) {
     unsafe {
@@ -35,7 +35,7 @@ impl StackInfo {
     /// Builds a [`StackInfo`] instance with given information.
     pub fn new<'a, 'b>(
         args: impl ExactSizeIterator<Item = &'a [u8]>,
-        envs: impl Iterator<Item = &'b [u8]>,
+        envs: impl ExactSizeIterator<Item = &'b [u8]>,
         auxv: AuxiliaryInfo,
     ) -> Self {
         fn allocate_string(s: &[u8]) -> usize {
@@ -51,7 +51,7 @@ impl StackInfo {
             ptr as usize
         }
 
-        let mut vec = Vec::with_capacity(args.len() + 96);
+        let mut vec = Vec::with_capacity(args.len() + envs.len() + 64);
 
         vec.push(args.len()); // push argc
         args.for_each(|x| vec.push(allocate_string(x))); // push argv elements

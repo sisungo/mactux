@@ -12,17 +12,9 @@ pub struct AuxiliaryInfo {
 impl AuxiliaryInfo {
     /// Pushes all the information to a [`Vec<usize>`] stack, following the format specified in System V ABI.
     pub fn push_to_stack(&self, stack: &mut Vec<usize>) {
-        // The page size is fixed on macOS for each architecture.
-        #[cfg(target_arch = "x86_64")]
-        {
-            stack.push(AuxType::PageSz as usize);
-            stack.push(0x1000); // 4KB page size
-        }
-        #[cfg(target_arch = "aarch64")]
-        {
-            stack.push(AuxType::PageSz as usize);
-            stack.push(0x4000); // 16KB page size
-        }
+        // Push page size.
+        stack.push(AuxType::PageSz as usize);
+        stack.push(super::page_size());
 
         // Push PHDR information.
         stack.push(AuxType::Phdr as usize);

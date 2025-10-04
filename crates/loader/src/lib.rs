@@ -88,7 +88,7 @@ impl Program {
     pub unsafe fn run<'a>(
         &self,
         args: impl ExactSizeIterator<Item = &'a [u8]>,
-        envs: impl Iterator<Item = &'a [u8]>,
+        envs: impl ExactSizeIterator<Item = &'a [u8]>,
     ) {
         let base = match &self.interpreter {
             Some(interp) => interp.base_map.addr() as usize,

@@ -175,6 +175,16 @@ impl Session {
         }
     }
 
+    pub async fn vfd_readlink(&self, vfd: u64) -> Response {
+        let Ok(vfd) = self.process.vfd(vfd) else {
+            return Response::Error(LxError::EBADF);
+        };
+        match vfd.readlink().await {
+            Ok(path) => Response::Readlink(path),
+            Err(err) => Response::Error(err),
+        }
+    }
+
     pub async fn vfd_sync(&self, vfd: u64) -> Response {
         let Ok(vfd) = self.process.vfd(vfd) else {
             return Response::Error(LxError::EBADF);

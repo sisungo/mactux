@@ -22,79 +22,77 @@ use structures::{
 
 #[inline]
 pub fn read(fd: c_int, buf: &mut [u8]) -> Result<usize, LxError> {
-    if let Some(vfd) = crate::vfd::get(fd) {
-        vfd::read(vfd, buf)
-    } else {
-        unsafe { posix_num!(libc::read(fd, buf.as_mut_ptr().cast(), buf.len())) }
+    match crate::vfd::get(fd) {
+        Some(vfd) => vfd::read(vfd, buf),
+        None => unsafe { posix_num!(libc::read(fd, buf.as_mut_ptr().cast(), buf.len())) },
     }
 }
 
 #[inline]
 pub fn write(fd: c_int, buf: &[u8]) -> Result<usize, LxError> {
-    if let Some(vfd) = crate::vfd::get(fd) {
-        vfd::write(vfd, buf)
-    } else {
-        unsafe { posix_num!(libc::write(fd, buf.as_ptr().cast(), buf.len())) }
+    match crate::vfd::get(fd) {
+        Some(vfd) => vfd::write(vfd, buf),
+        None => unsafe { posix_num!(libc::write(fd, buf.as_ptr().cast(), buf.len())) },
     }
 }
 
 #[inline]
 pub unsafe fn ioctl(fd: c_int, cmd: IoctlCmd, arg: *mut u8) -> Result<c_int, LxError> {
-    if let Some(vfd) = crate::vfd::get(fd) {
-        vfd::ioctl(vfd, cmd.0, arg)
-    } else {
-        native_ioctl::native_ioctl(fd, cmd, arg)
+    match crate::vfd::get(fd) {
+        Some(vfd) => vfd::ioctl(vfd, cmd.0, arg),
+        None => native_ioctl::native_ioctl(fd, cmd, arg),
     }
 }
 
 #[inline]
 pub unsafe fn fcntl(fd: c_int, cmd: FcntlCmd, arg: usize) -> Result<c_int, LxError> {
-    if let Some(vfd) = crate::vfd::get(fd) {
-        if cmd == FcntlCmd::F_DUPFD {
-            let new_fd = unsafe { posix_num!(libc::fcntl(fd, libc::F_DUPFD, arg))? };
-            let new_vfd = vfd::dup(vfd);
-            crate::vfd::register(new_fd, new_vfd);
-            return Ok(new_fd);
-        }
-        if cmd == FcntlCmd::F_DUPFD_CLOEXEC {
-            let new_fd = unsafe { posix_num!(libc::fcntl(fd, libc::F_DUPFD_CLOEXEC, arg))? };
-            let new_vfd = vfd::dup(vfd);
-            let orig_flags =
-                vfd::fcntl(new_vfd, FcntlCmd::F_GETFD.0, 0).inspect_err(|_| vfd::close(new_vfd))?;
-            vfd::fcntl(
-                new_vfd,
-                FcntlCmd::F_SETFD.0,
-                (orig_flags as u32 | FdFlags::FD_CLOEXEC.bits()) as usize,
-            )
-            .inspect_err(|_| vfd::close(new_vfd))?;
-            crate::vfd::register(new_fd, new_vfd);
-            return Ok(new_fd);
-        }
+    match crate::vfd::get(fd) {
+        Some(vfd) => {
+            if cmd == FcntlCmd::F_DUPFD {
+                let new_fd = unsafe { posix_num!(libc::fcntl(fd, libc::F_DUPFD, arg))? };
+                let new_vfd = vfd::dup(vfd);
+                crate::vfd::register(new_fd, new_vfd);
+                return Ok(new_fd);
+            }
+            if cmd == FcntlCmd::F_DUPFD_CLOEXEC {
+                let new_fd = unsafe { posix_num!(libc::fcntl(fd, libc::F_DUPFD_CLOEXEC, arg))? };
+                let new_vfd = vfd::dup(vfd);
+                let orig_flags = vfd::fcntl(new_vfd, FcntlCmd::F_GETFD.0, 0)
+                    .inspect_err(|_| vfd::close(new_vfd))?;
+                vfd::fcntl(
+                    new_vfd,
+                    FcntlCmd::F_SETFD.0,
+                    (orig_flags as u32 | FdFlags::FD_CLOEXEC.bits()) as usize,
+                )
+                .inspect_err(|_| vfd::close(new_vfd))?;
+                crate::vfd::register(new_fd, new_vfd);
+                return Ok(new_fd);
+            }
 
-        vfd::fcntl(vfd, cmd.0, arg)
-    } else {
-        native_fcntl::native_fcntl(fd, cmd, arg)
+            vfd::fcntl(vfd, cmd.0, arg)
+        }
+        None => native_fcntl::native_fcntl(fd, cmd, arg),
     }
 }
 
 #[inline]
 pub unsafe fn flock(fd: c_int, op: FlockOp) -> Result<(), LxError> {
-    if let Some(vfd) = crate::vfd::get(fd) {
-        todo!()
-    } else {
-        unsafe { posix_bi!(libc::flock(fd, op.to_apple()?)) }
+    match crate::vfd::get(fd) {
+        Some(_) => todo!(),
+        None => unsafe { posix_bi!(libc::flock(fd, op.to_apple()?)) },
     }
 }
 
 #[inline]
 pub fn dup(fd: c_int) -> Result<c_int, LxError> {
-    if let Some(vfd) = crate::vfd::get(fd) {
-        let fd = std::fs::File::open("/dev/null")?.into_raw_fd();
-        let new_vfd = vfd::dup(vfd);
-        crate::vfd::register(fd, new_vfd);
-        Ok(fd)
-    } else {
-        unsafe { posix_num!(libc::dup(fd)) }
+    match crate::vfd::get(fd) {
+        Some(vfd) => {
+            let fd = std::fs::File::open("/dev/null")?.into_raw_fd();
+            let new_vfd = vfd::dup(vfd);
+            crate::vfd::register(fd, new_vfd);
+            Ok(fd)
+        }
+        None => unsafe { posix_num!(libc::dup(fd)) },
     }
 }
 
@@ -104,88 +102,91 @@ pub fn dup2(old: c_int, new: c_int) -> Result<c_int, LxError> {
         return Ok(new);
     }
 
-    if let Some(vfd) = crate::vfd::get(old) {
-        let new_fd = unsafe { posix_num!(libc::dup2(old, new))? };
-        let new_vfd = vfd::dup(vfd);
-        crate::vfd::register(new_fd, new_vfd);
-        Ok(new)
-    } else {
-        unsafe { posix_num!(libc::dup2(old, new)) }
+    match crate::vfd::get(old) {
+        Some(vfd) => {
+            let new_fd = unsafe { posix_num!(libc::dup2(old, new))? };
+            let new_vfd = vfd::dup(vfd);
+            crate::vfd::register(new_fd, new_vfd);
+            Ok(new)
+        }
+        None => unsafe { posix_num!(libc::dup2(old, new)) },
     }
 }
 
 #[inline]
 pub unsafe fn lseek(fd: c_int, off: i64, whence: Whence) -> Result<u64, LxError> {
-    if let Some(vfd) = crate::vfd::get(fd) {
-        vfd::lseek(vfd, whence, off)
-    } else {
-        unsafe { posix_num!(libc::lseek(fd, off, whence.to_apple()?)) }
+    match crate::vfd::get(fd) {
+        Some(vfd) => vfd::lseek(vfd, whence, off),
+        None => unsafe { posix_num!(libc::lseek(fd, off, whence.to_apple()?)) },
     }
 }
 
 #[inline]
 pub fn pread64(fd: c_int, buf: &mut [u8], off: i64) -> Result<usize, LxError> {
-    if let Some(vfd) = crate::vfd::get(fd) {
-        vfd::pread(vfd, off, buf)
-    } else {
-        unsafe { posix_num!(libc::pread(fd, buf.as_mut_ptr().cast(), buf.len(), off)) }
+    match crate::vfd::get(fd) {
+        Some(vfd) => vfd::pread(vfd, off, buf),
+        None => unsafe { posix_num!(libc::pread(fd, buf.as_mut_ptr().cast(), buf.len(), off)) },
     }
 }
 
 #[inline]
 pub fn pwrite64(fd: c_int, buf: &[u8], off: i64) -> Result<usize, LxError> {
-    if let Some(vfd) = crate::vfd::get(fd) {
-        vfd::pwrite(vfd, off, buf)
-    } else {
-        unsafe { posix_num!(libc::pwrite(fd, buf.as_ptr().cast(), buf.len(), off)) }
+    match crate::vfd::get(fd) {
+        Some(vfd) => vfd::pwrite(vfd, off, buf),
+        None => unsafe { posix_num!(libc::pwrite(fd, buf.as_ptr().cast(), buf.len(), off)) },
     }
 }
 
 #[inline]
 pub fn readv(fd: c_int, vec: &[libc::iovec]) -> Result<usize, LxError> {
-    if let Some(vfd) = crate::vfd::get(fd) {
-        let mut count = 0;
-        for vec in vec {
-            let buf =
-                unsafe { std::slice::from_raw_parts_mut(vec.iov_base as *mut u8, vec.iov_len) };
-            let n = vfd::read(vfd, buf)?;
-            count += n;
-            if n != buf.len() {
-                break;
+    match crate::vfd::get(fd) {
+        Some(vfd) => unsafe {
+            let mut count = 0;
+            for vec in vec {
+                let buf = std::slice::from_raw_parts_mut(vec.iov_base as *mut u8, vec.iov_len);
+                let n = vfd::read(vfd, buf)?;
+                count += n;
+                if n != buf.len() {
+                    break;
+                }
             }
-        }
-        Ok(count)
-    } else {
-        if vec.len() > i32::MAX as _ {
-            return Err(LxError::EINVAL);
-        }
+            Ok(count)
+        },
+        None => unsafe {
+            if vec.len() > i32::MAX as _ {
+                return Err(LxError::EINVAL);
+            }
 
-        unsafe { posix_num!(libc::readv(fd, vec.as_ptr(), vec.len() as _)) }
+            posix_num!(libc::readv(fd, vec.as_ptr(), vec.len() as _))
+        },
     }
 }
 
 #[inline]
 pub unsafe fn writev(fd: c_int, vec: &[libc::iovec]) -> Result<usize, LxError> {
-    if let Some(vfd) = crate::vfd::get(fd) {
-        let mut count = 0;
-        for vec in vec {
-            if vec.iov_base.is_null() || vec.iov_len == 0 {
-                continue;
+    match crate::vfd::get(fd) {
+        Some(vfd) => unsafe {
+            let mut count = 0;
+            for vec in vec {
+                if vec.iov_base.is_null() || vec.iov_len == 0 {
+                    continue;
+                }
+                let buf = std::slice::from_raw_parts(vec.iov_base as *const u8, vec.iov_len);
+                let n = vfd::write(vfd, buf)?;
+                count += n;
+                if n != buf.len() {
+                    break;
+                }
             }
-            let buf = unsafe { std::slice::from_raw_parts(vec.iov_base as *const u8, vec.iov_len) };
-            let n = vfd::write(vfd, buf)?;
-            count += n;
-            if n != buf.len() {
-                break;
+            Ok(count)
+        },
+        None => unsafe {
+            if vec.len() > i32::MAX as _ {
+                return Err(LxError::EINVAL);
             }
-        }
-        Ok(count)
-    } else {
-        if vec.len() > i32::MAX as _ {
-            return Err(LxError::EINVAL);
-        }
 
-        unsafe { posix_num!(libc::writev(fd, vec.as_ptr(), vec.len() as _)) }
+            posix_num!(libc::writev(fd, vec.as_ptr(), vec.len() as _))
+        },
     }
 }
 
@@ -325,19 +326,17 @@ pub unsafe fn select(
 
 #[inline]
 pub fn truncate(fd: c_int, len: u64) -> Result<(), LxError> {
-    if let Some(vfd) = crate::vfd::get(fd) {
-        vfd::truncate(vfd, len)
-    } else {
-        unsafe { posix_bi!(libc::ftruncate(fd, len as _)) }
+    match crate::vfd::get(fd) {
+        Some(vfd) => vfd::truncate(vfd, len),
+        None => unsafe { posix_bi!(libc::ftruncate(fd, len as _)) },
     }
 }
 
 #[inline]
 pub fn fsync(fd: c_int) -> Result<(), LxError> {
-    if let Some(vfd) = crate::vfd::get(fd) {
-        vfd::sync(vfd)
-    } else {
-        unsafe { posix_bi!(libc::fsync(fd)) }
+    match crate::vfd::get(fd) {
+        Some(vfd) => vfd::sync(vfd),
+        None => unsafe { posix_bi!(libc::fsync(fd)) },
     }
 }
 

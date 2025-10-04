@@ -25,6 +25,7 @@ pub enum Response {
     VirtualFdAvailCtrl(VirtualFdAvailCtrl),
     Stat(Statx),
     Dirent64(Dirent64),
+    Readlink(Vec<u8>),
 
     NetworkNames(NetworkNames),
     SysInfo(SysInfo),

@@ -193,6 +193,12 @@ pub fn kill(tid: i32, signum: SigNum) -> Result<(), LxError> {
     Err(LxError::ESRCH)
 }
 
+/// Gets `clear_child_tid` value of current thread.
+#[inline]
+pub fn get_clear_tid() -> Option<NonNull<u32>> {
+    with_context(|ctx| ctx.clear_tid.get())
+}
+
 /// Sets `clear_child_tid` value for current thread.
 #[inline]
 pub fn set_clear_tid(value: Option<NonNull<u32>>) {

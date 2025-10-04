@@ -102,7 +102,7 @@ pub unsafe fn stat(fd: c_int) -> Result<Statx, LxError> {
     match crate::vfd::get(fd) {
         Some(vfd) => vfd::stat(vfd),
         None => unsafe {
-            let mut stat = unsafe { std::mem::zeroed() };
+            let mut stat = std::mem::zeroed();
             posix_bi!(libc::fstat(fd, &mut stat))?;
             Ok(Statx::from_apple(stat))
         },
@@ -248,7 +248,7 @@ pub fn umount(path: Vec<u8>, flags: UmountFlags) -> Result<(), LxError> {
 #[inline]
 pub fn readlink(fd: c_int) -> Result<Vec<u8>, LxError> {
     match crate::vfd::get(fd) {
-        Some(vfd) => todo!(),
+        Some(vfd) => vfd::readlink(vfd),
         None => unsafe {
             let mut buf = vec![0u8; libc::PATH_MAX as usize];
             let nbytes: usize =

@@ -80,6 +80,7 @@ impl Session {
                 Request::VirtualFdTruncate(vfd, len) => self.vfd_truncate(vfd, len).await,
                 Request::VirtualFdChown(vfd, uid, gid) => self.vfd_chown(vfd, uid, gid).await,
                 Request::VirtualFdDup(vfd) => self.vfd_dup(vfd).await,
+                Request::VirtualFdReadlink(vfd) => self.vfd_readlink(vfd).await,
                 Request::VirtualFdClose(vfd) => self.vfd_close(vfd),
                 Request::VirtualFdSync(vfd) => self.vfd_sync(vfd).await,
                 Request::VirtualFdOrigPath(vfd) => self.vfd_orig_path(vfd),

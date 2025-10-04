@@ -253,3 +253,6 @@ unixvariants! {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(transparent)]
 pub struct PrctlOp(pub u32);
+impl PrctlOp {
+    pub const PR_GET_TID_ADDRESS: Self = Self(40);
+}
