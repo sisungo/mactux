@@ -326,6 +326,14 @@ impl Session {
         Response::Nothing
     }
 
+    pub fn get_thread_name(&self) -> Response {
+        todo!()
+    }
+
+    pub fn set_thread_name(&self, name: &[u8]) -> Response {
+        todo!()
+    }
+
     pub fn after_exec(&self) -> Response {
         self.process.after_exec();
         Response::Nothing

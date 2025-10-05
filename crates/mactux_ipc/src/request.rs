@@ -47,6 +47,9 @@ pub enum Request {
     AfterFork(i32),
     AfterExec,
 
+    GetThreadName,
+    SetThreadName(Vec<u8>),
+
     CallInterruptible(InterruptibleRequest),
 }
 

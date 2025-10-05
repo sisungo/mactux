@@ -29,6 +29,7 @@ pub enum Response {
 
     NetworkNames(NetworkNames),
     SysInfo(SysInfo),
+    ThreadName(Vec<u8>),
 
     Poll(u64, u16),
 

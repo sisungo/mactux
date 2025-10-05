@@ -1305,12 +1305,20 @@ pub unsafe fn sys_getrusage(who: RUsageWho, rusage: *mut RUsage) -> Result<(), L
 pub unsafe fn sys_prctl(
     op: PrctlOp,
     arg0: usize,
-    arg1: usize,
-    arg2: usize,
-    arg3: usize,
-    arg4: usize,
+    _arg1: usize,
+    _arg2: usize,
+    _arg3: usize,
+    _arg4: usize,
 ) -> Result<(), LxError> {
     match op {
+        PrctlOp::PR_SET_NAME => unsafe {
+            rtenv::thread::set_name((arg0 as *const [u8; 16]).read());
+            Ok(())
+        },
+        PrctlOp::PR_GET_NAME => unsafe {
+            (arg0 as *mut [u8; 16]).write(rtenv::thread::get_name());
+            Ok(())
+        },
         PrctlOp::PR_GET_TID_ADDRESS => unsafe {
             (arg0 as *mut Option<NonNull<u32>>).write(rtenv::thread::get_clear_tid());
             Ok(())

@@ -94,6 +94,8 @@ impl Session {
                 Request::BeforeFork => self.before_fork().await,
                 Request::AfterFork(pid) => self.after_fork(pid),
                 Request::AfterExec => self.after_exec(),
+                Request::GetThreadName => self.get_thread_name(),
+                Request::SetThreadName(name) => self.set_thread_name(&name),
                 Request::CallInterruptible(ireq) => {
                     break InterruptibleSession::from_session(self).run(ireq).await;
                 }

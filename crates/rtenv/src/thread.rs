@@ -1,4 +1,10 @@
-use crate::{emuctx::EmulatedThreadInfo, ipc_client::Client, process};
+use crate::{
+    emuctx::EmulatedThreadInfo,
+    ipc_client::{Client, with_client},
+    process,
+    util::ipc_fail,
+};
+use mactux_ipc::{request::Request, response::Response};
 use rustc_hash::FxHashMap;
 use std::{
     cell::{Cell, OnceCell, RefCell, UnsafeCell},
@@ -222,6 +228,26 @@ pub fn set_robust_list(ptr: *mut u8, size: usize) -> Result<(), LxError> {
             .store(size, atomic::Ordering::Relaxed);
     });
     Ok(())
+}
+
+pub fn get_name() -> [u8; 16] {
+    let mut result = [0u8; 16];
+    let buf = with_client(
+        |client| match client.invoke(Request::GetThreadName).unwrap() {
+            Response::ThreadName(name) => name,
+            _ => ipc_fail(),
+        },
+    );
+    result.copy_from_slice(&buf);
+    result
+}
+
+pub fn set_name(name: [u8; 16]) {
+    with_client(|client| {
+        client
+            .invoke(Request::SetThreadName(name.to_vec()))
+            .unwrap();
+    });
 }
 
 /// This is called when entering a MacTux thread.
