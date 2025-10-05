@@ -1,3 +1,5 @@
+//! Process context management.
+
 use crate::{
     app,
     filesystem::{
@@ -15,6 +17,7 @@ use std::sync::{
 };
 use structures::error::LxError;
 
+/// A PID namespace.
 pub trait PidNamespace: Send + Sync {
     /// Maps an apple native PID to a Linux PID in this PID namespace.
     fn apple_to_linux(&self, apple: libc::pid_t) -> Option<i32>;
@@ -35,10 +38,12 @@ pub trait PidNamespace: Send + Sync {
     fn procfs(&self) -> Option<Arc<dyn Mountable>>;
 }
 
+/// The initial PID namespace, mapping directly to the host system.
 pub struct InitPid {
     procfs: Arc<KernFs>,
 }
 impl InitPid {
+    /// Returns the singleton instance of the initial PID namespace.
     pub fn instance() -> Arc<Self> {
         static INSTANCE: OnceLock<Arc<InitPid>> = OnceLock::new();
 
@@ -78,6 +83,7 @@ impl PidNamespace for InitPid {
     }
 }
 
+/// The context of a process.
 pub struct ProcessCtx {
     native_pid: AtomicI32,
 
@@ -88,6 +94,7 @@ pub struct ProcessCtx {
     vfd_table: Registry<Arc<VirtualFd>>,
 }
 impl ProcessCtx {
+    /// Creates a scratch process context for the given native PID.
     pub fn scratch(pid: i32) -> Arc<Self> {
         InitPid::instance().register(pid);
         Arc::new(Self {
@@ -99,6 +106,7 @@ impl ProcessCtx {
         })
     }
 
+    /// Forks this process context.
     pub async fn fork(&self) -> Arc<Self> {
         Arc::new(Self {
             native_pid: AtomicI32::new(0),
@@ -109,10 +117,12 @@ impl ProcessCtx {
         })
     }
 
+    /// Returns the current mount namespace.
     pub fn mnt_ns(&self) -> Arc<MountNamespace> {
         self.mnt_ns.read().unwrap().clone()
     }
 
+    /// Sets the current mount namespace.
     pub fn set_mnt_ns(&self, new: u64) -> Result<(), LxError> {
         let Some(new) = app().mnt_ns_registry.get(new) else {
             return Err(LxError::ENOENT);
@@ -125,18 +135,22 @@ impl ProcessCtx {
         Ok(())
     }
 
+    /// Returns the current UTS namespace.
     pub fn uts_ns(&self) -> Arc<dyn UtsNamespace> {
         self.uts_ns.read().unwrap().clone()
     }
 
+    /// Sets the current UTS namespace.
     pub fn set_uts_ns(&self, new: u64) -> Result<(), LxError> {
         todo!()
     }
 
+    /// Returns the current PID namespace.
     pub fn pid_ns(&self) -> Arc<dyn PidNamespace> {
         self.pid_ns.read().unwrap().clone()
     }
 
+    /// Sets the current PID namespace.
     pub fn set_pid_ns(&self, new: u64) -> Result<(), LxError> {
         let Some(new) = app().pid_ns_registry.get(new) else {
             return Err(LxError::ENOENT);
@@ -145,13 +159,18 @@ impl ProcessCtx {
             app().pid_ns_registry.gc();
             return Err(LxError::ENOENT);
         };
-        todo!();
+        // TODO: Should we unregister from the old PID namespace here?
+        new.register(self.native_pid());
+        *self.pid_ns.write().unwrap() = new;
+        Ok(())
     }
 
+    /// Returns the native PID of this process.
     pub fn native_pid(&self) -> i32 {
         self.native_pid.load(atomic::Ordering::Relaxed)
     }
 
+    /// Sets the native PID of this process.
     pub fn set_native_pid(self: Arc<Self>, new: i32) {
         debug_assert_eq!(self.native_pid(), 0);
         self.native_pid.store(new, atomic::Ordering::Relaxed);
@@ -159,18 +178,22 @@ impl ProcessCtx {
         app().native_procs.pin().insert(new, self);
     }
 
+    /// Retrieves a virtual file descriptor by its ID.
     pub fn vfd(&self, id: u64) -> Result<Arc<VirtualFd>, LxError> {
         self.vfd_table.get(id).ok_or(LxError::EBADF)
     }
 
+    /// Registers a new virtual file descriptor, returning its ID.
     pub fn vfd_register(&self, object: Arc<VirtualFd>) -> u64 {
         self.vfd_table.register(object)
     }
 
+    /// Closes a virtual file descriptor by its ID.
     pub fn vfd_close(&self, id: u64) {
         _ = self.vfd_table.unregister(id, true);
     }
 
+    /// A function that should be called after an `exec` syscall.
     pub fn after_exec(&self) {
         crate::vfd::exec_table(&self.vfd_table);
     }
@@ -181,6 +204,7 @@ impl Drop for ProcessCtx {
     }
 }
 
+/// Retrieves (or creates) a process context for the given native PID.
 pub fn ctx_by_pid(pid: i32) -> Arc<ProcessCtx> {
     let pinned = app().native_procs.pin();
     match pinned.get(&pid).cloned() {
@@ -193,6 +217,7 @@ pub fn ctx_by_pid(pid: i32) -> Arc<ProcessCtx> {
     }
 }
 
+/// Closes the process context for the given native PID, if it is no longer referenced.
 pub fn ctx_close(pid: i32) {
     let guard = app().native_procs.guard();
     if let Some(ctx) = app().native_procs.get(&pid, &guard) {

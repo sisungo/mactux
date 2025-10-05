@@ -1,3 +1,5 @@
+//! Kernel logging implementation.
+
 use std::{io::Write, sync::Arc};
 use tracing_subscriber::fmt::MakeWriter;
 

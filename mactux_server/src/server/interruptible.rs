@@ -1,3 +1,5 @@
+//! Interruptible sessions.
+
 use crate::{process::ProcessCtx, server::Session};
 use mactux_ipc::{request::InterruptibleRequest, response::Response};
 use std::{sync::Arc, time::Duration};

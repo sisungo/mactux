@@ -5,6 +5,7 @@ mod process;
 mod server;
 mod sysinfo;
 mod syslog;
+mod thread;
 mod util;
 mod uts;
 mod vfd;

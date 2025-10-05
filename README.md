@@ -42,3 +42,4 @@ We currently prioritizes to implement:
  - Symlink support
  - Epoll support
  - Full procfs support
+ - sysfs support

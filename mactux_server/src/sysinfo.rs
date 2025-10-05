@@ -1,3 +1,5 @@
+//! Sysinfo implementation for macOS.
+
 use crate::util::{now, sysctl_read};
 use libc::host_statistics64;
 use mach2::{
@@ -12,6 +14,7 @@ const PAGE_SIZE: usize = 0x1000;
 #[cfg(target_arch = "aarch64")]
 const PAGE_SIZE: usize = 0x4000;
 
+/// Retrieves [`SysInfo`] information.
 pub fn sysinfo() -> Result<SysInfo, LxError> {
     let mem_info = MemInfo::acquire()?;
     let boottime = boottime()?;
@@ -32,6 +35,7 @@ pub fn sysinfo() -> Result<SysInfo, LxError> {
     })
 }
 
+/// Memory information.
 #[derive(Debug, Clone)]
 pub struct MemInfo {
     pub total_ram: usize,
@@ -43,6 +47,7 @@ pub struct MemInfo {
     pub free_swap: usize,
 }
 impl MemInfo {
+    /// Acquires memory information from the host system.
     pub fn acquire() -> Result<Self, LxError> {
         let vm_info = mach_host_vm_info()?;
         let swap_usage = swap_usage()?;
@@ -75,6 +80,7 @@ impl MemInfo {
     }
 }
 
+/// Retrieves Mach VM statistics.
 fn mach_host_vm_info() -> Result<vm_statistics64_data_t, LxError> {
     unsafe {
         let mut vm_stat: vm_statistics64_data_t = std::mem::zeroed();
@@ -94,10 +100,12 @@ fn mach_host_vm_info() -> Result<vm_statistics64_data_t, LxError> {
     }
 }
 
+/// Retrieves swap usage information.
 fn swap_usage() -> Result<libc::xsw_usage, LxError> {
     unsafe { sysctl_read([libc::CTL_VM, libc::VM_SWAPUSAGE]) }
 }
 
+/// Retrieves the system boot time.
 fn boottime() -> Result<libc::timeval, LxError> {
     unsafe { sysctl_read([libc::CTL_KERN, libc::KERN_BOOTTIME]) }
 }

@@ -7,12 +7,14 @@ use structures::{
 };
 use tokio::sync::watch;
 
+/// An eventfd implementation.
 #[derive(Debug, Clone)]
 struct EventFd {
     tx: watch::Sender<u64>,
     rx: watch::Receiver<u64>,
 }
 impl EventFd {
+    /// The maximum value the counter can hold.
     const MAX: u64 = u64::MAX - 1;
 }
 #[async_trait]
@@ -56,6 +58,7 @@ impl VirtualFile for EventFd {
     }
 }
 
+/// Creates a new eventfd with the given initial value and flags.
 pub fn create(initval: u64, flags: EventFdFlags) -> Result<Arc<VirtualFd>, LxError> {
     if flags.contains(EventFdFlags::EFD_SEMAPHORE) {
         return Err(LxError::EINVAL);

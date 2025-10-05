@@ -1,3 +1,5 @@
+//! Infrastructural utilities.
+
 use libc::c_int;
 use papaya::Guard;
 use rustc_hash::FxBuildHasher;
@@ -10,12 +12,14 @@ use std::{
 };
 use structures::{error::LxError, time::Timespec};
 
+/// A registry of objects identified by unique IDs.
 #[derive(Debug)]
 pub struct Registry<T> {
     table: papaya::HashMap<u64, T, FxBuildHasher>,
     next_id: AtomicU64,
 }
 impl<T: Clone> Registry<T> {
+    /// Creates a new, empty registry.
     pub fn new() -> Self {
         Self {
             table: papaya::HashMap::with_capacity_and_hasher(128, FxBuildHasher::default()),
@@ -23,12 +27,14 @@ impl<T: Clone> Registry<T> {
         }
     }
 
+    /// Registers a new object, returning its assigned ID.
     pub fn register(&self, value: T) -> u64 {
         let id = self.next_id.fetch_add(1, atomic::Ordering::Relaxed);
         self.table.pin().insert(id, value);
         id
     }
 
+    /// Unregisters an object by its ID.
     pub fn unregister(&self, id: u64, reclaim: bool) {
         let guard = self.table.guard();
         self.table.remove(&id, &guard);
@@ -37,16 +43,19 @@ impl<T: Clone> Registry<T> {
         }
     }
 
+    /// Eliminates objects matching the given predicate.
     pub fn eliminate(&self, mut f: impl FnMut(&T) -> bool) {
         let guard = self.table.guard();
         self.table.retain(|_, v| !f(v), &guard);
         guard.flush();
     }
 
+    /// Gets an object by its ID.
     pub fn get(&self, id: u64) -> Option<T> {
         self.table.pin().get(&id).cloned()
     }
 
+    /// Pins the internal table for iteration.
     pub fn snapshot(&self) -> (Vec<(u64, T)>, u64) {
         (
             self.table
@@ -58,6 +67,7 @@ impl<T: Clone> Registry<T> {
         )
     }
 
+    /// Restores the registry from a snapshot.
     pub fn from_snapshot(snapshot: (Vec<(u64, T)>, u64)) -> Self {
         let table =
             papaya::HashMap::with_capacity_and_hasher(snapshot.0.len(), FxBuildHasher::default());
@@ -73,6 +83,7 @@ impl<T: Clone> Registry<T> {
     }
 }
 impl<T: ?Sized> Registry<Weak<T>> {
+    /// Performs garbage collection, eliminating dead weak references.
     pub fn gc(&self) {
         self.eliminate(|v| v.strong_count() == 0);
     }
@@ -115,6 +126,7 @@ impl FileAttrs {
     }
 }
 
+/// Returns the current time as a `Timespec`.
 pub fn now() -> Timespec {
     let now = std::time::SystemTime::now();
     let elapsed = now
@@ -126,16 +138,19 @@ pub fn now() -> Timespec {
     }
 }
 
+/// Converts a byte vector to a C-style string (null-terminated).
 pub fn c_str(mut rs: Vec<u8>) -> Vec<u8> {
     rs.push(0);
     rs
 }
 
+/// Generates a pseudo-unique ID.
 pub fn pseudo_unique_id() -> u64 {
     static NEXT_ID: AtomicU64 = AtomicU64::new(1);
     NEXT_ID.fetch_add(1, atomic::Ordering::Relaxed)
 }
 
+/// Performs a `sysctl` read operation.
 pub unsafe fn sysctl_read<T: Copy, const N: usize>(mut name: [c_int; N]) -> Result<T, LxError> {
     unsafe {
         let mut data: T = std::mem::zeroed();

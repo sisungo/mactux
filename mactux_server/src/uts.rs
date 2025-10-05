@@ -1,13 +1,24 @@
+//! Support of UTS namespace.
+
 use std::sync::RwLock;
 use structures::error::LxError;
 
+/// An UTS namespace.
 pub trait UtsNamespace: Send + Sync {
+    /// Sets the nodename.
     fn set_nodename(&self, new: &[u8]) -> Result<(), LxError>;
+
+    /// Sets the domainname.
     fn set_domainname(&self, new: &[u8]) -> Result<(), LxError>;
+
+    /// Gets the nodename.
     fn nodename(&self) -> Vec<u8>;
+
+    /// Gets the domainname.
     fn domainname(&self) -> Vec<u8>;
 }
 
+/// The initial UTS namespace, mapping to the underlying macOS host directly.
 #[derive(Debug)]
 pub struct InitUts;
 impl UtsNamespace for InitUts {
@@ -36,6 +47,7 @@ impl UtsNamespace for InitUts {
     }
 }
 
+/// A custom UTS namespace, storing the values in server memory.
 #[derive(Debug)]
 pub struct CustomUts {
     nodename: RwLock<Vec<u8>>,

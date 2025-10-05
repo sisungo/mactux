@@ -1,3 +1,5 @@
+//! Virtual file descriptors.
+
 pub mod eventfd;
 
 use crate::{filesystem::vfs::VfsPath, util::Registry};
@@ -18,7 +20,7 @@ use structures::{
     io::{FcntlCmd, FdFlags, IoctlCmd, PollEvents, Whence},
 };
 
-/// A virtual file descriptor.
+/// Container of a virtual file descriptor.
 pub struct VirtualFd {
     inner: Box<dyn VirtualFile>,
     open_flags: AtomicCell<OpenFlags>,
@@ -163,6 +165,7 @@ impl Debug for VirtualFd {
     }
 }
 
+/// Content of a virtual file descriptor.
 #[async_trait]
 pub trait VirtualFile: Send + Sync {
     async fn read(&self, _buf: &mut [u8], _off: &mut u64) -> Result<usize, LxError> {
