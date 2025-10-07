@@ -27,14 +27,14 @@ pub fn socket(domain: Domain, ty: SocketType, proto: Protocol) -> Result<c_int, 
 pub fn bind(sock: c_int, addr: SockAddr) -> Result<(), LxError> {
     unsafe {
         let (buf, len) = apple_sockaddr(addr, true)?;
-        posix_bi!(libc::bind(sock, buf.as_ptr().cast(), len as _))
+        posix_bi!(libc::bind(sock, (&raw const buf).cast(), len as _))
     }
 }
 
 pub fn connect(sock: c_int, addr: SockAddr) -> Result<(), LxError> {
     unsafe {
         let (buf, len) = apple_sockaddr(addr, false)?;
-        posix_bi!(libc::connect(sock, buf.as_ptr().cast(), len as _))
+        posix_bi!(libc::connect(sock, (&raw const buf).cast(), len as _))
     }
 }
 
@@ -142,17 +142,21 @@ fn linux_sockaddr(apple: &[u8]) -> Result<SockAddr, LxError> {
 fn apple_sockaddr(
     linux: SockAddr,
     create: bool,
-) -> Result<([u8; size_of::<libc::sockaddr_storage>()], usize), LxError> {
-    let mut buf = [0; _];
+) -> Result<(libc::sockaddr_storage, usize), LxError> {
+    let mut buf: libc::sockaddr_storage = unsafe { std::mem::zeroed() };
 
-    match linux {
-        SockAddr::In(inet) => inet.to_apple(&mut buf)?,
+    let size = match linux {
+        SockAddr::In(inet) => unsafe {
+            (&mut buf as *mut _ as *mut libc::sockaddr_in).write(inet.to_apple().unwrap());
+            size_of::<libc::sockaddr_in>()
+        },
         SockAddr::Un(un, len) => unsafe {
             (&raw mut buf)
                 .cast::<libc::sockaddr_un>()
                 .write(local::apple_sockaddr(un, len, create)?);
+            size_of::<libc::sockaddr_un>()
         },
-    }
+    };
 
-    Ok((buf, size_of::<libc::sockaddr_storage>()))
+    Ok((buf, size))
 }

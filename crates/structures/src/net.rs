@@ -106,6 +106,7 @@ unixvariants! {
 }
 
 bitflags! {
+    #[derive(Debug, Clone, Copy)]
     pub struct SocketFlags: u32 {
         const SOCK_NONBLOCK = 0o4000;
         const SOCK_CLOEXEC = 0o2000000;
@@ -215,26 +216,16 @@ impl SockAddrIn {
         }
     }
 
-    pub fn to_apple(&self, buf: &mut [u8]) -> Result<(), LxError> {
-        if buf.len() < size_of::<libc::sockaddr_in>() {
-            return Err(LxError::ENOMEM);
-        }
-
-        unsafe {
-            buf.as_mut_ptr()
-                .cast::<libc::sockaddr_in>()
-                .write(libc::sockaddr_in {
-                    sin_len: size_of::<libc::sockaddr_in>() as _,
-                    sin_family: libc::AF_INET as _,
-                    sin_port: self.sin_port,
-                    sin_addr: libc::in_addr {
-                        s_addr: self.sin_addr.0,
-                    },
-                    sin_zero: [0; _],
-                });
-        }
-
-        Ok(())
+    pub fn to_apple(&self) -> Result<libc::sockaddr_in, LxError> {
+        Ok(libc::sockaddr_in {
+            sin_len: size_of::<libc::sockaddr_in>() as _,
+            sin_family: libc::AF_INET as _,
+            sin_port: self.sin_port,
+            sin_addr: libc::in_addr {
+                s_addr: self.sin_addr.0,
+            },
+            sin_zero: [0; _],
+        })
     }
 }
 
