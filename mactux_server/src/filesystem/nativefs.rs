@@ -106,6 +106,12 @@ impl Mountable for NativeFs {
         tokio::fs::rename(src, dst).await.map_err(From::from)
     }
 
+    async fn link(&self, src: &VfsPath, dst: &VfsPath) -> Result<(), LxError> {
+        let src = self.interpret_vpath(src);
+        let dst = self.interpret_vpath(dst);
+        tokio::fs::hard_link(src, dst).await.map_err(From::from)
+    }
+
     async fn mount_bind(&self, path: &VfsPath) -> Result<Box<dyn Mountable>, LxError> {
         todo!()
     }

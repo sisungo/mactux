@@ -14,6 +14,7 @@ pub enum Request {
     Rmdir(Vec<u8>),
     Symlink(Vec<u8>, Vec<u8>),
     Rename(Vec<u8>, Vec<u8>),
+    Link(Vec<u8>, Vec<u8>),
     Mkdir(Vec<u8>, u32),
     GetSockPath(Vec<u8>, bool),
 

@@ -63,6 +63,7 @@ impl Session {
                 Request::Access(path, mode) => self.access(path, mode).await,
                 Request::Symlink(src, dst) => self.symlink(src, dst).await,
                 Request::Rename(src, dst) => self.rename(src, dst).await,
+                Request::Link(src, dst) => self.link(src, dst).await,
                 Request::Unlink(path) => self.unlink(path).await,
                 Request::Mkdir(path, mode) => self.mkdir(path, mode).await,
                 Request::Rmdir(path) => self.rmdir(path).await,

@@ -77,6 +77,10 @@ impl Mountable for KernFs {
         Err(LxError::EOPNOTSUPP)
     }
 
+    async fn link(&self, _src: &VfsPath, _dst: &VfsPath) -> Result<(), LxError> {
+        Err(LxError::EOPNOTSUPP)
+    }
+
     async fn access(&self, _path: &VfsPath, _mode: AccessFlags) -> Result<(), LxError> {
         Err(LxError::EOPNOTSUPP)
     }

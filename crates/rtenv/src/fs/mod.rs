@@ -150,6 +150,20 @@ pub fn rename(src: Vec<u8>, dst: Vec<u8>) -> Result<(), LxError> {
 }
 
 #[inline]
+pub fn link(src: Vec<u8>, dst: Vec<u8>) -> Result<(), LxError> {
+    with_client(|client| {
+        match client
+            .invoke(Request::Link(full_path(src)?, full_path(dst)?))
+            .unwrap()
+        {
+            Response::Nothing => Ok(()),
+            Response::Error(err) => Err(err),
+            _ => ipc_fail(),
+        }
+    })
+}
+
+#[inline]
 pub fn unlink(path: Vec<u8>) -> Result<(), LxError> {
     with_client(
         |client| match client.invoke(Request::Unlink(full_path(path)?)).unwrap() {

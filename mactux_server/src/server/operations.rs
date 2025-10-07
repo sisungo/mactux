@@ -83,6 +83,18 @@ impl Session {
         }
     }
 
+    pub async fn link(&self, src: Vec<u8>, dst: Vec<u8>) -> Response {
+        match self
+            .process
+            .mnt_ns()
+            .link(&VfsPath::from_bytes(&src), &VfsPath::from_bytes(&dst))
+            .await
+        {
+            Ok(()) => Response::Nothing,
+            Err(err) => Response::Error(err),
+        }
+    }
+
     pub async fn unlink(&self, path: Vec<u8>) -> Response {
         match self
             .process

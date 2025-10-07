@@ -268,6 +268,11 @@ pub unsafe fn sys_rename(src: *const c_char, dst: *const c_char) -> Result<(), L
 }
 
 #[syscall]
+pub unsafe fn sys_link(src: *const c_char, dst: *const c_char) -> Result<(), LxError> {
+    unsafe { rtenv::fs::link(rust_bytes(src).to_vec(), rust_bytes(dst).to_vec()) }
+}
+
+#[syscall]
 pub unsafe fn sys_mkdir(path: *const c_char, mode: u32) -> Result<(), LxError> {
     unsafe { rtenv::fs::mkdir(rust_bytes(path).to_vec(), mode) }
 }

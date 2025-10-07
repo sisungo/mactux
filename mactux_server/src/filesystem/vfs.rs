@@ -241,6 +241,15 @@ impl MountNamespace {
         src_mountable.rename(&src_relpath, &dst_relpath).await
     }
 
+    pub async fn link(&self, src: &VfsPath<'_>, dst: &VfsPath<'_>) -> Result<(), LxError> {
+        let (src_mountable, src_relpath) = self.find_node(&src)?;
+        let (dst_mountable, dst_relpath) = self.find_node(&dst)?;
+        if !Arc::ptr_eq(&src_mountable, &dst_mountable) {
+            return Err(LxError::EXDEV);
+        }
+        src_mountable.link(&src_relpath, &dst_relpath).await
+    }
+
     pub async fn get_sock_path(
         &self,
         full_path: &VfsPath<'_>,
@@ -313,6 +322,7 @@ pub trait Mountable: Send + Sync {
     async fn mkdir(&self, path: &VfsPath, mode: u32) -> Result<(), LxError>;
     async fn get_sock_path(&self, path: &VfsPath, create: bool) -> Result<PathBuf, LxError>;
     async fn rename(&self, src: &VfsPath, dst: &VfsPath) -> Result<(), LxError>;
+    async fn link(&self, src: &VfsPath, dst: &VfsPath) -> Result<(), LxError>;
     async fn mount_bind(&self, path: &VfsPath) -> Result<Box<dyn Mountable>, LxError>;
 }
 
