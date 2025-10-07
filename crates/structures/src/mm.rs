@@ -33,15 +33,18 @@ bitflags! {
     #[derive(Debug, Clone, Copy)]
     #[repr(transparent)]
     pub struct MmapFlags: u32 {
-        const MAP_ANON = 0x20;
+        const MAP_SHARED = 0x01;
         const MAP_PRIVATE = 0x02;
         const MAP_FIXED = 0x10;
+        const MAP_ANON = 0x20;
+        const MAP_LOCKED = 0x2000;
+        const MAP_SYNC = 0x80000;
     }
 }
 crate::bitflags_impl_from_to_apple!(
     MmapFlags;
     type Apple = c_int;
-    values = MAP_ANON, MAP_PRIVATE, MAP_FIXED
+    values = MAP_SHARED, MAP_PRIVATE, MAP_FIXED, MAP_ANON
 );
 
 bitflags! {
@@ -77,7 +80,7 @@ unixvariants! {
         const MADV_WILLNEED = 3;
         const MADV_DONTNEED = 4;
         const MADV_FREE = 8;
-        #[linux_only] const MADV_REMOVE = 9;
+        #[linux_only] const MADV_REMOVE = 9; // TODO: should we use MADV_ZERO here?
         #[linux_only] const MADV_DONTFORK = 10;
         #[linux_only] const MADV_DOFORK = 11;
         #[linux_only] const MADV_MERGEABLE = 12;

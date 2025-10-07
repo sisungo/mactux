@@ -865,26 +865,34 @@ pub unsafe fn sys_mmap(
     flags: MmapFlags,
     fd: c_int,
     offset: i64,
-) -> Result<*mut c_void, LxError> {
-    unsafe {
-        match libc::mmap(
-            addr.cast(),
-            len,
-            prot.to_apple()?,
-            flags.to_apple()?,
-            fd,
-            offset,
-        ) {
-            libc::MAP_FAILED => Err(LxError::last_apple_error()),
-            addr => Ok(addr),
-        }
-    }
+) -> Result<*mut u8, LxError> {
+    unsafe { rtenv::mm::map(addr, len, prot, flags, fd, offset) }
 }
 
 #[syscall]
 pub unsafe fn sys_mprotect(addr: *mut u8, len: usize, prot: i32) -> Result<(), LxError> {
     unsafe {
         match libc::mprotect(addr.cast(), len, prot) {
+            -1 => Err(LxError::last_apple_error()),
+            _ => Ok(()),
+        }
+    }
+}
+
+#[syscall]
+pub unsafe fn sys_mlock(addr: *mut u8, len: usize) -> Result<(), LxError> {
+    unsafe {
+        match libc::mlock(addr.cast(), len) {
+            -1 => Err(LxError::last_apple_error()),
+            _ => Ok(()),
+        }
+    }
+}
+
+#[syscall]
+pub unsafe fn sys_munlock(addr: *mut u8, len: usize) -> Result<(), LxError> {
+    unsafe {
+        match libc::munlock(addr.cast(), len) {
             -1 => Err(LxError::last_apple_error()),
             _ => Ok(()),
         }

@@ -20,10 +20,8 @@ use structures::{
     process::CloneArgs,
     signal::{SigAltStack, SigNum},
     sync::{FutexOpts, RobustListHead},
+    thread::TID_START,
 };
-
-/// Minimal TID that indicates a non-main thread rather than a process (or, the "main thread").
-const MINIMUM_TID: i32 = 0x40000000;
 
 static mut THREAD_CTX: libc::pthread_key_t = unsafe { std::mem::zeroed() };
 
@@ -191,7 +189,7 @@ pub fn id() -> i32 {
 
 /// Kills a thread.
 pub fn kill(tid: i32, signum: SigNum) -> Result<(), LxError> {
-    if tid < MINIMUM_TID {
+    if tid < TID_START {
         return crate::process::kill(tid, signum);
     }
 

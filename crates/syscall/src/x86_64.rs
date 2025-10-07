@@ -223,8 +223,8 @@ const SYSTEM_CALL_HANDLERS: &[SystemCallHandler] = &[
     sys_invalid,           // 146
     sys_invalid,           // 147
     sys_invalid,           // 148
-    sys_invalid,           // 149
-    sys_invalid,           // 150
+    sys_mlock,             // 149
+    sys_munlock,           // 150
     sys_invalid,           // 151
     sys_invalid,           // 152
     sys_invalid,           // 153
