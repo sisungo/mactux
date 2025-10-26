@@ -7,7 +7,7 @@ use structures::{
 
 pub fn getdents64(vfd: u64) -> Result<Option<Dirent64>, LxError> {
     with_client(|client| {
-        let response = client.invoke(Request::VirtualFdGetDent(vfd)).unwrap();
+        let response = client.invoke(Request::VfdGetdent(vfd)).unwrap();
         match response {
             Response::Nothing => Ok(None),
             Response::Dirent64(dent) => Ok(Some(dent)),
@@ -19,7 +19,7 @@ pub fn getdents64(vfd: u64) -> Result<Option<Dirent64>, LxError> {
 
 pub fn stat(vfd: u64) -> Result<Statx, LxError> {
     with_client(|client| {
-        let response = client.invoke(Request::VirtualFdStat(vfd)).unwrap();
+        let response = client.invoke(Request::VfdStat(vfd)).unwrap();
         match response {
             Response::Stat(stat) => Ok(stat.into()),
             Response::Error(err) => Err(err),
@@ -30,9 +30,7 @@ pub fn stat(vfd: u64) -> Result<Statx, LxError> {
 
 pub fn chown(vfd: u64, uid: u32, gid: u32) -> Result<(), LxError> {
     with_client(|client| {
-        let response = client
-            .invoke(Request::VirtualFdChown(vfd, uid, gid))
-            .unwrap();
+        let response = client.invoke(Request::VfdChown(vfd, uid, gid)).unwrap();
         match response {
             Response::Nothing => Ok(()),
             Response::Error(err) => Err(err),
@@ -43,7 +41,7 @@ pub fn chown(vfd: u64, uid: u32, gid: u32) -> Result<(), LxError> {
 
 pub fn readlink(vfd: u64) -> Result<Vec<u8>, LxError> {
     with_client(|client| {
-        let response = client.invoke(Request::VirtualFdReadlink(vfd)).unwrap();
+        let response = client.invoke(Request::VfdReadlink(vfd)).unwrap();
         match response {
             Response::Readlink(path) => Ok(path),
             Response::Error(err) => Err(err),
@@ -55,7 +53,7 @@ pub fn readlink(vfd: u64) -> Result<Vec<u8>, LxError> {
 /// Gets the path that we have used to originally open a virtual file descriptor.
 pub fn orig_path(vfd: u64) -> Result<Vec<u8>, LxError> {
     with_client(
-        |client| match client.invoke(Request::VirtualFdOrigPath(vfd)).unwrap() {
+        |client| match client.invoke(Request::VfdOrigPath(vfd)).unwrap() {
             Response::OrigPath(path) => Ok(path),
             Response::Error(err) => Err(err),
             _ => ipc_fail(),

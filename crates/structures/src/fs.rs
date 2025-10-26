@@ -1,4 +1,4 @@
-use crate::{FromApple, ToApple, error::LxError, time::Timespec};
+use crate::{FromApple, ToApple, error::LxError, impl_bincode_for_bitflags, time::Timespec};
 use bincode::{Decode, Encode};
 use bitflags::bitflags;
 use libc::c_int;
@@ -102,6 +102,7 @@ crate::bitflags_impl_from_to_apple!(
     type Apple = c_int;
     values = F_OK, R_OK, W_OK, X_OK
 );
+impl_bincode_for_bitflags!(AccessFlags: u32);
 
 bitflags! {
     #[derive(Debug, Clone, Copy)]
@@ -242,9 +243,9 @@ impl From<Statx> for Stat {
 #[derive(Debug, Clone, Encode, Decode)]
 #[repr(C)]
 pub struct Statx {
-    pub stx_mask: u32,
+    pub stx_mask: StatxMask,
     pub stx_blksize: u32,
-    pub stx_attributes: u64,
+    pub stx_attributes: StatxAttrs,
     pub stx_nlink: u32,
     pub stx_uid: u32,
     pub stx_gid: u32,
@@ -273,9 +274,9 @@ pub struct Statx {
 impl Statx {
     pub fn from_apple(stat: libc::stat) -> Self {
         Self {
-            stx_mask: 0,
+            stx_mask: StatxMask::STATX_BASIC_STATS | StatxMask::STATX_BTIME,
             stx_blksize: stat.st_blksize as _,
-            stx_attributes: 0,
+            stx_attributes: StatxAttrs::empty(),
             stx_nlink: stat.st_nlink as _,
             stx_uid: stat.st_uid,
             stx_gid: stat.st_gid,
@@ -411,3 +412,37 @@ pub enum FileType {
     Socket,
     Unknown,
 }
+
+bitflags! {
+    #[derive(Debug, Clone, Copy)]
+    #[repr(transparent)]
+    pub struct StatxAttrs: u64 {}
+}
+impl_bincode_for_bitflags!(StatxAttrs: u64);
+
+bitflags! {
+    #[derive(Debug, Clone, Copy)]
+    #[repr(transparent)]
+    pub struct StatxMask: u32 {
+        const STATX_TYPE = 1;
+        const STATX_MODE = 2;
+        const STATX_NLINK = 4;
+        const STATX_UID = 8;
+        const STATX_GID = 16;
+        const STATX_ATIME = 32;
+        const STATX_MTIME = 64;
+        const STATX_CTIME = 128;
+        const STATX_INO = 256;
+        const STATX_SIZE = 512;
+        const STATX_BLOCKS = 1024;
+        const STATX_BTIME = 2048;
+        const STATX_MNT_ID = 4096;
+        const STATX_DIOALIGN = 8192;
+        const STATX_MNT_ID_UNIQUE = 16384;
+        const STATX_SUBVOL = 32768;
+        const STATX_WRITE_ATOMIC = 65536;
+        const STATX_DIO_READ_ALIGN = 131072;
+        const STATX_BASIC_STATS = 2047;
+    }
+}
+impl_bincode_for_bitflags!(StatxMask: u32);

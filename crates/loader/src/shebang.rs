@@ -3,7 +3,10 @@ use std::{
     io::{BufRead, BufReader, Seek, SeekFrom},
     os::fd::{AsFd, FromRawFd, OwnedFd},
 };
-use structures::{error::LxError, fs::OpenFlags};
+use structures::{
+    error::LxError,
+    fs::{FileMode, OpenFlags},
+};
 
 #[derive(Debug)]
 pub struct Program {
@@ -54,7 +57,7 @@ impl Program {
             let interp_fd = rtenv::fs::open(
                 self.prog.clone(),
                 OpenFlags::O_CLOEXEC | OpenFlags::O_RDONLY,
-                0,
+                FileMode(0),
             );
             let interp_fd = match interp_fd {
                 Ok(x) => x,

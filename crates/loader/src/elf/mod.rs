@@ -12,7 +12,10 @@ use object::{
 };
 use rand::RngCore;
 use std::os::fd::{AsFd, AsRawFd, FromRawFd, OwnedFd, RawFd};
-use structures::{error::LxError, fs::OpenFlags};
+use structures::{
+    error::LxError,
+    fs::{FileMode, OpenFlags},
+};
 
 type ExecutableObject<'a> = ElfFile64<'a, LittleEndian, &'a ReadCache<IoFd<'a>>>;
 
@@ -139,8 +142,12 @@ fn read_interp(
         .interpreter(LittleEndian, read_cache)
         .map_err(|x| Error::ImageFormat(x.to_string()))?
         .ok_or_else(|| Error::ImageFormat(String::from("invalid PT_INTERP segment")))?;
-    let interp_fd = rtenv::fs::open(path.into(), OpenFlags::O_CLOEXEC | OpenFlags::O_RDONLY, 0)
-        .map_err(Error::ReadImage)?;
+    let interp_fd = rtenv::fs::open(
+        path.into(),
+        OpenFlags::O_CLOEXEC | OpenFlags::O_RDONLY,
+        FileMode(0),
+    )
+    .map_err(Error::ReadImage)?;
     if rtenv::vfd::get(interp_fd).is_some() {
         return Err(Error::ReadImage(LxError::EACCES));
     }

@@ -5,7 +5,7 @@ use std::{
     os::fd::{FromRawFd, OwnedFd},
     path::PathBuf,
 };
-use structures::fs::OpenFlags;
+use structures::fs::{FileMode, OpenFlags};
 
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
@@ -84,15 +84,22 @@ fn setup_environment() {
 
 /// Loads a program at the given path.
 fn load_program(exec: &[u8]) -> Program {
-    let fd = rtenv::fs::open(exec.to_vec(), OpenFlags::O_CLOEXEC | OpenFlags::O_RDONLY, 0)
-        .unwrap_or_else(|err| {
+    let fd = rtenv::fs::open(
+        exec.to_vec(),
+        OpenFlags::O_CLOEXEC | OpenFlags::O_RDONLY,
+        FileMode(0),
+    );
+    let fd = match fd {
+        Ok(x) => x,
+        Err(e) => {
             eprintln!(
                 "mactux: failed to open executable file \"{}\": {:?}",
                 String::from_utf8_lossy(exec),
-                err
+                e
             );
             std::process::exit(101);
-        });
+        }
+    };
     if rtenv::vfd::get(fd).is_some() {
         _ = rtenv::io::close(fd);
         eprintln!("mactux: virtual file descriptors are not yet supported to be executed");

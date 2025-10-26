@@ -1,170 +1,151 @@
-//! Infrastructural utilities.
-
-use libc::c_int;
-use papaya::Guard;
+use crate::filesystem::{VPath, vfs::LPath};
+use dashmap::{DashMap, mapref::entry::Entry};
 use rustc_hash::FxBuildHasher;
 use std::{
+    fmt::Debug,
+    ops::Deref,
     sync::{
-        Weak,
+        Arc, Weak,
         atomic::{self, AtomicU64},
     },
-    time::SystemTime,
 };
-use structures::{error::LxError, time::Timespec};
 
-/// A registry of objects identified by unique IDs.
-#[derive(Debug)]
-pub struct Registry<T> {
-    table: papaya::HashMap<u64, T, FxBuildHasher>,
+pub struct ReclaimRegistry<T: 'static> {
+    table: DashMap<u64, Shared<T>, FxBuildHasher>,
     next_id: AtomicU64,
 }
-impl<T: Clone> Registry<T> {
-    /// Creates a new, empty registry.
+impl<T> ReclaimRegistry<T> {
     pub fn new() -> Self {
         Self {
-            table: papaya::HashMap::with_capacity_and_hasher(128, FxBuildHasher::default()),
+            table: DashMap::default(),
             next_id: AtomicU64::new(1),
         }
     }
 
-    /// Registers a new object, returning its assigned ID.
-    pub fn register(&self, value: T) -> u64 {
+    pub fn intervene(&'static self, id: u64, value: T) -> Shared<T> {
+        let shared = Shared {
+            registry: self,
+            id,
+            value: Arc::new(value),
+        };
+        self.table.insert(id, shared.clone());
+        shared
+    }
+
+    pub fn tempt<F: FnOnce() -> Result<T, E>, E>(
+        &'static self,
+        id: u64,
+        f: F,
+    ) -> Result<(Shared<T>, bool), E> {
+        let entry = self.table.entry(id);
+        if let Entry::Occupied(occu) = &entry {
+            return Ok((occu.get().clone(), false));
+        }
+        let shared = Shared {
+            registry: self,
+            id,
+            value: Arc::new(f()?),
+        };
+        Ok((entry.insert(shared).clone(), true))
+    }
+
+    pub fn get(&'static self, id: u64) -> Option<Shared<T>> {
+        self.table.get(&id).as_deref().cloned()
+    }
+
+    pub fn register(&'static self, value: T) -> Shared<T> {
         let id = self.next_id.fetch_add(1, atomic::Ordering::Relaxed);
-        self.table.pin().insert(id, value);
-        id
+        let shared = Shared {
+            registry: self,
+            id,
+            value: Arc::new(value),
+        };
+        self.table.insert(id, shared.clone());
+        shared
     }
 
-    /// Unregisters an object by its ID.
-    pub fn unregister(&self, id: u64, reclaim: bool) {
-        let guard = self.table.guard();
-        self.table.remove(&id, &guard);
-        if reclaim {
-            guard.flush();
-        }
-    }
-
-    /// Eliminates objects matching the given predicate.
-    pub fn eliminate(&self, mut f: impl FnMut(&T) -> bool) {
-        let guard = self.table.guard();
-        self.table.retain(|_, v| !f(v), &guard);
-        guard.flush();
-    }
-
-    /// Gets an object by its ID.
-    pub fn get(&self, id: u64) -> Option<T> {
-        self.table.pin().get(&id).cloned()
-    }
-
-    /// Pins the internal table for iteration.
-    pub fn snapshot(&self) -> (Vec<(u64, T)>, u64) {
-        (
-            self.table
-                .pin()
-                .iter()
-                .map(|(&k, v)| (k, v.clone()))
-                .collect(),
-            self.next_id.load(atomic::Ordering::Relaxed),
-        )
-    }
-
-    /// Restores the registry from a snapshot.
-    pub fn from_snapshot(snapshot: (Vec<(u64, T)>, u64)) -> Self {
-        let table =
-            papaya::HashMap::with_capacity_and_hasher(snapshot.0.len(), FxBuildHasher::default());
-        let pinned = table.pin();
-        for (k, v) in snapshot.0 {
-            pinned.insert(k, v);
-        }
-        drop(pinned);
-        Self {
-            table,
-            next_id: AtomicU64::new(snapshot.1),
-        }
+    pub fn unregister(&self, id: u64) -> Option<Shared<T>> {
+        self.table.remove(&id).map(|(_, v)| v)
     }
 }
-impl<T: ?Sized> Registry<Weak<T>> {
-    /// Performs garbage collection, eliminating dead weak references.
-    pub fn gc(&self) {
-        self.eliminate(|v| v.strong_count() == 0);
+
+pub struct Shared<T: 'static> {
+    registry: &'static ReclaimRegistry<T>,
+    id: u64,
+    value: Arc<T>,
+}
+impl<T> Shared<T> {
+    pub fn id(this: &Self) -> u64 {
+        this.id
     }
 }
-impl<T: Clone> Default for Registry<T> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-impl<T: Clone> Clone for Registry<T> {
+impl<T> Clone for Shared<T> {
     fn clone(&self) -> Self {
         Self {
-            table: self.table.clone(),
-            next_id: AtomicU64::new(self.next_id.load(atomic::Ordering::Relaxed)),
+            registry: self.registry,
+            id: self.id,
+            value: self.value.clone(),
+        }
+    }
+}
+impl<T> Deref for Shared<T> {
+    type Target = T;
+    fn deref(&self) -> &Self::Target {
+        &self.value
+    }
+}
+impl<T: Debug> Debug for Shared<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Shared")
+            .field("id", &self.id)
+            .field("value", &self.value)
+            .finish()
+    }
+}
+impl<T> Drop for Shared<T> {
+    fn drop(&mut self) {
+        if Arc::strong_count(&self.value) <= 2 {
+            self.registry.unregister(self.id);
         }
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct FileAttrs {
-    pub uid: u32,
-    pub gid: u32,
-    pub mode: u32,
-    pub atime: Timespec,
-    pub btime: Timespec,
-    pub ctime: Timespec,
-    pub mtime: Timespec,
+pub struct WeakShared<T: 'static> {
+    registry: &'static ReclaimRegistry<T>,
+    id: u64,
+    value: Weak<T>,
 }
-impl FileAttrs {
-    pub fn common() -> FileAttrs {
-        FileAttrs {
-            uid: 0,
-            gid: 0,
-            mode: 0o666,
-            atime: now(),
-            btime: now(),
-            ctime: now(),
-            mtime: now(),
+impl<T> WeakShared<T> {
+    pub fn id(this: &Self) -> u64 {
+        this.id
+    }
+
+    pub fn upgrade(&self) -> Option<Shared<T>> {
+        self.value.upgrade().map(|v| Shared {
+            registry: self.registry,
+            id: self.id,
+            value: v,
+        })
+    }
+}
+impl<T> Clone for WeakShared<T> {
+    fn clone(&self) -> Self {
+        Self {
+            registry: self.registry,
+            id: self.id,
+            value: self.value.clone(),
         }
     }
 }
 
-/// Returns the current time as a `Timespec`.
-pub fn now() -> Timespec {
-    let now = std::time::SystemTime::now();
-    let elapsed = now
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .unwrap_or_default();
-    Timespec {
-        tv_sec: elapsed.as_secs() as _,
-        tv_nsec: elapsed.subsec_nanos() as _,
+pub fn symlink_abs(sympath: LPath, symcontent: &[u8]) -> VPath {
+    if symcontent.starts_with(b"/") {
+        return VPath::parse(symcontent);
     }
-}
-
-/// Converts a byte vector to a C-style string (null-terminated).
-pub fn c_str(mut rs: Vec<u8>) -> Vec<u8> {
-    rs.push(0);
-    rs
-}
-
-/// Generates a pseudo-unique ID.
-pub fn pseudo_unique_id() -> u64 {
-    static NEXT_ID: AtomicU64 = AtomicU64::new(1);
-    NEXT_ID.fetch_add(1, atomic::Ordering::Relaxed)
-}
-
-/// Performs a `sysctl` read operation.
-pub unsafe fn sysctl_read<T: Copy, const N: usize>(mut name: [c_int; N]) -> Result<T, LxError> {
-    unsafe {
-        let mut data: T = std::mem::zeroed();
-        let mut size = size_of::<T>();
-        match libc::sysctl(
-            name.as_mut_ptr(),
-            N as _,
-            (&raw mut data).cast(),
-            &mut size,
-            std::ptr::null_mut(),
-            0,
-        ) {
-            -1 => Err(LxError::EINVAL),
-            _ => Ok(data),
-        }
-    }
+    let mut symcontent = VPath::parse(symcontent);
+    let mut sympath = sympath.expand();
+    sympath.parts.pop();
+    sympath.parts.append(&mut symcontent.parts);
+    sympath.slash_suffix = symcontent.slash_suffix;
+    sympath
 }

@@ -8,7 +8,7 @@ use std::sync::Arc;
 use structures::{
     ToApple,
     error::LxError,
-    fs::{AccessFlags, AtFlags, Dirent64, OpenFlags, Statx, UmountFlags},
+    fs::{AccessFlags, AtFlags, Dirent64, FileMode, OpenFlags, Statx, UmountFlags},
 };
 
 #[derive(Debug)]
@@ -26,7 +26,7 @@ impl FilesystemContext {
 }
 
 #[inline]
-pub fn open(path: Vec<u8>, flags: OpenFlags, mode: u32) -> Result<c_int, LxError> {
+pub fn open(path: Vec<u8>, flags: OpenFlags, mode: FileMode) -> Result<c_int, LxError> {
     openat(-100, full_path(path)?, flags, AtFlags::empty(), mode)
 }
 
@@ -36,7 +36,7 @@ pub fn openat(
     path: Vec<u8>,
     mut oflags: OpenFlags,
     atflags: AtFlags,
-    mode: u32,
+    mode: FileMode,
 ) -> Result<c_int, LxError> {
     if atflags.contains(AtFlags::AT_SYMLINK_NOFOLLOW) {
         oflags |= OpenFlags::O_NOFOLLOW;
@@ -53,7 +53,7 @@ pub fn openat(
             .invoke(Request::Open(path, oflags.bits(), mode))
             .unwrap()
         {
-            Response::OpenNativePath(native) => open_native(native, oflags, atflags, mode),
+            Response::OpenNativePath(native) => open_native(native, oflags, atflags, mode.0 as _),
             Response::OpenVirtualFd(vfd) => crate::vfd::create(vfd, oflags),
             Response::Error(err) => Err(err),
             _ => ipc_fail(),
@@ -79,7 +79,7 @@ pub fn faccessat2(
 
     with_client(|client| {
         match client
-            .invoke(Request::Access(at_path(dfd, path)?, mode.bits()))
+            .invoke(Request::Access(at_path(dfd, path)?, mode))
             .unwrap()
         {
             Response::Nothing => Ok(()),
@@ -201,7 +201,7 @@ pub fn rmdir(path: Vec<u8>) -> Result<(), LxError> {
 }
 
 #[inline]
-pub fn mkdir(path: Vec<u8>, mode: u32) -> Result<(), LxError> {
+pub fn mkdir(path: Vec<u8>, mode: FileMode) -> Result<(), LxError> {
     with_client(|client| {
         match client
             .invoke(Request::Mkdir(full_path(path)?, mode))

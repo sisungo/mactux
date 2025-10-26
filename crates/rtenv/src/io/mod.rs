@@ -39,7 +39,7 @@ pub fn write(fd: c_int, buf: &[u8]) -> Result<usize, LxError> {
 #[inline]
 pub unsafe fn ioctl(fd: c_int, cmd: IoctlCmd, arg: *mut u8) -> Result<c_int, LxError> {
     match crate::vfd::get(fd) {
-        Some(vfd) => vfd::ioctl(vfd, cmd.0, arg),
+        Some(vfd) => vfd::ioctl(vfd, cmd, arg),
         None => native_ioctl::native_ioctl(fd, cmd, arg),
     }
 }
@@ -57,11 +57,11 @@ pub unsafe fn fcntl(fd: c_int, cmd: FcntlCmd, arg: usize) -> Result<c_int, LxErr
             if cmd == FcntlCmd::F_DUPFD_CLOEXEC {
                 let new_fd = unsafe { posix_num!(libc::fcntl(fd, libc::F_DUPFD_CLOEXEC, arg))? };
                 let new_vfd = vfd::dup(vfd);
-                let orig_flags = vfd::fcntl(new_vfd, FcntlCmd::F_GETFD.0, 0)
+                let orig_flags = vfd::fcntl(new_vfd, FcntlCmd::F_GETFD, 0)
                     .inspect_err(|_| vfd::close(new_vfd))?;
                 vfd::fcntl(
                     new_vfd,
-                    FcntlCmd::F_SETFD.0,
+                    FcntlCmd::F_SETFD,
                     (orig_flags as u32 | FdFlags::FD_CLOEXEC.bits()) as usize,
                 )
                 .inspect_err(|_| vfd::close(new_vfd))?;
@@ -69,7 +69,7 @@ pub unsafe fn fcntl(fd: c_int, cmd: FcntlCmd, arg: usize) -> Result<c_int, LxErr
                 return Ok(new_fd);
             }
 
-            vfd::fcntl(vfd, cmd.0, arg)
+            vfd::fcntl(vfd, cmd, arg)
         }
         None => native_fcntl::native_fcntl(fd, cmd, arg),
     }

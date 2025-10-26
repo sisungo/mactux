@@ -1,0 +1,254 @@
+//! Virtual file descriptor support.
+
+use crate::{ipc::methods::IntoResponse, poll::PollToken};
+use crossbeam::atomic::AtomicCell;
+use dashmap::DashMap;
+use mactux_ipc::response::VirtualFdAvailCtrl;
+use std::{
+    path::PathBuf,
+    sync::{
+        Arc, OnceLock,
+        atomic::{self, AtomicI64, AtomicU64},
+    },
+};
+use structures::{
+    error::LxError,
+    fs::{Dirent64, OpenFlags, Statx, XATTR_NAMESPACE_PREFIXES},
+    io::{IoctlCmd, PollEvents, Whence},
+};
+
+pub struct Vfd {
+    content: Arc<dyn VfdContent>,
+    open_flags: AtomicCell<OpenFlags>,
+    offset: AtomicI64,
+    orig_path: OnceLock<Vec<u8>>,
+}
+impl Vfd {
+    pub fn new(content: Arc<dyn VfdContent>, open_flags: OpenFlags) -> Self {
+        Self {
+            content,
+            open_flags: AtomicCell::new(open_flags),
+            offset: AtomicI64::new(0),
+            orig_path: OnceLock::new(),
+        }
+    }
+
+    pub fn read(&self, buf: &mut [u8]) -> Result<usize, LxError> {
+        if !self.open_flags.load().is_readable() {
+            return Err(LxError::EBADF);
+        }
+
+        let mut off = self.offset.load(atomic::Ordering::Relaxed);
+        let stat = self.content.read(buf, &mut off);
+        self.offset.store(off, atomic::Ordering::Relaxed);
+        stat
+    }
+
+    pub fn write(&self, buf: &[u8]) -> Result<usize, LxError> {
+        if !self.open_flags.load().is_writable() {
+            return Err(LxError::EBADF);
+        }
+
+        let mut off = self.offset.load(atomic::Ordering::Relaxed);
+        let stat = self.content.write(buf, &mut off);
+        self.offset.store(off, atomic::Ordering::Relaxed);
+        stat
+    }
+
+    pub fn seek(&self, whence: Whence, off: i64) -> Result<u64, LxError> {
+        todo!()
+    }
+
+    pub fn stat(&self, mask: u32) -> Result<Statx, LxError> {
+        self.content.stat()
+    }
+
+    pub fn pread(&self, buf: &mut [u8], mut off: i64) -> Result<usize, LxError> {
+        self.content.read(buf, &mut off)
+    }
+
+    pub fn pwrite(&self, buf: &mut [u8], mut off: i64) -> Result<usize, LxError> {
+        self.content.write(buf, &mut off)
+    }
+
+    pub fn getdent(&self) -> Result<Option<Dirent64>, LxError> {
+        self.content.getdent()
+    }
+
+    pub fn dup(self: &Arc<Self>) -> Arc<Self> {
+        let content = match self.content.dup() {
+            Ok(content) => Arc::clone(&content),
+            Err(_) => Arc::clone(&self.content),
+        };
+        Arc::new(Self {
+            content,
+            open_flags: AtomicCell::new(self.open_flags.load()),
+            offset: AtomicI64::new(self.offset.load(atomic::Ordering::Relaxed)),
+            orig_path: self.orig_path.clone(),
+        })
+    }
+
+    pub fn listxattr(&self) -> Result<Vec<Vec<u8>>, LxError> {
+        self.content.listxattr()
+    }
+
+    pub fn getxattr(&self, name: &[u8]) -> Result<Vec<u8>, LxError> {
+        self.content.getxattr(name)
+    }
+
+    pub fn setxattr(&self, name: &[u8], value: &[u8], flags: u32) -> Result<(), LxError> {
+        for prefix in XATTR_NAMESPACE_PREFIXES.iter() {
+            if name.starts_with(prefix) {
+                return self.content.setxattr(name, value, flags);
+            }
+        }
+        Err(LxError::EOPNOTSUPP)
+    }
+
+    pub fn removexattr(&self, name: &[u8]) -> Result<(), LxError> {
+        self.content.removexattr(name)
+    }
+
+    /// Returns the original path of this VFD, if any.
+    pub fn orig_path(&self) -> Option<&[u8]> {
+        self.orig_path.get().map(|x| &**x)
+    }
+
+    /// Sets the original path of this VFD. Fails if it has already been set.
+    ///
+    /// On failure, the original path remains unchanged.
+    pub fn set_orig_path(&self, path: Vec<u8>) -> Result<(), LxError> {
+        self.orig_path.set(path).map_err(|_| LxError::EPERM)
+    }
+}
+
+pub trait VfdContent: Send + Sync {
+    fn read(&self, _buf: &mut [u8], _off: &mut i64) -> Result<usize, LxError> {
+        Err(LxError::EOPNOTSUPP)
+    }
+
+    fn write(&self, _buf: &[u8], _off: &mut i64) -> Result<usize, LxError> {
+        Err(LxError::EOPNOTSUPP)
+    }
+
+    fn seek(&self, _whence: Whence, _off: i64) -> Result<u64, LxError> {
+        Err(LxError::EOPNOTSUPP)
+    }
+
+    fn stat(&self) -> Result<Statx, LxError> {
+        Err(LxError::EOPNOTSUPP)
+    }
+
+    fn ioctl_query(&self, _cmd: IoctlCmd) -> Result<VirtualFdAvailCtrl, LxError> {
+        Err(LxError::EOPNOTSUPP)
+    }
+
+    fn ioctl(&self, _cmd: IoctlCmd, _data: &[u8]) -> Result<IoctlOutput, LxError> {
+        Err(LxError::EOPNOTSUPP)
+    }
+
+    /// Duplicates the VFD content.
+    ///
+    /// Note that if your implementation returns an error, duplication would not fail, instead, it just clones the [`Arc`].
+    fn dup(&self) -> Result<Arc<dyn VfdContent>, LxError> {
+        Err(LxError::EOPNOTSUPP)
+    }
+
+    fn truncate(&self, _len: u64) -> Result<(), LxError> {
+        Err(LxError::EOPNOTSUPP)
+    }
+
+    fn getdent(&self) -> Result<Option<Dirent64>, LxError> {
+        Err(LxError::EOPNOTSUPP)
+    }
+
+    fn chown(&self, _uid: u32, _gid: u32) -> Result<(), LxError> {
+        Err(LxError::EOPNOTSUPP)
+    }
+
+    fn readlink(&self) -> Result<Vec<u8>, LxError> {
+        Err(LxError::EOPNOTSUPP)
+    }
+
+    fn get_socket(&self, _create: bool) -> Result<PathBuf, LxError> {
+        Err(LxError::EOPNOTSUPP)
+    }
+
+    fn poll(&self, _interest: PollEvents) -> Result<PollToken, LxError> {
+        Err(LxError::EOPNOTSUPP)
+    }
+
+    fn sync(&self) -> Result<(), LxError> {
+        Ok(())
+    }
+
+    fn listxattr(&self) -> Result<Vec<Vec<u8>>, LxError> {
+        Err(LxError::EOPNOTSUPP)
+    }
+
+    fn getxattr(&self, _name: &[u8]) -> Result<Vec<u8>, LxError> {
+        Err(LxError::EOPNOTSUPP)
+    }
+
+    fn setxattr(&self, _name: &[u8], _value: &[u8], _flags: u32) -> Result<(), LxError> {
+        Err(LxError::EOPNOTSUPP)
+    }
+
+    fn removexattr(&self, _name: &[u8]) -> Result<(), LxError> {
+        Err(LxError::EOPNOTSUPP)
+    }
+}
+
+pub struct VfdTable {
+    table: DashMap<u64, Arc<Vfd>>,
+    next_id: AtomicU64,
+}
+impl VfdTable {
+    pub fn new() -> Self {
+        Self {
+            table: DashMap::new(),
+            next_id: AtomicU64::new(1),
+        }
+    }
+
+    pub fn register(&self, value: Arc<Vfd>) -> u64 {
+        let id = self.next_id.fetch_add(1, atomic::Ordering::Relaxed);
+        self.table.insert(id, value);
+        id
+    }
+
+    pub fn get(&self, id: u64) -> Option<Arc<Vfd>> {
+        self.table.get(&id).as_deref().cloned()
+    }
+
+    pub fn unregister(&self, id: u64) -> Option<Arc<Vfd>> {
+        self.table.remove(&id).map(|(_, v)| v)
+    }
+
+    pub fn fork(&self) -> Self {
+        Self {
+            table: self
+                .table
+                .iter()
+                .map(|x| (*x.key(), x.dup()))
+                .collect::<DashMap<_, _>>(),
+            next_id: AtomicU64::new(self.next_id.load(atomic::Ordering::Relaxed)),
+        }
+    }
+
+    pub fn exec(&self) {
+        self.table
+            .retain(|_, v| !v.open_flags.load().contains(OpenFlags::O_CLOEXEC));
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct IoctlOutput {
+    ret: usize,
+    buf: Vec<u8>,
+}
+impl IntoResponse for IoctlOutput {
+    fn into_response(self) -> mactux_ipc::response::Response {
+        todo!()
+    }
+}

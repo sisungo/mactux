@@ -6,15 +6,12 @@ use mactux_ipc::{
 use std::ffi::c_int;
 use structures::{
     error::LxError,
-    io::{FcntlCmd, Whence},
+    io::{FcntlCmd, IoctlCmd, Whence},
 };
 
 pub fn read(vfd: u64, buf: &mut [u8]) -> Result<usize, LxError> {
-    with_client(|client| {
-        match client
-            .invoke(Request::VirtualFdRead(vfd, buf.len()))
-            .unwrap()
-        {
+    with_client(
+        |client| match client.invoke(Request::VfdRead(vfd, buf.len())).unwrap() {
             Response::Read(blob) => {
                 debug_assert!(blob.len() <= buf.len());
                 buf[..blob.len()].copy_from_slice(&blob);
@@ -22,14 +19,14 @@ pub fn read(vfd: u64, buf: &mut [u8]) -> Result<usize, LxError> {
             }
             Response::Error(err) => Err(err),
             _ => ipc_fail(),
-        }
-    })
+        },
+    )
 }
 
 pub fn pread(vfd: u64, off: i64, buf: &mut [u8]) -> Result<usize, LxError> {
     with_client(|client| {
         match client
-            .invoke(Request::VirtualFdPread(vfd, off, buf.len()))
+            .invoke(Request::VfdPread(vfd, off, buf.len()))
             .unwrap()
         {
             Response::Read(blob) => {
@@ -44,22 +41,19 @@ pub fn pread(vfd: u64, off: i64, buf: &mut [u8]) -> Result<usize, LxError> {
 }
 
 pub fn write(vfd: u64, buf: &[u8]) -> Result<usize, LxError> {
-    with_client(|client| {
-        match client
-            .invoke(Request::VirtualFdWrite(vfd, buf.to_vec()))
-            .unwrap()
-        {
+    with_client(
+        |client| match client.invoke(Request::VfdWrite(vfd, buf.to_vec())).unwrap() {
             Response::Write(n) => Ok(n),
             Response::Error(err) => Err(err),
             _ => ipc_fail(),
-        }
-    })
+        },
+    )
 }
 
 pub fn pwrite(vfd: u64, off: i64, buf: &[u8]) -> Result<usize, LxError> {
     with_client(|client| {
         match client
-            .invoke(Request::VirtualFdPwrite(vfd, off, buf.to_vec()))
+            .invoke(Request::VfdPwrite(vfd, off, buf.to_vec()))
             .unwrap()
         {
             Response::Write(n) => Ok(n),
@@ -70,54 +64,49 @@ pub fn pwrite(vfd: u64, off: i64, buf: &[u8]) -> Result<usize, LxError> {
 }
 
 pub fn lseek(vfd: u64, whence: Whence, off: i64) -> Result<u64, LxError> {
-    with_client(|client| {
-        match client
-            .invoke(Request::VirtualFdLseek(vfd, whence, off))
-            .unwrap()
-        {
+    with_client(
+        |client| match client.invoke(Request::VfdSeek(vfd, whence, off)).unwrap() {
             Response::Lseek(n) => Ok(n),
             Response::Error(err) => Err(err),
             _ => ipc_fail(),
-        }
-    })
+        },
+    )
 }
 
 pub fn dup(vfd: u64) -> u64 {
     with_client(
-        |client| match client.invoke(Request::VirtualFdDup(vfd)).unwrap() {
+        |client| match client.invoke(Request::VfdDup(vfd)).unwrap() {
             Response::DupVirtualFd(x) => x,
             _ => ipc_fail(),
         },
     )
 }
 
-pub fn ioctl(vfd: u64, cmd: u32, arg: *mut u8) -> Result<c_int, LxError> {
-    let avail_ctrl = with_client(|client| {
-        match client
-            .invoke(Request::VirtualFdIoctlQuery(vfd, cmd))
-            .unwrap()
-        {
-            Response::VirtualFdAvailCtrl(avail_ctrl) => Ok(avail_ctrl),
-            Response::Error(err) => Err(err),
-            _ => ipc_fail(),
-        }
-    })?;
+pub fn ioctl(vfd: u64, cmd: IoctlCmd, arg: *mut u8) -> Result<c_int, LxError> {
+    let avail_ctrl =
+        with_client(
+            |client| match client.invoke(Request::VfdIoctlQuery(vfd, cmd)).unwrap() {
+                Response::VirtualFdAvailCtrl(avail_ctrl) => Ok(avail_ctrl),
+                Response::Error(err) => Err(err),
+                _ => ipc_fail(),
+            },
+        )?;
 
-    ctrl(vfd, cmd, arg as usize, avail_ctrl, Request::VirtualFdIoctl)
+    ctrl(vfd, cmd, arg as usize, avail_ctrl, Request::VfdIoctl)
 }
 
-pub fn fcntl(vfd: u64, cmd: u32, arg: usize) -> Result<c_int, LxError> {
+pub fn fcntl(vfd: u64, cmd: FcntlCmd, arg: usize) -> Result<c_int, LxError> {
     let avail_ctrl = VirtualFdAvailCtrl {
-        in_size: FcntlCmd(cmd).in_size(),
-        out_size: FcntlCmd(cmd).out_size(),
+        in_size: cmd.in_size(),
+        out_size: cmd.out_size(),
     };
 
-    ctrl(vfd, cmd, arg, avail_ctrl, Request::VirtualFdFcntl)
+    ctrl(vfd, cmd, arg, avail_ctrl, Request::VfdFcntl)
 }
 
 pub fn truncate(vfd: u64, len: u64) -> Result<(), LxError> {
     with_client(
-        |client| match client.invoke(Request::VirtualFdTruncate(vfd, len)).unwrap() {
+        |client| match client.invoke(Request::VfdTruncate(vfd, len)).unwrap() {
             Response::Nothing => Ok(()),
             Response::Error(err) => Err(err),
             _ => ipc_fail(),
@@ -127,7 +116,7 @@ pub fn truncate(vfd: u64, len: u64) -> Result<(), LxError> {
 
 pub fn sync(vfd: u64) -> Result<(), LxError> {
     with_client(
-        |client| match client.invoke(Request::VirtualFdSync(vfd)).unwrap() {
+        |client| match client.invoke(Request::VfdSync(vfd)).unwrap() {
             Response::Nothing => Ok(()),
             Response::Error(err) => Err(err),
             _ => ipc_fail(),
@@ -137,16 +126,16 @@ pub fn sync(vfd: u64) -> Result<(), LxError> {
 
 pub fn close(vfd: u64) {
     with_client(|client| {
-        client.invoke(Request::VirtualFdClose(vfd)).unwrap();
+        client.invoke(Request::VfdClose(vfd)).unwrap();
     });
 }
 
-fn ctrl(
+fn ctrl<C>(
     vfd: u64,
-    cmd: u32,
+    cmd: C,
     arg: usize,
     avail_ctrl: VirtualFdAvailCtrl,
-    act: fn(u64, u32, Vec<u8>) -> Request,
+    act: fn(u64, C, Vec<u8>) -> Request,
 ) -> Result<c_int, LxError> {
     with_client(|client| {
         let in_param = match avail_ctrl.in_size {

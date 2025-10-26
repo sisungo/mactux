@@ -9,7 +9,7 @@ use std::{io::Write, ptr::NonNull, time::Duration};
 use structures::{
     FromApple, ToApple,
     error::LxError,
-    fs::{AccessFlags, AtFlags, OpenFlags, Stat, Statx, UmountFlags},
+    fs::{AccessFlags, AtFlags, FileMode, OpenFlags, Stat, Statx, UmountFlags},
     io::{
         CloseRangeFlags, EventFdFlags, FcntlCmd, FdSet, FlockOp, IoctlCmd, PSelectSigMask, PollFd,
         Whence,
@@ -29,7 +29,7 @@ use structures::{
 
 #[syscall]
 pub unsafe fn sys_open(path: *const c_char, flags: OpenFlags, mode: u32) -> Result<c_int, LxError> {
-    unsafe { rtenv::fs::open(rust_bytes(path).to_vec(), flags, mode) }
+    unsafe { rtenv::fs::open(rust_bytes(path).to_vec(), flags, FileMode(mode as _)) }
 }
 
 #[syscall]
@@ -45,7 +45,7 @@ pub unsafe fn sys_openat(
             rust_bytes(filename).to_vec(),
             flags,
             AtFlags::empty(),
-            mode,
+            FileMode(mode as _),
         )
     }
 }
@@ -151,7 +151,7 @@ pub unsafe fn sys_statx(
 #[syscall]
 pub unsafe fn sys_truncate(path: *const c_char, len: u64) -> Result<(), LxError> {
     unsafe {
-        let fd = rtenv::fs::open(rust_bytes(path).to_vec(), OpenFlags::O_WRONLY, 0)?;
+        let fd = rtenv::fs::open(rust_bytes(path).to_vec(), OpenFlags::O_WRONLY, FileMode(0))?;
         let result = rtenv::io::truncate(fd, len);
         _ = rtenv::io::close(fd);
         result
@@ -274,7 +274,7 @@ pub unsafe fn sys_link(src: *const c_char, dst: *const c_char) -> Result<(), LxE
 
 #[syscall]
 pub unsafe fn sys_mkdir(path: *const c_char, mode: u32) -> Result<(), LxError> {
-    unsafe { rtenv::fs::mkdir(rust_bytes(path).to_vec(), mode) }
+    unsafe { rtenv::fs::mkdir(rust_bytes(path).to_vec(), FileMode(mode as _)) }
 }
 
 #[syscall]
@@ -295,7 +295,7 @@ pub unsafe fn sys_rmdir(path: *const c_char) -> Result<(), LxError> {
 #[syscall]
 pub unsafe fn sys_chown(path: *const c_char, uid: u32, gid: u32) -> Result<(), LxError> {
     unsafe {
-        let fd = rtenv::fs::open(rust_bytes(path).to_vec(), OpenFlags::O_PATH, 0)?;
+        let fd = rtenv::fs::open(rust_bytes(path).to_vec(), OpenFlags::O_PATH, FileMode(0))?;
         let result = rtenv::fs::chown(fd, uid, gid);
         _ = rtenv::io::close(fd);
         result

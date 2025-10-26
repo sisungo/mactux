@@ -1,7 +1,7 @@
 use libc::{c_char, c_int, strlen};
 use structures::{
     error::LxError,
-    fs::{AtFlags, OpenFlags},
+    fs::{AtFlags, FileMode, OpenFlags},
     net::SockAddr,
 };
 
@@ -31,7 +31,7 @@ pub fn with_openat<T>(
     mode: u32,
     f: impl FnOnce(c_int) -> Result<T, LxError>,
 ) -> Result<T, LxError> {
-    let fd = rtenv::fs::openat(dfd, path, oflags, atflags, mode)?;
+    let fd = rtenv::fs::openat(dfd, path, oflags, atflags, FileMode(mode as _))?;
     let ret = f(fd).inspect_err(|_| _ = rtenv::io::close(fd))?;
     _ = rtenv::io::close(fd);
     Ok(ret)

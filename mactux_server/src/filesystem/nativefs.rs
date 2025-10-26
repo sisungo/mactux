@@ -1,189 +1,326 @@
-//! The `nativefs` filesystem.
-//!
-//! This is a filesystem that maps all Linux filesystem accesses to macOS ones.
+//! A filesystem that maps all Linux filesystem operations to the underlying macOS one.
 
 use crate::{
-    filesystem::vfs::{MountDev, Mountable, NewlyOpen, VfsPath},
-    util::c_str,
-    vfd::{VirtualFd, VirtualFile},
+    filesystem::{
+        VPath,
+        vfs::{Filesystem, LPath, NewlyOpen},
+    },
+    task::process::Process,
+    util::symlink_abs,
+    vfd::{Vfd, VfdContent},
 };
-use async_trait::async_trait;
-use mactux_ipc::response::Response;
-use std::{path::PathBuf, sync::Arc};
+use libc::c_int;
+use std::{
+    collections::VecDeque,
+    ffi::{CString, OsString},
+    fmt::Debug,
+    fs::ReadDir,
+    os::unix::{ffi::OsStringExt, fs::MetadataExt},
+    path::Path,
+    sync::{Arc, Mutex},
+};
 use structures::{
     ToApple,
+    device::DeviceNumber,
     error::LxError,
-    fs::{AccessFlags, Dirent64, Dirent64Hdr, DirentType, OpenFlags, Statx},
+    fs::{AccessFlags, Dirent64, Dirent64Hdr, DirentType, FileMode, OpenFlags, Statx},
 };
-use tokio::{fs::ReadDir, sync::Mutex};
 
-#[derive(Debug)]
+/// A nativefs mount.
 pub struct NativeFs {
-    native_path: PathBuf,
+    base: NBase,
 }
 impl NativeFs {
-    pub fn new(native_path: PathBuf) -> std::io::Result<Self> {
-        Ok(Self {
-            native_path: std::fs::canonicalize(native_path)?,
-        })
-    }
-
-    fn interpret_vpath(&self, vpath: &VfsPath) -> PathBuf {
-        require_secure_vfs_path(vpath);
-        self.native_path.join(&vpath.to_string()[1..])
+    pub fn new(dev: &[u8], flags: u64) -> Result<Arc<Self>, LxError> {
+        let dev = str::from_utf8(dev).map_err(|_| LxError::EINVAL)?;
+        let path = dev.strip_prefix("native=").ok_or(LxError::EACCES)?;
+        let base = NBase::new(Path::new(path))?;
+        Ok(Arc::new(Self { base }))
     }
 }
-#[async_trait]
-impl Mountable for NativeFs {
-    async fn open(
+impl Filesystem for NativeFs {
+    fn open(
         self: Arc<Self>,
-        path: &VfsPath,
+        path: LPath,
         flags: OpenFlags,
-        _mode: u32,
+        mode: FileMode,
     ) -> Result<NewlyOpen, LxError> {
-        let path = self.interpret_vpath(path);
-        if path.is_dir() {
-            Ok(NewlyOpen::Virtual(VirtualFd::new(
-                Box::new(NativeDirVirtualFd {
-                    path: path.clone(),
-                    read_dir: Mutex::new(tokio::fs::read_dir(&path).await?),
-                }),
-                flags,
-            )))
-        } else {
-            Ok(NewlyOpen::AtNative(path))
-        }
-    }
-
-    async fn access(&self, path: &VfsPath, mode: AccessFlags) -> Result<(), LxError> {
-        let path = self.interpret_vpath(path);
-        let path = c_str(path.into_os_string().into_encoded_bytes());
-        unsafe {
-            match libc::access(path.as_ptr().cast(), mode.to_apple()?) {
-                -1 => Err(LxError::last_apple_error()),
-                _ => Ok(()),
+        match NPath::resolve(&self.base, path)? {
+            NPath::Direct(dst) => unsafe {
+                let mut statbuf = std::mem::zeroed();
+                posix_result(libc::lstat(dst.as_ptr(), &mut statbuf))?;
+                if statbuf.st_mode & libc::S_IFMT == libc::S_IFDIR {
+                    let vfd_content = Arc::new(DirFd::new(dst, statbuf)?);
+                    return Ok(NewlyOpen::Virtual(Vfd::new(vfd_content, flags)));
+                }
+                Ok(NewlyOpen::Native(dst.into_bytes()))
+            },
+            NPath::HasSymlink(symexpr) => Process::current()
+                .mnt
+                .locate(&symexpr.into_vpath())?
+                .open(flags, mode),
+            NPath::IsSymlink(_, content) => {
+                if flags.contains(OpenFlags::O_NOFOLLOW) {
+                    return Err(LxError::ELOOP);
+                }
+                Process::current().mnt.locate(&content)?.open(flags, mode)
             }
         }
     }
 
-    async fn unlink(&self, path: &VfsPath) -> Result<(), LxError> {
-        let path = self.interpret_vpath(path);
-        tokio::fs::remove_file(path).await.map_err(LxError::from)
+    fn access(&self, path: LPath, mode: AccessFlags) -> Result<(), LxError> {
+        match NPath::resolve(&self.base, path)? {
+            NPath::Direct(dst) => unsafe {
+                posix_result(libc::access(dst.as_ptr(), mode.to_apple()?))
+            },
+            NPath::HasSymlink(symexpr) => Process::current()
+                .mnt
+                .locate(&symexpr.into_vpath())?
+                .access(mode),
+            NPath::IsSymlink(_, content) => Process::current().mnt.locate(&content)?.access(mode),
+        }
     }
 
-    async fn rmdir(&self, path: &VfsPath) -> Result<(), LxError> {
-        let path = self.interpret_vpath(path);
-        tokio::fs::remove_dir(path).await.map_err(LxError::from)
+    fn symlink(&self, dst: LPath, content: &[u8]) -> Result<(), LxError> {
+        match NPath::resolve(&self.base, dst)? {
+            NPath::Direct(dst) | NPath::IsSymlink(dst, _) => unsafe {
+                let content = bytes_to_cstring(content.to_vec())?;
+                posix_result(libc::symlink(content.as_ptr(), dst.as_ptr()))
+            },
+            NPath::HasSymlink(symexpr) => Process::current()
+                .mnt
+                .locate(&symexpr.into_vpath())?
+                .symlink(content),
+        }
     }
 
-    async fn symlink(&self, dst: &VfsPath, content: &[u8]) -> Result<(), LxError> {
-        let dst = self.interpret_vpath(dst);
-        let content = PathBuf::from(&*String::from_utf8_lossy(content)); // TODO
-        tokio::fs::symlink(content, dst)
-            .await
-            .map_err(LxError::from)
-    }
-
-    async fn mkdir(&self, path: &VfsPath, mode: u32) -> Result<(), LxError> {
-        let path = self.interpret_vpath(path);
-        let path = c_str(path.into_os_string().into_encoded_bytes());
-        unsafe {
-            // TODO mode
-            match libc::mkdir(path.as_ptr().cast(), mode as _) {
-                -1 => Err(LxError::last_apple_error()),
-                _ => Ok(()),
+    fn rmdir(&self, path: LPath) -> Result<(), LxError> {
+        match NPath::resolve(&self.base, path.clone())? {
+            NPath::Direct(dst) => unsafe { posix_result(libc::rmdir(dst.as_ptr())) },
+            NPath::HasSymlink(symexpr) => Process::current()
+                .mnt
+                .locate(&symexpr.into_vpath())?
+                .rmdir(),
+            NPath::IsSymlink(_, content) => {
+                if !path.relative.slash_suffix {
+                    return Err(LxError::ENOTDIR);
+                }
+                Process::current().mnt.locate(&content)?.rmdir()
             }
         }
     }
 
-    async fn get_sock_path(&self, path: &VfsPath, _create: bool) -> Result<PathBuf, LxError> {
-        Ok(self.interpret_vpath(path))
+    fn get_sock_path(&self, path: LPath, create: bool) -> Result<std::path::PathBuf, LxError> {
+        Err(LxError::EOPNOTSUPP)
     }
 
-    async fn rename(&self, src: &VfsPath, dst: &VfsPath) -> Result<(), LxError> {
-        let src = self.interpret_vpath(src);
-        let dst = self.interpret_vpath(dst);
-        tokio::fs::rename(src, dst).await.map_err(From::from)
+    fn link(&self, src: LPath, dst: LPath) -> Result<(), LxError> {
+        todo!()
     }
 
-    async fn link(&self, src: &VfsPath, dst: &VfsPath) -> Result<(), LxError> {
-        let src = self.interpret_vpath(src);
-        let dst = self.interpret_vpath(dst);
-        tokio::fs::hard_link(src, dst).await.map_err(From::from)
+    fn mkdir(&self, path: LPath, mode: FileMode) -> Result<(), LxError> {
+        match NPath::resolve(&self.base, path)? {
+            NPath::Direct(dst) => unsafe { posix_result(libc::mkdir(dst.as_ptr(), mode.0 as _)) },
+            NPath::HasSymlink(symexpr) => Process::current()
+                .mnt
+                .locate(&symexpr.into_vpath())?
+                .mkdir(mode),
+            NPath::IsSymlink(_, _) => Err(LxError::EEXIST),
+        }
     }
 
-    async fn mount_bind(&self, path: &VfsPath) -> Result<Box<dyn Mountable>, LxError> {
+    fn rename(&self, src: LPath, dst: LPath) -> Result<(), LxError> {
+        todo!()
+    }
+
+    fn unlink(&self, path: LPath) -> Result<(), LxError> {
+        match NPath::resolve(&self.base, path)? {
+            NPath::Direct(dst) | NPath::IsSymlink(dst, _) => unsafe {
+                posix_result(libc::unlink(dst.as_ptr()))
+            },
+            NPath::HasSymlink(symexpr) => Process::current()
+                .mnt
+                .locate(&symexpr.into_vpath())?
+                .unlink(),
+        }
+    }
+
+    fn mknod(&self, path: LPath, mode: FileMode, dev: DeviceNumber) -> Result<(), LxError> {
         todo!()
     }
 }
 
-pub struct NativeDirVirtualFd {
-    path: PathBuf,
-    read_dir: Mutex<ReadDir>,
+enum NPath {
+    /// The native path is to be accessed directly.
+    Direct(CString),
+
+    /// The native path has a symlink in one of its parts. The path is splited into two parts at its first symlink. The
+    /// first element is the content of the first symlink, while the second element reserves the original content of the
+    /// second part.
+    HasSymlink(SymlinkExpression),
+
+    /// The native path has only one symlink in one of its parts, which is itself. Returns both native path of the symlink
+    /// and content of the symlink.
+    IsSymlink(CString, VPath),
 }
-#[async_trait]
-impl VirtualFile for NativeDirVirtualFd {
-    async fn getdents64(&self) -> Result<Option<Dirent64>, LxError> {
-        match self.read_dir.lock().await.next_entry().await? {
-            Some(entry) => Ok(Some(Dirent64::new(
-                Dirent64Hdr {
-                    d_ino: entry.ino(),
+impl NPath {
+    /// Resolves a vpath to an npath, relative to nbase.
+    pub fn resolve(nbase: &NBase, lpath: LPath) -> Result<Self, LxError> {
+        debug_assert!(lpath.relative.slash_prefix);
+
+        let xvpath = bytes_to_cstring(lpath.relative.express())?;
+        let full_path = bytes_to_cstring([nbase.path.clone(), lpath.relative.express()].concat())?;
+
+        unsafe {
+            match libc::faccessat(nbase.dirfd, xvpath.as_ptr(), libc::F_OK, 0x2000 | 0x800) {
+                -1 => match LxError::last_apple_error() {
+                    LxError::ELOOP => Self::_resolve_symlink(nbase, lpath.clone()),
+                    _ => Ok(Self::Direct(full_path)),
+                },
+                _ => {
+                    if let Ok(content) =
+                        readlinkat(nbase.dirfd, bytes_to_cstring(lpath.relative.express())?)
+                    {
+                        return Ok(Self::IsSymlink(full_path, symlink_abs(lpath, &content)));
+                    }
+                    Ok(Self::Direct(full_path))
+                }
+            }
+        }
+    }
+
+    fn _resolve_symlink(nbase: &NBase, mut first: LPath) -> Result<Self, LxError> {
+        let mut second = VPath {
+            slash_prefix: true,
+            parts: Vec::new(),
+            slash_suffix: first.relative.slash_suffix,
+        };
+        let mut second_parts = VecDeque::new();
+        loop {
+            let xfirst = bytes_to_cstring(first.relative.express())?;
+            unsafe {
+                match libc::faccessat(nbase.dirfd, xfirst.as_ptr(), libc::F_OK, 0x2000 | 0x800) {
+                    -1 => match LxError::last_apple_error() {
+                        LxError::ELOOP => {
+                            let element = first.relative.parts.pop().ok_or(LxError::EIO)?;
+                            second_parts.push_front(element);
+                            continue;
+                        }
+                        other => return Err(other),
+                    },
+                    _ => break,
+                };
+            }
+        }
+        let first_content = readlinkat(nbase.dirfd, bytes_to_cstring(first.relative.express())?)?;
+        second.parts = second_parts.into();
+        Ok(Self::HasSymlink(SymlinkExpression(
+            symlink_abs(first, &first_content),
+            second,
+        )))
+    }
+}
+
+#[derive(Clone)]
+struct SymlinkExpression(VPath, VPath);
+impl SymlinkExpression {
+    fn into_vpath(mut self) -> VPath {
+        self.0.parts.append(&mut self.1.parts);
+        self.0.slash_suffix = self.1.slash_suffix;
+        self.0
+    }
+}
+
+pub struct NBase {
+    path: Vec<u8>,
+    dirfd: c_int,
+}
+impl NBase {
+    pub fn new(path: &Path) -> Result<Self, LxError> {
+        let mut path = std::fs::canonicalize(path)?
+            .into_os_string()
+            .into_encoded_bytes();
+        while let Some(b'/') = path.last().copied() {
+            path.pop();
+        }
+        let dirfd = unsafe {
+            let c_path = bytes_to_cstring(path.clone())?;
+            match libc::open(c_path.as_ptr(), libc::O_DIRECTORY | libc::O_SEARCH) {
+                -1 => return Err(LxError::last_apple_error()),
+                fd => fd,
+            }
+        };
+        Ok(Self { path, dirfd })
+    }
+}
+impl Debug for NBase {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        String::from_utf8_lossy(&self.path).fmt(f)
+    }
+}
+
+struct DirFd {
+    read_dir: Mutex<ReadDir>,
+    statx: Statx,
+}
+impl DirFd {
+    fn new(path: CString, statbuf: libc::stat) -> Result<Self, LxError> {
+        let statx = Statx::from_apple(statbuf);
+        let path = OsString::from_vec(path.into_bytes());
+        let read_dir = Mutex::new(std::fs::read_dir(Path::new(&path))?);
+        Ok(Self { read_dir, statx })
+    }
+}
+impl VfdContent for DirFd {
+    fn getdent(&self) -> Result<Option<Dirent64>, LxError> {
+        match self.read_dir.lock().unwrap().next() {
+            Some(Ok(entry)) => {
+                let filename = entry.file_name().into_encoded_bytes();
+                let d_ino = entry.metadata()?.ino();
+                let d_type = entry
+                    .file_type()
+                    .map(DirentType::from_std)
+                    .unwrap_or(DirentType::DT_UNKNOWN);
+                let hdr = Dirent64Hdr {
+                    d_ino,
                     d_off: 0,
                     d_reclen: 0,
-                    d_type: entry
-                        .file_type()
-                        .await
-                        .map(DirentType::from_std)
-                        .unwrap_or(DirentType::DT_UNKNOWN),
+                    d_type,
                     _align: [0; _],
-                },
-                entry.file_name().into_encoded_bytes(),
-            ))),
+                };
+                Ok(Some(Dirent64::new(hdr, filename)))
+            }
+            Some(Err(err)) => Err(LxError::from(err)),
             None => Ok(None),
         }
     }
 
-    async fn fcntl(&self, _: u32, _: Vec<u8>) -> Result<Response, LxError> {
-        Err(LxError::EINVAL)
-    }
-
-    async fn stat(&self) -> Result<Statx, LxError> {
-        let c_path = c_str(self.path.clone().into_os_string().into_encoded_bytes());
-        tokio::task::spawn_blocking(move || unsafe {
-            let mut stat = std::mem::zeroed();
-            match libc::stat(c_path.as_ptr().cast(), &mut stat) {
-                -1 => Err(LxError::last_apple_error()),
-                _ => Ok(Statx::from_apple(stat)),
-            }
-        })
-        .await
-        .unwrap()
+    fn stat(&self) -> Result<Statx, LxError> {
+        Ok(self.statx.clone())
     }
 }
 
-pub fn mountable(dev: MountDev, opts: &str) -> Result<Arc<dyn Mountable>, LxError> {
-    let MountDev::Freeform(np) = dev else {
-        return Err(LxError::EINVAL);
-    };
-    let Some(np) = np.strip_prefix("native=") else {
-        return Err(LxError::EINVAL);
-    };
-    let native_path = PathBuf::from(np);
-    if !native_path.is_absolute() {
-        return Err(LxError::EINVAL);
-    }
-    if !native_path.exists() {
-        return Err(LxError::ENOENT);
-    }
-    Ok(Arc::new(NativeFs::new(native_path)?))
+fn bytes_to_cstring(mut data: Vec<u8>) -> Result<CString, LxError> {
+    data.push(0);
+    CString::from_vec_with_nul(data).map_err(|_| LxError::EINVAL)
 }
 
-fn require_secure_vfs_path(path: &VfsPath) {
-    // The provided path must be "clearized", so it should not contain any ".." or ".".
-    // However, occurrence of "." is secure, so for avoiding panics, we do not check ".".
-    // It is expected to break performance, so it is only enabled in debug mode.
-    #[cfg(debug_assertions)]
-    {
-        assert!(path.segments.iter().any(|x| &x[..] == &b".."[..]) == false);
+fn readlinkat(dirfd: c_int, path: CString) -> Result<Vec<u8>, LxError> {
+    let mut buf = vec![0u8; libc::PATH_MAX as _];
+    unsafe {
+        let nbytes =
+            match libc::readlinkat(dirfd, path.as_ptr(), buf.as_mut_ptr().cast(), buf.len()) {
+                -1 => return Err(LxError::EIO),
+                n => n,
+            };
+        buf.resize(nbytes as _, 0);
+    }
+    Ok(buf)
+}
+
+fn posix_result(value: c_int) -> Result<(), LxError> {
+    match value {
+        -1 => Err(LxError::last_apple_error()),
+        _ => Ok(()),
     }
 }

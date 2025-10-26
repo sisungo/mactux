@@ -1,11 +1,8 @@
-//! Linux audio emulation.
-
-pub mod alsa;
-pub mod oss;
+//! Linux audio emulation infrastructure.
 
 use crossbeam::atomic::AtomicCell;
 use rodio::{
-    OutputStreamBuilder, Sample, Sink,
+    OutputStream, OutputStreamBuilder, Sample, Sink,
     buffer::SamplesBuffer,
     conversions::SampleTypeConverter,
     cpal::{FromSample, SampleFormat},
@@ -13,18 +10,15 @@ use rodio::{
 use std::{
     io::{Cursor, Read},
     sync::atomic::{self, AtomicU16, AtomicU32},
-    thread::JoinHandle,
 };
 use structures::error::LxError;
-use tokio::sync::oneshot;
 
 /// A common audio node for output.
 ///
 /// This is shared across different audio interfaces, and wraps the actual macOS API.
-struct AudioOutput {
-    assoc_thrd: JoinHandle<()>,
+pub struct AudioOutput {
+    _output_stream: OutputStream,
     sink: Sink,
-
     sample_rate: AtomicU32,
     channels: AtomicU16,
     sample_format: AtomicCell<SampleFormat>,
@@ -33,29 +27,14 @@ impl AudioOutput {
     /// Creates a new audio output instance.
     ///
     /// Note that this is costly and may create some sound in the physical audio sink.
-    async fn new() -> Result<Self, LxError> {
-        let (tx, rx) = oneshot::channel();
-        let assoc_thrd = std::thread::spawn(|| {
-            let mut stream = match OutputStreamBuilder::open_default_stream() {
-                Ok(x) => x,
-                Err(err) => {
-                    _ = tx.send(Err(err));
-                    return;
-                }
-            };
-            stream.log_on_drop(false);
-            let sink = Sink::connect_new(stream.mixer());
-            _ = tx.send(Ok(sink));
-            std::thread::park();
-        });
-        let sink = match rx.await {
-            Ok(Ok(sink)) => sink,
-            Ok(Err(err)) => return Err(from_stream_error(err)),
-            Err(_) => return Err(LxError::EIO),
-        };
+    pub fn new() -> Result<Self, LxError> {
+        let mut _output_stream =
+            OutputStreamBuilder::open_default_stream().map_err(from_stream_error)?;
+        _output_stream.log_on_drop(false);
+        let sink = Sink::connect_new(_output_stream.mixer());
 
         Ok(Self {
-            assoc_thrd,
+            _output_stream,
             sink,
             sample_rate: 48000.into(),
             channels: 2.into(),
@@ -88,11 +67,6 @@ impl AudioOutput {
     fn stop(&self) -> Result<(), LxError> {
         self.sink.pause();
         Ok(())
-    }
-}
-impl Drop for AudioOutput {
-    fn drop(&mut self) {
-        self.assoc_thrd.thread().unpark();
     }
 }
 

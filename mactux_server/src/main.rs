@@ -1,157 +1,233 @@
+#![feature(peer_credentials_unix_socket)]
+
+mod config;
 mod device;
 mod filesystem;
-mod net;
-mod process;
-mod server;
+mod ipc;
+mod network;
+mod poll;
 mod sysinfo;
-mod syslog;
-mod thread;
+mod task;
 mod util;
-mod uts;
 mod vfd;
-mod work_dir;
 
 #[cfg(feature = "audio")]
-mod audio;
+mod multimedia;
 
 use crate::{
-    filesystem::vfs::{MountNamespace, VfsPath},
-    process::{InitPid, PidNamespace, ProcessCtx},
-    util::Registry,
-    work_dir::WorkDir,
+    config::WorkDir,
+    device::DeviceTable,
+    filesystem::{VPath, vfs::MountNamespace},
+    sysinfo::{InitUts, UtsNamespace},
+    task::{InitPid, PidNamespace, process::Process, thread::Thread},
+    util::{ReclaimRegistry, Shared},
+    vfd::VfdTable,
 };
-use rustc_hash::FxBuildHasher;
-use std::{
-    fmt::Debug,
-    path::PathBuf,
-    sync::{Arc, OnceLock, Weak},
-};
-use structures::convention::Fstab;
+use anyhow::{Context, anyhow};
+use std::{path::PathBuf, sync::OnceLock};
 
-static APP: OnceLock<Arc<App>> = OnceLock::new();
+static APP: OnceLock<App> = OnceLock::new();
 
+/// Global application state.
 struct App {
+    /// The working directory.
     work_dir: WorkDir,
-    mnt_ns_registry: Registry<Weak<MountNamespace>>,
-    pid_ns_registry: Registry<Weak<dyn PidNamespace>>,
-    native_procs: papaya::HashMap<libc::pid_t, Arc<ProcessCtx>, FxBuildHasher>,
+
+    /// Registry of all Linux processes, indexed by native PID.
+    processes: ReclaimRegistry<Process>,
+
+    /// Registry of all Linux threads, indexed by thread ID.
+    threads: ReclaimRegistry<Thread>,
+
+    /// Registry of all devices.
+    devices: DeviceTable,
+
+    /// Namespaces.
+    namespaces: Namespaces,
+
+    /// The server thread.
+    server_thread: OnceLock<Shared<Thread>>,
 }
 impl App {
-    async fn new(cmdline: Cmdline) -> anyhow::Result<Arc<Self>> {
-        let work_dir = WorkDir(
-            cmdline
-                .work_dir
-                .unwrap_or_else(work_dir::force_default_path),
-        );
-        work_dir.init()?;
-
-        let mnt_ns_registry = Registry::new();
-        let init_mnt = MountNamespace::initial();
-        init_mounts(&work_dir, &init_mnt).await?;
-        assert_eq!(mnt_ns_registry.register(Arc::downgrade(&init_mnt)), 1);
-
-        let pid_ns_registry = Registry::new();
-        let init_pid = InitPid::instance();
-        assert_eq!(
-            pid_ns_registry.register(Arc::downgrade(&(init_pid as _))),
-            1
-        );
-
-        let native_procs = papaya::HashMap::with_capacity_and_hasher(128, FxBuildHasher::default());
-        Ok(Arc::new(Self {
+    fn new(cli: Cli) -> anyhow::Result<Self> {
+        let processes = ReclaimRegistry::new();
+        let threads = ReclaimRegistry::new();
+        let work_dir = match cli.work_dir {
+            Some(dir) => WorkDir::new(dir)?,
+            None => WorkDir::try_default()?,
+        };
+        Ok(Self {
             work_dir,
-            mnt_ns_registry,
-            pid_ns_registry,
-            native_procs,
-        }))
+            processes,
+            threads,
+            devices: DeviceTable::new(),
+            namespaces: Namespaces::new(),
+            server_thread: OnceLock::new(),
+        })
     }
 
-    async fn wait_for_exit(&self) {
+    fn run(&'static self) -> anyhow::Result<()> {
+        ipc::Listener::new(self.work_dir.sock())
+            .context("failed to create ipc socket")?
+            .start();
+
         loop {
-            if tokio::signal::ctrl_c().await.is_ok() {
-                _ = std::fs::remove_file(self.work_dir.ipc_socket());
-                break;
-            }
+            std::thread::park();
+        }
+    }
+}
+
+/// Namespace registries.
+struct Namespaces {
+    /// Registry of all mount namespaces.
+    mount: ReclaimRegistry<MountNamespace>,
+
+    /// Registry of all PID namespaces.
+    pid: ReclaimRegistry<Box<dyn PidNamespace>>,
+
+    /// Registry of all UTS namespaces.
+    uts: ReclaimRegistry<Box<dyn UtsNamespace>>,
+
+    /// The initial mount namespace.
+    init_mnt: OnceLock<Shared<MountNamespace>>,
+
+    /// The initial PID namespace.
+    init_pid: OnceLock<Shared<Box<dyn PidNamespace>>>,
+
+    /// The initial UTS namespace.
+    init_uts: OnceLock<Shared<Box<dyn UtsNamespace>>>,
+}
+impl Namespaces {
+    fn new() -> Self {
+        Self {
+            mount: ReclaimRegistry::new(),
+            pid: ReclaimRegistry::new(),
+            uts: ReclaimRegistry::new(),
+            init_mnt: OnceLock::new(),
+            init_pid: OnceLock::new(),
+            init_uts: OnceLock::new(),
         }
     }
 
-    fn start(&self) -> anyhow::Result<()> {
-        self.start_server()?;
-        Ok(())
+    fn init(&'static self) {
+        let init_mnt = self.mount.register(MountNamespace::new());
+        assert_eq!(Shared::id(&init_mnt), 1);
+        _ = self.init_mnt.set(init_mnt);
+
+        let init_pid = self.pid.register(Box::new(InitPid::new()));
+        assert_eq!(Shared::id(&init_pid), 1);
+        _ = self.init_pid.set(init_pid);
+
+        let init_uts = self.uts.register(Box::new(InitUts));
+        assert_eq!(Shared::id(&init_uts), 1);
+        _ = self.init_uts.set(init_uts);
     }
 
-    fn start_server(&self) -> anyhow::Result<()> {
-        let sock_path = self.work_dir.ipc_socket();
-        let server = server::Server::bind(&sock_path)?;
-        tokio::spawn(server.run());
-        Ok(())
+    fn init_mnt(&self) -> Shared<MountNamespace> {
+        self.init_mnt.get().unwrap().clone()
     }
-}
-impl Debug for App {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("App").finish()
+
+    fn init_pid(&self) -> Shared<Box<dyn PidNamespace>> {
+        self.init_pid.get().unwrap().clone()
+    }
+
+    fn init_uts(&self) -> Shared<Box<dyn UtsNamespace>> {
+        self.init_uts.get().unwrap().clone()
     }
 }
 
-#[derive(Debug, clap::Parser)]
-struct Cmdline {
+#[derive(clap::Parser)]
+struct Cli {
     #[arg(short = 'd', long)]
     work_dir: Option<PathBuf>,
 }
 
-#[tokio::main]
-async fn main() {
-    init_logging();
+fn main() {
+    let cli: Cli = clap::Parser::parse();
 
-    let cmdline: Cmdline = clap::Parser::parse();
-    let app = match App::new(cmdline).await {
-        Ok(x) => x,
-        Err(err) => {
-            tracing::error!("{err}");
-            std::process::exit(1);
-        }
-    };
-    APP.set(app.clone()).unwrap();
+    tracing_subscriber::fmt::init();
 
-    if let Err(err) = app.start() {
-        tracing::error!("{err}");
+    if let Err(err) = init_app(cli) {
+        tracing::error!("cannot initialize application: {err}");
         std::process::exit(1);
     }
-    app.wait_for_exit().await;
+
+    if let Err(err) = init_env() {
+        tracing::error!("cannot initialize Linux environment: {err}");
+        std::process::exit(1);
+    }
+
+    if let Err(err) = app().run() {
+        tracing::error!("cannot run application: {err}");
+        std::process::exit(1);
+    }
 }
 
-fn init_logging() {
-    tracing_subscriber::fmt::init();
+/// Initializes the global application state.
+///
+/// Some initializations requires to be set here, instead of [`App::new`] and simply [`OnceLock::set`], because they
+/// use [`ReclaimRegistry`]s, which requires a static lifetime.
+fn init_app(cli: Cli) -> anyhow::Result<()> {
+    if APP.set(App::new(cli)?).is_err() {
+        return Err(anyhow!("init_app is called twice"));
+    }
+
+    app().namespaces.init();
+
+    let server_proc: Shared<Process> = app().processes.intervene(
+        std::process::id() as _,
+        Process {
+            mnt: app().namespaces.init_mnt(),
+            uts: app().namespaces.init_uts(),
+            vfd: VfdTable::new(),
+            pid: app().namespaces.init_pid(),
+        },
+    );
+    let server_thrd = Thread::builder().process(server_proc).is_main().build()?;
+    _ = app().server_thread.set(server_thrd);
+
+    Ok(())
 }
 
-async fn init_mounts(work_dir: &WorkDir, init_mnt: &MountNamespace) -> anyhow::Result<()> {
-    init_mnt
-        .mount(
-            VfsPath::from_bytes(b"/"),
-            Arc::new(filesystem::nativefs::NativeFs::new(work_dir.rootfs())?),
-        )
-        .await
-        .map_err(|err| anyhow::anyhow!("Failed to mount root: {}", err.0))?;
-    let fstab = work_dir.rootfs().join("etc/fstab");
-    let fstab = std::fs::read_to_string(fstab)?;
-    let fstab = fstab.parse::<Fstab>()?;
+/// Initializes the Linux environment, like mounts listed in `/etc/fstab`.
+///
+/// We tend to initialize the most thing inside the Linux environment, however, we need some initializations
+/// to ensure a simple Linux program could be executed. Thus, we put them here.
+fn init_env() -> anyhow::Result<()> {
+    app().devices.discover();
+    init_mounts()?;
+    Ok(())
+}
+
+/// Initializes mounts listed in `/etc/fstab`.
+fn init_mounts() -> anyhow::Result<()> {
+    let fstab = app().work_dir.rootfs().join("etc/fstab");
+    let fstab =
+        std::fs::read_to_string(&fstab).context(format!("failed to read {}", fstab.display()))?;
+    let fstab = fstab.parse::<structures::convention::Fstab>()?;
+    let init_mnt = app().namespaces.init_mnt();
+    let rootfs_source = format!("native={}", app().work_dir.rootfs().display());
+    init_mnt.mount(
+        rootfs_source.as_bytes(),
+        &VPath::parse(b"/"),
+        "nativefs",
+        0,
+        0,
+    )?;
     for entry in fstab.0 {
-        let mountable = filesystem::vfs::mountable(
+        init_mnt.mount(
+            entry.device.as_bytes(),
+            &VPath::parse(entry.mount_point.as_bytes()),
             &entry.fs_type,
-            filesystem::vfs::MountDev::Freeform(entry.device.into()),
-            &entry.options,
-        )
-        .await
-        .map_err(|err| anyhow::anyhow!("Failed to create mountable: {}", err.0))?;
-        let mountpoint = VfsPath::from_bytes(entry.mount_point.as_bytes()).to_storable();
-        init_mnt
-            .mount(mountpoint, mountable)
-            .await
-            .map_err(|err| anyhow::anyhow!("Failed to mount: {}", err.0))?;
+            0,
+            0,
+        )?;
+        // TODO Support mount flags
     }
     Ok(())
 }
 
+/// Returns a reference to the global application state.
 fn app() -> &'static App {
     APP.get().unwrap()
 }
