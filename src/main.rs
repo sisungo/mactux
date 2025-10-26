@@ -65,7 +65,7 @@ fn main() {
     let envp = collect_envp(&cmdline);
     let prog = load_program(cmdline.exec.as_encoded_bytes());
     unsafe {
-        prog.run(args.iter().copied(), envp.iter().copied());
+        prog.run(&args, &envp);
     }
 }
 

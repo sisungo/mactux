@@ -1,14 +1,9 @@
-use crate::auxv::AuxiliaryInfo;
+use super::auxv::AuxiliaryInfo;
 use std::alloc::Layout;
 
 /// Jumps to a program entry with given information about the initial stack.
 #[cfg(target_arch = "x86_64")]
-pub fn jump<'a, 'b>(
-    entry: *const u8,
-    args: impl ExactSizeIterator<Item = &'a [u8]>,
-    envs: impl ExactSizeIterator<Item = &'a [u8]>,
-    auxv: AuxiliaryInfo,
-) {
+pub fn jump<'a, 'b>(entry: *const u8, args: &[&[u8]], envs: &[&[u8]], auxv: AuxiliaryInfo) {
     unsafe {
         let stack_info = StackInfo::new(args, envs, auxv);
         rtenv::emuctx::enter_emulated();
@@ -33,11 +28,7 @@ pub fn jump<'a, 'b>(
 pub struct StackInfo(Vec<usize>);
 impl StackInfo {
     /// Builds a [`StackInfo`] instance with given information.
-    pub fn new<'a, 'b>(
-        args: impl ExactSizeIterator<Item = &'a [u8]>,
-        envs: impl ExactSizeIterator<Item = &'b [u8]>,
-        auxv: AuxiliaryInfo,
-    ) -> Self {
+    pub fn new<'a, 'b>(args: &[&[u8]], envs: &[&[u8]], auxv: AuxiliaryInfo) -> Self {
         fn allocate_string(s: &[u8]) -> usize {
             let len = s.len() + 1;
             let ptr = unsafe { std::alloc::alloc(Layout::array::<u8>(len).unwrap()) };
@@ -54,9 +45,9 @@ impl StackInfo {
         let mut vec = Vec::with_capacity(args.len() + envs.len() + 64);
 
         vec.push(args.len()); // push argc
-        args.for_each(|x| vec.push(allocate_string(x))); // push argv elements
+        args.into_iter().for_each(|x| vec.push(allocate_string(x))); // push argv elements
         vec.push(0); // push argv terminator
-        envs.for_each(|x| vec.push(allocate_string(x))); // push envp elements
+        envs.into_iter().for_each(|x| vec.push(allocate_string(x))); // push envp elements
         vec.push(0); // push envp terminator
         auxv.push_to_stack(&mut vec); // push auxv along with terminator
 

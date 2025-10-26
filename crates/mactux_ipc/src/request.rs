@@ -6,6 +6,9 @@ use structures::io::Whence;
 #[derive(Debug, Clone, Encode, Decode)]
 pub enum Request {
     SetMountNamespace(u64),
+    SetPidNamespace(u64),
+    SetUtsNamespace(u64),
+
     Umount(Vec<u8>, u32),
 
     Open(Vec<u8>, u32, u32),
@@ -26,7 +29,7 @@ pub enum Request {
     VirtualFdIoctlQuery(u64, u32),
     VirtualFdIoctl(u64, u32, Vec<u8>),
     VirtualFdFcntl(u64, u32, Vec<u8>),
-    VirtualFdGetDents64(u64),
+    VirtualFdGetDent(u64),
     VirtualFdStat(u64),
     VirtualFdTruncate(u64, u64),
     VirtualFdChown(u64, u32, u32),

@@ -7,7 +7,7 @@ use structures::{
 
 pub fn getdents64(vfd: u64) -> Result<Option<Dirent64>, LxError> {
     with_client(|client| {
-        let response = client.invoke(Request::VirtualFdGetDents64(vfd)).unwrap();
+        let response = client.invoke(Request::VirtualFdGetDent(vfd)).unwrap();
         match response {
             Response::Nothing => Ok(None),
             Response::Dirent64(dent) => Ok(Some(dent)),

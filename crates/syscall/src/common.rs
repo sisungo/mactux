@@ -116,8 +116,8 @@ pub unsafe fn sys_lstat(filename: *const c_char, statbuf: *mut Stat) -> Result<(
         let stat = with_openat(
             -100,
             rust_bytes(filename).to_vec(),
-            OpenFlags::O_NOFOLLOW | OpenFlags::O_PATH,
-            AtFlags::empty(),
+            OpenFlags::O_PATH,
+            AtFlags::_AT_APPLE_SYMLINK,
             0,
             |fd| rtenv::fs::stat(fd),
         )?;
@@ -335,8 +335,8 @@ pub unsafe fn sys_llistxattr(
         with_openat(
             -100,
             rust_bytes(path).to_vec(),
-            OpenFlags::O_PATH | OpenFlags::O_NOFOLLOW,
-            AtFlags::empty(),
+            OpenFlags::O_PATH,
+            AtFlags::_AT_APPLE_SYMLINK,
             0,
             |fd| crate::util::ret_buf(&rtenv::fs::listxattr(fd)?, list, size),
         )

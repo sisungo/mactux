@@ -20,7 +20,7 @@ use structures::{
     process::CloneArgs,
     signal::{SigAltStack, SigNum},
     sync::{FutexOpts, RobustListHead},
-    thread::TID_START,
+    thread::TID_MIN,
 };
 
 static mut THREAD_CTX: libc::pthread_key_t = unsafe { std::mem::zeroed() };
@@ -189,7 +189,7 @@ pub fn id() -> i32 {
 
 /// Kills a thread.
 pub fn kill(tid: i32, signum: SigNum) -> Result<(), LxError> {
-    if tid < TID_START {
+    if tid < TID_MIN {
         return crate::process::kill(tid, signum);
     }
 

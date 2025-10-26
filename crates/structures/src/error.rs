@@ -1,6 +1,6 @@
 use crate::{FromApple, unixvariants};
 use bincode::{Decode, Encode};
-use std::ffi::c_int;
+use std::{ffi::c_int, fmt::Display};
 
 unixvariants! {
     /// A Linux error.
@@ -21,6 +21,7 @@ unixvariants! {
         const EBUSY = 16;
         const EEXIST = 17;
         const EXDEV = 18;
+        const ENODEV = 19;
         const ENOTDIR = 20;
         const EISDIR = 21;
         const EINVAL = 22;
@@ -74,3 +75,9 @@ impl From<std::io::Error> for LxError {
         }
     }
 }
+impl Display for LxError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Error {}", self.0)
+    }
+}
+impl std::error::Error for LxError {}

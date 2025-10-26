@@ -1,8 +1,22 @@
-use crate::time::Timespec;
+use crate::{FromApple, ToApple, error::LxError, time::Timespec};
 use bincode::{Decode, Encode};
 use bitflags::bitflags;
 use libc::c_int;
-use std::{fs::FileType, mem::offset_of};
+use std::{mem::offset_of, os::unix::fs::FileTypeExt};
+
+pub const XATTR_NAMESPACE_USER_PREFIX: &[u8] = b"user.";
+pub const XATTR_NAMESPACE_SYSTEM_PREFIX: &[u8] = b"system.";
+pub const XATTR_NAMESPACE_SECURITY_PREFIX: &[u8] = b"security.";
+pub const XATTR_NAMESPACE_TRUSTED_PREFIX: &[u8] = b"trusted.";
+pub const XATTR_NAMESPACE_MACTUX_INTERNAL_PREFIX: &[u8] = b"_mactux.";
+
+pub const XATTR_NAMESPACE_PREFIXES: &[&[u8]] = &[
+    XATTR_NAMESPACE_USER_PREFIX,
+    XATTR_NAMESPACE_SYSTEM_PREFIX,
+    XATTR_NAMESPACE_SECURITY_PREFIX,
+    XATTR_NAMESPACE_TRUSTED_PREFIX,
+    XATTR_NAMESPACE_MACTUX_INTERNAL_PREFIX,
+];
 
 bitflags! {
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -148,15 +162,30 @@ impl Dirent64 {
 pub struct DirentType(pub u8);
 impl DirentType {
     pub const DT_UNKNOWN: Self = Self(0);
+    pub const DT_FIFO: Self = Self(1);
+    pub const DT_CHR: Self = Self(2);
     pub const DT_DIR: Self = Self(4);
+    pub const DT_BLK: Self = Self(6);
     pub const DT_REG: Self = Self(8);
+    pub const DT_LNK: Self = Self(10);
+    pub const DT_SOCK: Self = Self(12);
 
     #[inline]
-    pub fn from_std(ty: FileType) -> Self {
+    pub fn from_std(ty: std::fs::FileType) -> Self {
         if ty.is_dir() {
             Self::DT_DIR
         } else if ty.is_file() {
             Self::DT_REG
+        } else if ty.is_symlink() {
+            Self::DT_LNK
+        } else if ty.is_fifo() {
+            Self::DT_FIFO
+        } else if ty.is_block_device() {
+            Self::DT_BLK
+        } else if ty.is_char_device() {
+            Self::DT_CHR
+        } else if ty.is_socket() {
+            Self::DT_SOCK
         } else {
             Self::DT_UNKNOWN
         }
@@ -191,7 +220,7 @@ impl From<Statx> for Stat {
             st_dev: val.stx_dev_major as _,
             st_ino: val.stx_ino,
             st_nlink: val.stx_nlink as _,
-            st_mode: val.stx_mode as _,
+            st_mode: val.stx_mode.0 as _,
             st_uid: val.stx_uid,
             st_gid: val.stx_gid,
             _pad0: 0,
@@ -219,7 +248,7 @@ pub struct Statx {
     pub stx_nlink: u32,
     pub stx_uid: u32,
     pub stx_gid: u32,
-    pub stx_mode: u16,
+    pub stx_mode: FileMode,
     pub stx_ino: u64,
     pub stx_size: u64,
     pub stx_blocks: u64,
@@ -250,7 +279,7 @@ impl Statx {
             stx_nlink: stat.st_nlink as _,
             stx_uid: stat.st_uid,
             stx_gid: stat.st_gid,
-            stx_mode: stat.st_mode,
+            stx_mode: FileMode::from_apple(stat.st_mode).unwrap(),
             stx_ino: stat.st_ino,
             stx_size: stat.st_size as _,
             stx_blocks: stat.st_blocks as _,
@@ -271,10 +300,10 @@ impl Statx {
                 tv_sec: stat.st_mtime,
                 tv_nsec: stat.st_mtime_nsec as _,
             },
-            stx_rdev_major: stat.st_rdev as _,
-            stx_rdev_minor: 0,
-            stx_dev_major: stat.st_dev as _,
-            stx_dev_minor: 0,
+            stx_rdev_major: libc::major(stat.st_rdev) as _,
+            stx_rdev_minor: libc::minor(stat.st_rdev) as _,
+            stx_dev_major: libc::major(stat.st_dev) as _,
+            stx_dev_minor: libc::minor(stat.st_dev) as _,
             stx_mnt_id: 0,
             stx_dio_mem_align: 0,
             stx_dio_offset_align: 0,
@@ -308,4 +337,77 @@ impl From<Timespec> for StatxTimestamp {
             tv_nsec: value.tv_nsec as _,
         }
     }
+}
+
+#[derive(Debug, Clone, Copy, Encode, Decode)]
+#[repr(transparent)]
+pub struct FileMode(pub u16);
+impl FileMode {
+    pub const S_IFMT: u16 = 0o170000;
+    pub const S_IFDIR: u16 = 0o40000;
+    pub const S_IFCHR: u16 = 0o20000;
+    pub const S_IFBLK: u16 = 0o60000;
+    pub const S_IFREG: u16 = 0o100000;
+    pub const S_IFIFO: u16 = 0o10000;
+    pub const S_IFLNK: u16 = 0o120000;
+    pub const S_IFSOCK: u16 = 0o140000;
+
+    pub const fn file_type(self) -> FileType {
+        let file_type = self.0 & Self::S_IFMT;
+        match file_type {
+            Self::S_IFDIR => FileType::Directory,
+            Self::S_IFCHR => FileType::CharDevice,
+            Self::S_IFBLK => FileType::BlockDevice,
+            Self::S_IFREG => FileType::RegularFile,
+            Self::S_IFIFO => FileType::Fifo,
+            Self::S_IFLNK => FileType::Symlink,
+            Self::S_IFSOCK => FileType::Socket,
+            _ => FileType::Unknown,
+        }
+    }
+
+    pub const fn set_file_type(&mut self, file_type: FileType) {
+        self.0 &= !Self::S_IFMT;
+        self.0 &= match file_type {
+            FileType::Directory => Self::S_IFDIR,
+            FileType::CharDevice => Self::S_IFCHR,
+            FileType::BlockDevice => Self::S_IFBLK,
+            FileType::RegularFile => Self::S_IFREG,
+            FileType::Fifo => Self::S_IFIFO,
+            FileType::Symlink => Self::S_IFLNK,
+            FileType::Socket => Self::S_IFSOCK,
+            FileType::Unknown => 0,
+        };
+    }
+
+    pub const fn permbits(self) -> u16 {
+        self.0 & !Self::S_IFMT
+    }
+}
+impl FromApple for FileMode {
+    type Apple = u16;
+
+    fn from_apple(apple: Self::Apple) -> Result<Self, LxError> {
+        Ok(Self(apple))
+    }
+}
+impl ToApple for FileMode {
+    type Apple = u16;
+
+    fn to_apple(self) -> Result<Self::Apple, LxError> {
+        Ok(self.0)
+    }
+}
+
+/// A type for representing file types.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum FileType {
+    Directory,
+    CharDevice,
+    BlockDevice,
+    RegularFile,
+    Fifo,
+    Symlink,
+    Socket,
+    Unknown,
 }
