@@ -3,7 +3,7 @@ use crate::{ipc::RegChannel, task::process::Process};
 use anyhow::anyhow;
 use mactux_ipc::request::Request;
 use std::os::unix::net::UnixStream;
-use structures::fs::{AccessFlags, OpenFlags};
+use structures::fs::OpenFlags;
 
 #[derive(Debug)]
 pub struct RegSession(RegChannel);
@@ -34,7 +34,7 @@ impl RegSession {
     }
 
     pub fn run(self) -> anyhow::Result<()> {
-        let mut buf = Vec::new();
+        let mut buf = Vec::with_capacity(512);
 
         while let Ok(val) = self.0.recv::<Request>(&mut buf) {
             let resp = match val {
@@ -46,6 +46,8 @@ impl RegSession {
                 Request::Rmdir(path) => rmdir(path).into_response(),
                 Request::Mkdir(path, mode) => mkdir(path, mode).into_response(),
                 Request::Symlink(src, dst) => symlink(&src, &dst).into_response(),
+                Request::Link(src, dst) => link(&src, &dst).into_response(),
+                Request::Rename(src, dst) => rename(&src, &dst).into_response(),
                 Request::GetSockPath(path, create) => get_sock_path(path, create).into_response(),
                 Request::VfdStat(vfd) => vfd_stat(vfd, 0xfffffff).into_response(),
                 Request::VfdRead(vfd, bufsiz) => vfd_read(vfd, bufsiz).into_response(),
@@ -53,6 +55,7 @@ impl RegSession {
                 Request::VfdSeek(vfd, whence, off) => vfd_lseek(vfd, whence, off).into_response(),
                 Request::VfdGetdent(vfd) => vfd_getdent(vfd).into_response(),
                 Request::VfdClose(vfd) => vfd_close(vfd).into_response(),
+                Request::VfdOrigPath(vfd) => vfd_orig_path(vfd).into_response(),
                 Request::GetNetworkNames => get_network_names().into_response(),
                 Request::BeforeFork => before_fork().into_response(),
                 Request::AfterFork(npid) => after_fork(npid).into_response(),

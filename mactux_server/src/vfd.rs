@@ -4,6 +4,7 @@ use crate::{ipc::methods::IntoResponse, poll::PollToken};
 use crossbeam::atomic::AtomicCell;
 use dashmap::DashMap;
 use mactux_ipc::response::VirtualFdAvailCtrl;
+use rustc_hash::FxBuildHasher;
 use std::{
     path::PathBuf,
     sync::{
@@ -200,13 +201,13 @@ pub trait VfdContent: Send + Sync {
 }
 
 pub struct VfdTable {
-    table: DashMap<u64, Arc<Vfd>>,
+    table: DashMap<u64, Arc<Vfd>, FxBuildHasher>,
     next_id: AtomicU64,
 }
 impl VfdTable {
     pub fn new() -> Self {
         Self {
-            table: DashMap::new(),
+            table: DashMap::default(),
             next_id: AtomicU64::new(1),
         }
     }
@@ -231,7 +232,7 @@ impl VfdTable {
                 .table
                 .iter()
                 .map(|x| (*x.key(), x.dup()))
-                .collect::<DashMap<_, _>>(),
+                .collect::<DashMap<_, _, _>>(),
             next_id: AtomicU64::new(self.next_id.load(atomic::Ordering::Relaxed)),
         }
     }

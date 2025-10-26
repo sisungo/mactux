@@ -49,6 +49,18 @@ pub fn symlink(src: &[u8], dst: &[u8]) -> Result<(), LxError> {
         .symlink(src)
 }
 
+pub fn link(src: &[u8], dst: &[u8]) -> Result<(), LxError> {
+    let dst = Process::current().mnt.locate(&VPath::parse(dst))?;
+    let src = Process::current().mnt.locate(&VPath::parse(src))?;
+    dst.link_to(src)
+}
+
+pub fn rename(src: &[u8], dst: &[u8]) -> Result<(), LxError> {
+    let dst = Process::current().mnt.locate(&VPath::parse(dst))?;
+    let src = Process::current().mnt.locate(&VPath::parse(src))?;
+    dst.rename_to(src)
+}
+
 pub fn get_sock_path(path: Vec<u8>, create: bool) -> Result<Response, LxError> {
     Process::current()
         .mnt
@@ -101,6 +113,15 @@ pub fn vfd_getdent(vfd: u64) -> Result<Option<Dirent64>, LxError> {
         .get(vfd)
         .ok_or(LxError::EBADF)?
         .getdent()
+}
+
+pub fn vfd_orig_path(vfd: u64) -> Result<Option<Response>, LxError> {
+    Ok(Process::current()
+        .vfd
+        .get(vfd)
+        .ok_or(LxError::EBADF)?
+        .orig_path()
+        .map(|x| Response::OrigPath(x.to_vec())))
 }
 
 pub fn vfd_close(vfd: u64) -> Result<(), LxError> {

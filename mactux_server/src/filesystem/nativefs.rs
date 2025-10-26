@@ -15,7 +15,10 @@ use std::{
     ffi::{CString, OsString},
     fmt::Debug,
     fs::ReadDir,
-    os::unix::{ffi::OsStringExt, fs::MetadataExt},
+    os::unix::{
+        ffi::OsStringExt,
+        fs::{DirEntryExt, MetadataExt},
+    },
     path::Path,
     sync::{Arc, Mutex},
 };
@@ -48,7 +51,10 @@ impl Filesystem for NativeFs {
         match NPath::resolve(&self.base, path)? {
             NPath::Direct(dst) => unsafe {
                 let mut statbuf = std::mem::zeroed();
-                posix_result(libc::lstat(dst.as_ptr(), &mut statbuf))?;
+                match posix_result(libc::lstat(dst.as_ptr(), &mut statbuf)) {
+                    Ok(()) | Err(LxError::ENOENT) => (),
+                    Err(err) => return Err(err),
+                }
                 if statbuf.st_mode & libc::S_IFMT == libc::S_IFDIR {
                     let vfd_content = Arc::new(DirFd::new(dst, statbuf)?);
                     return Ok(NewlyOpen::Virtual(Vfd::new(vfd_content, flags)));
@@ -276,13 +282,12 @@ impl VfdContent for DirFd {
         match self.read_dir.lock().unwrap().next() {
             Some(Ok(entry)) => {
                 let filename = entry.file_name().into_encoded_bytes();
-                let d_ino = entry.metadata()?.ino();
                 let d_type = entry
                     .file_type()
                     .map(DirentType::from_std)
                     .unwrap_or(DirentType::DT_UNKNOWN);
                 let hdr = Dirent64Hdr {
-                    d_ino,
+                    d_ino: entry.ino(),
                     d_off: 0,
                     d_reclen: 0,
                     d_type,

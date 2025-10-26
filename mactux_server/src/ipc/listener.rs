@@ -12,9 +12,11 @@ impl Listener {
             match self.0.accept() {
                 Ok((stream, addr)) => {
                     let Ok(sess) = super::session::RegSession::new(stream) else {
+                        tracing::warn!("failed to handshake connection at {addr:?}");
                         continue;
                     };
                     if let Err(err) = sess.start() {
+                        tracing::warn!("failed to start thread for {addr:?}: {err}");
                         continue;
                     }
                 }
