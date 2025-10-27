@@ -5,7 +5,7 @@ use crate::{
     file::{Ioctl, Stream},
     multimedia::audio::AudioOutput,
 };
-use mactux_ipc::response::{CtrlOutput, Response, VfdAvailCtrl};
+use mactux_ipc::response::{CtrlOutput, VfdAvailCtrl};
 use rodio::cpal::SampleFormat;
 use std::{
     ffi::c_int,

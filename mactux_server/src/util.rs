@@ -8,9 +8,7 @@ use std::{
         Arc, Weak,
         atomic::{self, AtomicU64},
     },
-    time::SystemTime,
 };
-use structures::time::Timespec;
 
 pub struct ReclaimRegistry<T: 'static> {
     table: DashMap<u64, Shared<T>, FxBuildHasher>,

@@ -2,12 +2,11 @@
 
 use crate::{
     file::{Ioctl, Stream},
-    ipc::methods::IntoResponse,
     poll::PollToken,
 };
 use crossbeam::atomic::AtomicCell;
 use dashmap::DashMap;
-use mactux_ipc::response::{CtrlOutput, Response, VfdAvailCtrl};
+use mactux_ipc::response::{CtrlOutput, VfdAvailCtrl};
 use rustc_hash::FxBuildHasher;
 use std::{
     path::PathBuf,
@@ -279,16 +278,5 @@ impl VfdTable {
     pub fn exec(&self) {
         self.table
             .retain(|_, v| !v.open_flags.load().contains(OpenFlags::O_CLOEXEC));
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct IoctlOutput {
-    ret: usize,
-    buf: Vec<u8>,
-}
-impl IntoResponse for IoctlOutput {
-    fn into_response(self) -> mactux_ipc::response::Response {
-        todo!()
     }
 }

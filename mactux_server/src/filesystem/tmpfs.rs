@@ -13,7 +13,7 @@ use crate::{
     vfd::{Vfd, VfdContent},
 };
 use dashmap::DashMap;
-use mactux_ipc::response::{CtrlOutput, Response, VfdAvailCtrl};
+use mactux_ipc::response::{CtrlOutput, VfdAvailCtrl};
 use rustc_hash::FxBuildHasher;
 use std::{
     fmt::Debug,
@@ -442,6 +442,15 @@ struct Dev {
     dev: DeviceNumber,
 }
 impl File for Dev {
+    fn open_native(&self) -> Option<PathBuf> {
+        let device = match self.file_type {
+            FileType::CharDevice => app().devices.find_chr(self.dev).ok()?,
+            FileType::BlockDevice => app().devices.find_blk(self.dev).ok()?,
+            _ => unreachable!(),
+        };
+        device.macos_device()
+    }
+
     fn open_vfd(self: Arc<Self>, flags: OpenFlags) -> Result<Vfd, LxError> {
         let device = if flags.contains(OpenFlags::O_PATH) {
             None

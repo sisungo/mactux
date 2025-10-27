@@ -7,15 +7,11 @@ mod term;
 #[cfg(feature = "audio")]
 mod oss;
 
-use crate::{
-    file::{Ioctl, Stream},
-    vfd::IoctlOutput,
-};
+use crate::file::{Ioctl, Stream};
 use dashmap::DashMap;
-use mactux_ipc::response::{Response, VfdAvailCtrl};
 use rustc_hash::FxBuildHasher;
 use std::{path::PathBuf, sync::Arc};
-use structures::{device::DeviceNumber, error::LxError, fs::OpenFlags, io::IoctlCmd};
+use structures::{device::DeviceNumber, error::LxError, fs::OpenFlags};
 
 pub struct DeviceTable {
     chr: DashMap<DeviceNumber, Arc<dyn Device>, FxBuildHasher>,

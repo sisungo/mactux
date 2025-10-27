@@ -73,18 +73,6 @@ impl AudioOutput {
         self.sink.append(buffer);
         Ok(bytes)
     }
-
-    /// Starts the audio output.
-    pub fn start(&self) -> Result<(), LxError> {
-        self.sink.play();
-        Ok(())
-    }
-
-    /// Stops the audio output.
-    pub fn stop(&self) -> Result<(), LxError> {
-        self.sink.pause();
-        Ok(())
-    }
 }
 impl Debug for AudioOutput {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
