@@ -1,6 +1,7 @@
 //! A filesystem that maps all Linux filesystem operations to the underlying macOS one.
 
 use crate::{
+    file::{Ioctl, Stream},
     filesystem::{
         VPath,
         vfs::{Filesystem, LPath, NewlyOpen},
@@ -277,6 +278,8 @@ impl DirFd {
         Ok(Self { read_dir, statx })
     }
 }
+impl Stream for DirFd {}
+impl Ioctl for DirFd {}
 impl VfdContent for DirFd {
     fn getdent(&self) -> Result<Option<Dirent64>, LxError> {
         match self.read_dir.lock().unwrap().next() {

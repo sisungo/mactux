@@ -2,7 +2,7 @@ use crate::{
     filesystem::{VPath, vfs::NewlyOpen},
     task::process::Process,
 };
-use mactux_ipc::response::{NetworkNames, Response, VirtualFdAvailCtrl};
+use mactux_ipc::response::{CtrlOutput, NetworkNames, Response, VfdAvailCtrl};
 use std::sync::Arc;
 use structures::{
     device::DeviceNumber,
@@ -148,7 +148,7 @@ pub fn get_network_names() -> Result<NetworkNames, LxError> {
     })
 }
 
-pub fn vfd_ioctl_query(vfd: u64, cmd: IoctlCmd) -> Result<VirtualFdAvailCtrl, LxError> {
+pub fn vfd_ioctl_query(vfd: u64, cmd: IoctlCmd) -> Result<VfdAvailCtrl, LxError> {
     Process::current()
         .vfd
         .get(vfd)
@@ -156,7 +156,7 @@ pub fn vfd_ioctl_query(vfd: u64, cmd: IoctlCmd) -> Result<VirtualFdAvailCtrl, Lx
         .ioctl_query(cmd)
 }
 
-pub fn vfd_ioctl(vfd: u64, cmd: IoctlCmd, data: &[u8]) -> Result<Response, LxError> {
+pub fn vfd_ioctl(vfd: u64, cmd: IoctlCmd, data: &[u8]) -> Result<CtrlOutput, LxError> {
     Process::current()
         .vfd
         .get(vfd)
@@ -164,7 +164,7 @@ pub fn vfd_ioctl(vfd: u64, cmd: IoctlCmd, data: &[u8]) -> Result<Response, LxErr
         .ioctl(cmd, data)
 }
 
-pub fn vfd_fcntl(vfd: u64, cmd: FcntlCmd, data: &[u8]) -> Result<Response, LxError> {
+pub fn vfd_fcntl(vfd: u64, cmd: FcntlCmd, data: &[u8]) -> Result<CtrlOutput, LxError> {
     Process::current()
         .vfd
         .get(vfd)
@@ -231,9 +231,14 @@ impl IntoResponse for NetworkNames {
         Response::NetworkNames(self)
     }
 }
-impl IntoResponse for VirtualFdAvailCtrl {
+impl IntoResponse for VfdAvailCtrl {
     fn into_response(self) -> Response {
-        Response::VirtualFdAvailCtrl(self)
+        Response::IoctlQuery(self)
+    }
+}
+impl IntoResponse for CtrlOutput {
+    fn into_response(self) -> Response {
+        Response::CtrlOutput(self)
     }
 }
 impl<T> IntoResponse for Option<T>

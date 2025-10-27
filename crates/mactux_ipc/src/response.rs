@@ -1,4 +1,5 @@
 use bincode::{Decode, Encode};
+use std::ffi::c_int;
 use structures::{
     error::LxError,
     fs::{Dirent64, Statx},
@@ -18,11 +19,10 @@ pub enum Response {
     Read(Vec<u8>),
     Write(usize),
     Lseek(u64),
-    Ctrl(u64),
-    CtrlBlob(u64, Vec<u8>),
+    CtrlOutput(CtrlOutput),
     DupVirtualFd(u64),
     OrigPath(Vec<u8>),
-    VirtualFdAvailCtrl(VirtualFdAvailCtrl),
+    IoctlQuery(VfdAvailCtrl),
     Stat(Statx),
     Dirent64(Dirent64),
     Readlink(Vec<u8>),
@@ -38,9 +38,15 @@ pub enum Response {
 
 /// Information about a virtual file descriptor's specific "ioctl" availability.
 #[derive(Debug, Clone, Encode, Decode)]
-pub struct VirtualFdAvailCtrl {
+pub struct VfdAvailCtrl {
     pub in_size: isize,
     pub out_size: usize,
+}
+
+#[derive(Debug, Clone, Encode, Decode)]
+pub struct CtrlOutput {
+    pub status: c_int,
+    pub blob: Vec<u8>,
 }
 
 /// Network names of current UTS namespace.

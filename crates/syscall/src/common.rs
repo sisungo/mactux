@@ -1029,14 +1029,14 @@ pub unsafe fn sys_alarm(secs: c_uint) -> c_uint {
 }
 
 #[syscall]
-pub unsafe fn sys_nanosleep(rqtp: *const Timespec, rmtp: *mut Timespec) -> std::io::Result<()> {
+pub unsafe fn sys_nanosleep(rqtp: *const Timespec, rmtp: *mut Timespec) -> Result<(), LxError> {
     unsafe {
-        let rqtp = rqtp.read().to_apple();
+        let rqtp = rqtp.read().to_apple()?;
         let mut rmtp_buf = std::mem::zeroed();
         match libc::nanosleep(&rqtp, &mut rmtp_buf) {
-            -1 => Err(std::io::Error::last_os_error()),
+            -1 => Err(LxError::last_apple_error()),
             _ => {
-                rmtp.write(Timespec::from_apple(rmtp_buf));
+                rmtp.write(Timespec::from_apple(rmtp_buf)?);
                 Ok(())
             }
         }
@@ -1051,7 +1051,7 @@ pub unsafe fn sys_clock_nanosleep(
     rmtp: Option<NonNull<Timespec>>,
 ) -> Result<(), LxError> {
     unsafe {
-        let mut rqtp = rqtp.read().to_apple();
+        let mut rqtp = rqtp.read().to_apple()?;
         if flags.contains(TimerFlags::TIMER_ABSTIME) {
             let mut now = std::mem::zeroed();
             if libc::clock_gettime(clock.to_apple()?, &mut now) == -1 {
@@ -1076,7 +1076,7 @@ pub unsafe fn sys_clock_nanosleep(
             -1 => Err(LxError::last_apple_error()),
             _ => {
                 if let Some(rmtp) = rmtp {
-                    rmtp.write(Timespec::from_apple(rmtp_buf));
+                    rmtp.write(Timespec::from_apple(rmtp_buf)?);
                 }
                 Ok(())
             }
@@ -1087,11 +1087,11 @@ pub unsafe fn sys_clock_nanosleep(
 #[syscall]
 pub unsafe fn sys_clock_gettime(clk_id: ClockId, tp: *mut Timespec) -> Result<(), LxError> {
     unsafe {
-        let mut apple_tp = tp.read().to_apple();
+        let mut apple_tp = tp.read().to_apple()?;
         match libc::clock_gettime(clk_id.to_apple()?, &mut apple_tp) {
             -1 => Err(LxError::last_apple_error()),
             _ => {
-                tp.write(Timespec::from_apple(apple_tp));
+                tp.write(Timespec::from_apple(apple_tp)?);
                 Ok(())
             }
         }

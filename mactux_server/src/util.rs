@@ -151,13 +151,3 @@ pub fn symlink_abs(sympath: LPath, symcontent: &[u8]) -> VPath {
     sympath.slash_suffix = symcontent.slash_suffix;
     sympath
 }
-
-pub fn now() -> Timespec {
-    let now = SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .unwrap();
-    Timespec {
-        tv_sec: now.as_secs() as _,
-        tv_nsec: now.as_nanos() as _,
-    }
-}

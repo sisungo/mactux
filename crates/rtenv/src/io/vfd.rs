@@ -1,7 +1,7 @@
 use crate::{ipc_client::with_client, util::ipc_fail};
 use mactux_ipc::{
     request::Request,
-    response::{Response, VirtualFdAvailCtrl},
+    response::{Response, VfdAvailCtrl},
 };
 use std::ffi::c_int;
 use structures::{
@@ -86,7 +86,7 @@ pub fn ioctl(vfd: u64, cmd: IoctlCmd, arg: *mut u8) -> Result<c_int, LxError> {
     let avail_ctrl =
         with_client(
             |client| match client.invoke(Request::VfdIoctlQuery(vfd, cmd)).unwrap() {
-                Response::VirtualFdAvailCtrl(avail_ctrl) => Ok(avail_ctrl),
+                Response::IoctlQuery(avail_ctrl) => Ok(avail_ctrl),
                 Response::Error(err) => Err(err),
                 _ => ipc_fail(),
             },
@@ -96,7 +96,7 @@ pub fn ioctl(vfd: u64, cmd: IoctlCmd, arg: *mut u8) -> Result<c_int, LxError> {
 }
 
 pub fn fcntl(vfd: u64, cmd: FcntlCmd, arg: usize) -> Result<c_int, LxError> {
-    let avail_ctrl = VirtualFdAvailCtrl {
+    let avail_ctrl = VfdAvailCtrl {
         in_size: cmd.in_size(),
         out_size: cmd.out_size(),
     };
@@ -134,7 +134,7 @@ fn ctrl<C>(
     vfd: u64,
     cmd: C,
     arg: usize,
-    avail_ctrl: VirtualFdAvailCtrl,
+    avail_ctrl: VfdAvailCtrl,
     act: fn(u64, C, Vec<u8>) -> Request,
 ) -> Result<c_int, LxError> {
     with_client(|client| {
@@ -148,14 +148,10 @@ fn ctrl<C>(
         let response = client.invoke(act(vfd, cmd, in_param)).unwrap();
         match response {
             Response::Nothing => Ok(0),
-            Response::Ctrl(stat) => {
-                debug_assert_eq!(avail_ctrl.out_size, 0);
-                Ok(stat as _)
-            }
-            Response::CtrlBlob(stat, out_param) => unsafe {
-                debug_assert_eq!(avail_ctrl.out_size, out_param.len());
-                (arg as *mut u8).copy_from(out_param.as_ptr(), out_param.len());
-                Ok(stat as _)
+            Response::CtrlOutput(out) => unsafe {
+                debug_assert_eq!(avail_ctrl.out_size, out.blob.len());
+                (arg as *mut u8).copy_from_nonoverlapping(out.blob.as_ptr(), out.blob.len());
+                Ok(out.status)
             },
             Response::Error(err) => Err(err),
             _ => ipc_fail(),

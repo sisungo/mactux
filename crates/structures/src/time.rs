@@ -31,22 +31,38 @@ pub struct Timespec {
     pub tv_nsec: i64,
 }
 impl Timespec {
-    pub fn from_apple(apple: libc::timespec) -> Self {
-        Self {
-            tv_sec: apple.tv_sec,
-            tv_nsec: apple.tv_nsec,
-        }
-    }
-
-    pub fn to_apple(self) -> libc::timespec {
-        libc::timespec {
-            tv_sec: self.tv_sec,
-            tv_nsec: self.tv_nsec,
+    pub fn now() -> Timespec {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::SystemTime::UNIX_EPOCH)
+            .unwrap();
+        Timespec {
+            tv_sec: now.as_secs() as _,
+            tv_nsec: now.as_nanos() as _,
         }
     }
 
     pub fn to_duration(self) -> Duration {
         Duration::new(self.tv_sec as _, self.tv_nsec as _)
+    }
+}
+impl FromApple for Timespec {
+    type Apple = libc::timespec;
+
+    fn from_apple(apple: Self::Apple) -> Result<Self, LxError> {
+        Ok(Self {
+            tv_sec: apple.tv_sec,
+            tv_nsec: apple.tv_nsec,
+        })
+    }
+}
+impl ToApple for Timespec {
+    type Apple = libc::timespec;
+
+    fn to_apple(self) -> Result<Self::Apple, LxError> {
+        Ok(libc::timespec {
+            tv_sec: self.tv_sec,
+            tv_nsec: self.tv_nsec,
+        })
     }
 }
 

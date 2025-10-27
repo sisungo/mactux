@@ -192,6 +192,20 @@ impl DirentType {
         }
     }
 }
+impl From<FileType> for DirentType {
+    fn from(value: FileType) -> Self {
+        match value {
+            FileType::RegularFile => Self::DT_REG,
+            FileType::Directory => Self::DT_DIR,
+            FileType::CharDevice => Self::DT_CHR,
+            FileType::BlockDevice => Self::DT_BLK,
+            FileType::Fifo => Self::DT_FIFO,
+            FileType::Socket => Self::DT_SOCK,
+            FileType::Symlink => Self::DT_LNK,
+            FileType::Unknown => Self::DT_UNKNOWN,
+        }
+    }
+}
 
 #[derive(Debug, Clone, Encode, Decode)]
 #[repr(C)]

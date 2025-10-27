@@ -7,9 +7,12 @@ mod term;
 #[cfg(feature = "audio")]
 mod oss;
 
-use crate::vfd::IoctlOutput;
+use crate::{
+    file::{Ioctl, Stream},
+    vfd::IoctlOutput,
+};
 use dashmap::DashMap;
-use mactux_ipc::response::{Response, VirtualFdAvailCtrl};
+use mactux_ipc::response::{Response, VfdAvailCtrl};
 use rustc_hash::FxBuildHasher;
 use std::{path::PathBuf, sync::Arc};
 use structures::{device::DeviceNumber, error::LxError, fs::OpenFlags, io::IoctlCmd};
@@ -55,7 +58,7 @@ impl DeviceTable {
 }
 
 /// A device.
-pub trait Device: Send + Sync {
+pub trait Device: Stream + Ioctl + Send + Sync {
     /// If this device can map to a macOS device directly, returns its path, otherwise `None`.
     ///
     /// If the call to this device is requested by client Linux programs, it is guaranteed to use the macOS device if
@@ -67,25 +70,6 @@ pub trait Device: Send + Sync {
     /// This is called when the device is opened with given flags.
     fn open(&self, flags: OpenFlags) -> Result<(), LxError> {
         Ok(())
-    }
-
-    /// Reads from the device.
-    fn read(&self, buf: &mut [u8], off: &mut i64) -> Result<usize, LxError> {
-        Err(LxError::EOPNOTSUPP)
-    }
-
-    /// Writes to the device.
-    fn write(&self, buf: &[u8], off: &mut i64) -> Result<usize, LxError> {
-        Err(LxError::EOPNOTSUPP)
-    }
-
-    fn ioctl_query(&self, cmd: IoctlCmd) -> Result<VirtualFdAvailCtrl, LxError> {
-        Err(LxError::EOPNOTSUPP)
-    }
-
-    /// Controls the device.
-    fn ioctl(&self, cmd: IoctlCmd, buf: &[u8]) -> Result<Response, LxError> {
-        Err(LxError::EOPNOTSUPP)
     }
 
     /// This is called when the device is closed.

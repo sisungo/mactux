@@ -3,16 +3,17 @@
 use crate::{
     app,
     device::Device,
+    file::{Ioctl, Stream},
     filesystem::{
         VPath,
         vfs::{Filesystem, LPath, NewlyOpen},
     },
     task::process::Process,
-    util::{now, symlink_abs},
+    util::symlink_abs,
     vfd::{Vfd, VfdContent},
 };
 use dashmap::DashMap;
-use mactux_ipc::response::{Response, VirtualFdAvailCtrl};
+use mactux_ipc::response::{CtrlOutput, Response, VfdAvailCtrl};
 use rustc_hash::FxBuildHasher;
 use std::{
     fmt::Debug,
@@ -25,7 +26,10 @@ use std::{
 use structures::{
     device::DeviceNumber,
     error::LxError,
-    fs::{AccessFlags, Dirent64, FileMode, FileType, OpenFlags, Statx, StatxAttrs, StatxMask},
+    fs::{
+        AccessFlags, Dirent64, Dirent64Hdr, FileMode, FileType, OpenFlags, Statx, StatxAttrs,
+        StatxMask,
+    },
     io::IoctlCmd,
     time::Timespec,
 };
@@ -242,9 +246,12 @@ impl Filesystem for Tmpfs {
                     .permbits
                     .store(mode.permbits(), atomic::Ordering::Relaxed);
                 let child = match mode.file_type() {
-                    FileType::BlockDevice => Arc::new(BlockDev { metadata, dev }) as _,
-                    FileType::CharDevice => Arc::new(CharDev { metadata, dev }) as _,
-                    _ => return Err(LxError::EOPNOTSUPP),
+                    FileType::BlockDevice | FileType::CharDevice => Arc::new(Dev {
+                        metadata,
+                        file_type: mode.file_type(),
+                        dev,
+                    }) as _,
+                    _ => return Err(LxError::EINVAL),
                 };
                 dir.children.insert(
                     path.relative.parts.last().ok_or(LxError::EEXIST)?.clone(),
@@ -284,12 +291,53 @@ struct Dir {
 }
 impl File for Dir {
     fn open_vfd(self: Arc<Self>, flags: OpenFlags) -> Result<Vfd, LxError> {
-        let iter = self
+        let mut iter: Vec<Dirent64> = self
             .children
             .iter()
-            .map(|p| (p.key().clone(), p.value().clone()))
+            .filter_map(|p| {
+                let vfd = match p.value().clone() {
+                    Node::File(x) => x.open_vfd(OpenFlags::O_PATH),
+                    Node::Dir(x) => x.open_vfd(OpenFlags::O_PATH),
+                    Node::Symlink(x) => x.open_vfd(OpenFlags::O_PATH),
+                };
+                let stat = match vfd
+                    .and_then(|x| x.stat((StatxMask::STATX_INO | StatxMask::STATX_TYPE).bits()))
+                {
+                    Ok(x) => x,
+                    Err(_) => return None,
+                };
+                Some(Dirent64::new(
+                    Dirent64Hdr {
+                        d_ino: stat.stx_ino,
+                        d_off: 0,
+                        d_reclen: 0,
+                        d_type: stat.stx_mode.file_type().into(),
+                        _align: [0; _],
+                    },
+                    p.key().clone(),
+                ))
+            })
             .collect();
-        // TODO add . and ..
+        iter.push(Dirent64::new(
+            Dirent64Hdr {
+                d_ino: self.metadata.stat_template(StatxMask::STATX_INO).stx_ino,
+                d_off: 0,
+                d_reclen: 0,
+                d_type: FileType::Directory.into(),
+                _align: [0; _],
+            },
+            b".".to_vec(),
+        ));
+        iter.push(Dirent64::new(
+            Dirent64Hdr {
+                d_ino: self.metadata.stat_template(StatxMask::STATX_INO).stx_ino - 1,
+                d_off: 0,
+                d_reclen: 0,
+                d_type: FileType::Directory.into(),
+                _align: [0; _],
+            },
+            b"..".to_vec(),
+        ));
         Ok(Vfd::new(
             Arc::new(DirFd {
                 metadata: self.metadata.clone(),
@@ -303,15 +351,22 @@ impl File for Dir {
 #[derive(Debug)]
 struct DirFd {
     metadata: Arc<Metadata>,
-    iter: Mutex<Vec<(Vec<u8>, Node)>>,
+    iter: Mutex<Vec<Dirent64>>,
 }
+impl Stream for DirFd {}
+impl Ioctl for DirFd {}
 impl VfdContent for DirFd {
     fn getdent(&self) -> Result<Option<Dirent64>, LxError> {
-        todo!()
+        Ok(self.iter.lock().unwrap().pop())
     }
 
     fn stat(&self) -> Result<Statx, LxError> {
-        let statx = self.metadata.stat_template(StatxMask::all());
+        let mut statx = self.metadata.stat_template(StatxMask::all());
+
+        statx.stx_mode.set_file_type(FileType::Directory);
+
+        statx.stx_size = BLOCK_SIZE as _;
+        statx.stx_blocks = 1;
 
         Ok(statx)
     }
@@ -327,7 +382,7 @@ impl File for Reg {
         Ok(Vfd::new(self, flags))
     }
 }
-impl VfdContent for Reg {
+impl Stream for Reg {
     fn read(&self, buf: &mut [u8], off: &mut i64) -> Result<usize, LxError> {
         if *off < 0 {
             return Err(LxError::EINVAL);
@@ -365,7 +420,9 @@ impl VfdContent for Reg {
             }
         }
     }
-
+}
+impl Ioctl for Reg {}
+impl VfdContent for Reg {
     fn stat(&self) -> Result<Statx, LxError> {
         let mut stat = self.metadata.stat_template(StatxMask::all());
 
@@ -379,49 +436,30 @@ impl VfdContent for Reg {
 }
 
 #[derive(Debug)]
-struct CharDev {
+struct Dev {
     metadata: Arc<Metadata>,
+    file_type: FileType,
     dev: DeviceNumber,
 }
-impl File for CharDev {
+impl File for Dev {
     fn open_vfd(self: Arc<Self>, flags: OpenFlags) -> Result<Vfd, LxError> {
         let device = if flags.contains(OpenFlags::O_PATH) {
             None
         } else {
-            let x = app().devices.find_chr(self.dev)?;
+            let x = match self.file_type {
+                FileType::CharDevice => app().devices.find_chr(self.dev)?,
+                FileType::BlockDevice => app().devices.find_blk(self.dev)?,
+                _ => unreachable!(),
+            };
             x.open(flags)?;
             Some(x)
         };
         Ok(Vfd::new(
             Arc::new(DevFd {
                 metadata: self.metadata.clone(),
-                file_type: FileType::CharDevice,
+                file_type: self.file_type,
                 device,
-            }),
-            flags,
-        ))
-    }
-}
-
-#[derive(Debug)]
-struct BlockDev {
-    metadata: Arc<Metadata>,
-    dev: DeviceNumber,
-}
-impl File for BlockDev {
-    fn open_vfd(self: Arc<Self>, flags: OpenFlags) -> Result<Vfd, LxError> {
-        let device = if flags.contains(OpenFlags::O_PATH) {
-            None
-        } else {
-            let x = app().devices.find_blk(self.dev)?;
-            x.open(flags)?;
-            Some(x)
-        };
-        Ok(Vfd::new(
-            Arc::new(DevFd {
-                metadata: self.metadata.clone(),
-                file_type: FileType::BlockDevice,
-                device,
+                devnum: self.dev,
             }),
             flags,
         ))
@@ -432,8 +470,9 @@ struct DevFd {
     metadata: Arc<Metadata>,
     file_type: FileType,
     device: Option<Arc<dyn Device>>,
+    devnum: DeviceNumber,
 }
-impl VfdContent for DevFd {
+impl Stream for DevFd {
     fn read(&self, buf: &mut [u8], off: &mut i64) -> Result<usize, LxError> {
         self.device.as_ref().ok_or(LxError::EBADF)?.read(buf, off)
     }
@@ -441,19 +480,24 @@ impl VfdContent for DevFd {
     fn write(&self, buf: &[u8], off: &mut i64) -> Result<usize, LxError> {
         self.device.as_ref().ok_or(LxError::EBADF)?.write(buf, off)
     }
-
-    fn ioctl_query(&self, cmd: IoctlCmd) -> Result<VirtualFdAvailCtrl, LxError> {
+}
+impl Ioctl for DevFd {
+    fn ioctl_query(&self, cmd: IoctlCmd) -> Result<VfdAvailCtrl, LxError> {
         self.device.as_ref().ok_or(LxError::EBADF)?.ioctl_query(cmd)
     }
 
-    fn ioctl(&self, cmd: IoctlCmd, data: &[u8]) -> Result<Response, LxError> {
+    fn ioctl(&self, cmd: IoctlCmd, data: &[u8]) -> Result<CtrlOutput, LxError> {
         self.device.as_ref().ok_or(LxError::EBADF)?.ioctl(cmd, data)
     }
-
+}
+impl VfdContent for DevFd {
     fn stat(&self) -> Result<Statx, LxError> {
         let mut statx = self.metadata.stat_template(StatxMask::all());
 
         statx.stx_mode.set_file_type(self.file_type);
+
+        statx.stx_rdev_major = self.devnum.major();
+        statx.stx_rdev_minor = self.devnum.minor();
 
         Ok(statx)
     }
@@ -480,7 +524,8 @@ where
         Ok(Vfd::new(self, flags))
     }
 }
-impl<R, W> VfdContent for DynFile<R, W>
+impl<R, W> Ioctl for DynFile<R, W> {}
+impl<R, W> Stream for DynFile<R, W>
 where
     R: Fn() -> Result<Vec<u8>, LxError> + Send + Sync,
     W: Fn(&[u8]) -> Result<usize, LxError> + Send + Sync,
@@ -495,11 +540,19 @@ where
         *off += bytes_read as i64;
         Ok(bytes_read)
     }
-
+}
+impl<R, W> VfdContent for DynFile<R, W>
+where
+    R: Fn() -> Result<Vec<u8>, LxError> + Send + Sync,
+    W: Fn(&[u8]) -> Result<usize, LxError> + Send + Sync,
+{
     fn stat(&self) -> Result<Statx, LxError> {
         let mut stat = self.metadata.stat_template(StatxMask::all());
 
         stat.stx_mode.set_file_type(FileType::RegularFile);
+
+        stat.stx_size = BLOCK_SIZE as _;
+        stat.stx_blocks = 1;
 
         Ok(stat)
     }
@@ -514,6 +567,29 @@ impl<R, W> Debug for DynFile<R, W> {
 struct Symlink {
     metadata: Metadata,
     target: Vec<u8>,
+}
+impl File for Symlink {
+    fn open_vfd(self: Arc<Self>, flags: OpenFlags) -> Result<Vfd, LxError> {
+        Ok(Vfd::new(self, flags))
+    }
+}
+impl Stream for Symlink {}
+impl Ioctl for Symlink {}
+impl VfdContent for Symlink {
+    fn readlink(&self) -> Result<Vec<u8>, LxError> {
+        Ok(self.target.clone())
+    }
+
+    fn stat(&self) -> Result<Statx, LxError> {
+        let mut stat = self.metadata.stat_template(StatxMask::all());
+
+        stat.stx_mode.set_file_type(FileType::Symlink);
+
+        stat.stx_size = self.target.len() as _;
+        stat.stx_blocks = 1;
+
+        Ok(stat)
+    }
 }
 impl Symlink {
     fn solve(&self, lpath: LPath) -> VPath {
@@ -539,10 +615,10 @@ impl Metadata {
             uid: AtomicU32::new(0),
             gid: AtomicU32::new(0),
             permbits: AtomicU16::new(0o777),
-            atime: RwLock::new(now()),
-            btime: RwLock::new(now()),
-            ctime: RwLock::new(now()),
-            mtime: RwLock::new(now()),
+            atime: RwLock::new(Timespec::now()),
+            btime: RwLock::new(Timespec::now()),
+            ctime: RwLock::new(Timespec::now()),
+            mtime: RwLock::new(Timespec::now()),
         }
     }
 

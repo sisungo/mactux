@@ -1,9 +1,20 @@
 //! Implementation of `MAJOR=1char`, auxiliary memory devices.
 
-use crate::device::{Device, DeviceTable};
+use crate::{
+    device::{Device, DeviceTable},
+    file::{Ioctl, Stream},
+};
 use std::{path::PathBuf, sync::Arc};
+use structures::error::LxError;
 
 struct Zero;
+impl Stream for Zero {
+    fn read(&self, buf: &mut [u8], _off: &mut i64) -> Result<usize, LxError> {
+        buf.fill(0);
+        Ok(buf.len())
+    }
+}
+impl Ioctl for Zero {}
 impl Device for Zero {
     fn macos_device(&self) -> Option<PathBuf> {
         Some(PathBuf::from("/dev/zero"))
@@ -11,6 +22,16 @@ impl Device for Zero {
 }
 
 struct Null;
+impl Stream for Null {
+    fn read(&self, _buf: &mut [u8], _off: &mut i64) -> Result<usize, LxError> {
+        Ok(0)
+    }
+
+    fn write(&self, buf: &[u8], _off: &mut i64) -> Result<usize, LxError> {
+        Ok(buf.len())
+    }
+}
+impl Ioctl for Null {}
 impl Device for Null {
     fn macos_device(&self) -> Option<PathBuf> {
         Some(PathBuf::from("/dev/null"))
@@ -18,13 +39,22 @@ impl Device for Null {
 }
 
 struct Full;
-impl Device for Full {
-    fn macos_device(&self) -> Option<PathBuf> {
-        Some(PathBuf::from("/dev/full"))
+impl Stream for Full {
+    fn read(&self, buf: &mut [u8], _off: &mut i64) -> Result<usize, LxError> {
+        buf.fill(0);
+        Ok(buf.len())
+    }
+
+    fn write(&self, _buf: &[u8], _off: &mut i64) -> Result<usize, LxError> {
+        Err(LxError::ENOSPC)
     }
 }
+impl Ioctl for Full {}
+impl Device for Full {}
 
 struct Random;
+impl Stream for Random {}
+impl Ioctl for Random {}
 impl Device for Random {
     fn macos_device(&self) -> Option<PathBuf> {
         Some(PathBuf::from("/dev/random"))
@@ -32,6 +62,8 @@ impl Device for Random {
 }
 
 struct URandom;
+impl Stream for URandom {}
+impl Ioctl for URandom {}
 impl Device for URandom {
     fn macos_device(&self) -> Option<PathBuf> {
         Some(PathBuf::from("/dev/urandom"))

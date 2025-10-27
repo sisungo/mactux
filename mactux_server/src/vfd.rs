@@ -1,9 +1,13 @@
 //! Virtual file descriptor support.
 
-use crate::{ipc::methods::IntoResponse, poll::PollToken};
+use crate::{
+    file::{Ioctl, Stream},
+    ipc::methods::IntoResponse,
+    poll::PollToken,
+};
 use crossbeam::atomic::AtomicCell;
 use dashmap::DashMap;
-use mactux_ipc::response::{Response, VirtualFdAvailCtrl};
+use mactux_ipc::response::{CtrlOutput, Response, VfdAvailCtrl};
 use rustc_hash::FxBuildHasher;
 use std::{
     path::PathBuf,
@@ -80,22 +84,31 @@ impl Vfd {
         self.content.write(buf, &mut off)
     }
 
-    pub fn ioctl_query(&self, cmd: IoctlCmd) -> Result<VirtualFdAvailCtrl, LxError> {
+    pub fn ioctl_query(&self, cmd: IoctlCmd) -> Result<VfdAvailCtrl, LxError> {
         self.content.ioctl_query(cmd)
     }
 
-    pub fn ioctl(&self, cmd: IoctlCmd, data: &[u8]) -> Result<Response, LxError> {
+    pub fn ioctl(&self, cmd: IoctlCmd, data: &[u8]) -> Result<CtrlOutput, LxError> {
         self.content.ioctl(cmd, data)
     }
 
-    pub fn fcntl(&self, cmd: FcntlCmd, data: &[u8]) -> Result<Response, LxError> {
+    pub fn fcntl(&self, cmd: FcntlCmd, data: &[u8]) -> Result<CtrlOutput, LxError> {
         match cmd {
-            FcntlCmd::F_GETFL => Ok(Response::Ctrl(self.open_flags.load().bits() as _)),
+            FcntlCmd::F_GETFL => Ok(CtrlOutput {
+                status: self.open_flags.load().bits() as _,
+                blob: Vec::new(),
+            }),
             FcntlCmd::F_GETFD => {
                 if self.open_flags.load().contains(OpenFlags::O_CLOEXEC) {
-                    Ok(Response::Ctrl(FdFlags::FD_CLOEXEC.bits() as _))
+                    Ok(CtrlOutput {
+                        status: FdFlags::FD_CLOEXEC.bits() as _,
+                        blob: Vec::new(),
+                    })
                 } else {
-                    Ok(Response::Ctrl(0))
+                    Ok(CtrlOutput {
+                        status: 0,
+                        blob: Vec::new(),
+                    })
                 }
             }
             FcntlCmd::F_SETFD => {
@@ -109,7 +122,10 @@ impl Vfd {
                     self.open_flags
                         .store(self.open_flags.load() | OpenFlags::O_CLOEXEC);
                 }
-                Ok(Response::Ctrl(0))
+                Ok(CtrlOutput {
+                    status: 0,
+                    blob: Vec::new(),
+                })
             }
             other => todo!("{other:?}"),
         }
@@ -166,28 +182,8 @@ impl Vfd {
     }
 }
 
-pub trait VfdContent: Send + Sync {
-    fn read(&self, _buf: &mut [u8], _off: &mut i64) -> Result<usize, LxError> {
-        Err(LxError::EOPNOTSUPP)
-    }
-
-    fn write(&self, _buf: &[u8], _off: &mut i64) -> Result<usize, LxError> {
-        Err(LxError::EOPNOTSUPP)
-    }
-
-    fn seek(&self, _whence: Whence, _off: i64) -> Result<u64, LxError> {
-        Err(LxError::EOPNOTSUPP)
-    }
-
+pub trait VfdContent: Stream + Ioctl + Send + Sync {
     fn stat(&self) -> Result<Statx, LxError> {
-        Err(LxError::EOPNOTSUPP)
-    }
-
-    fn ioctl_query(&self, _cmd: IoctlCmd) -> Result<VirtualFdAvailCtrl, LxError> {
-        Err(LxError::EOPNOTSUPP)
-    }
-
-    fn ioctl(&self, _cmd: IoctlCmd, _data: &[u8]) -> Result<Response, LxError> {
         Err(LxError::EOPNOTSUPP)
     }
 
