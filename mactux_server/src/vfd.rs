@@ -3,7 +3,7 @@
 use crate::{ipc::methods::IntoResponse, poll::PollToken};
 use crossbeam::atomic::AtomicCell;
 use dashmap::DashMap;
-use mactux_ipc::response::VirtualFdAvailCtrl;
+use mactux_ipc::response::{Response, VirtualFdAvailCtrl};
 use rustc_hash::FxBuildHasher;
 use std::{
     path::PathBuf,
@@ -15,7 +15,7 @@ use std::{
 use structures::{
     error::LxError,
     fs::{Dirent64, OpenFlags, Statx, XATTR_NAMESPACE_PREFIXES},
-    io::{IoctlCmd, PollEvents, Whence},
+    io::{FcntlCmd, FdFlags, IoctlCmd, PollEvents, Whence},
 };
 
 pub struct Vfd {
@@ -65,11 +65,54 @@ impl Vfd {
     }
 
     pub fn pread(&self, buf: &mut [u8], mut off: i64) -> Result<usize, LxError> {
+        if !self.open_flags.load().is_readable() {
+            return Err(LxError::EBADF);
+        }
+
         self.content.read(buf, &mut off)
     }
 
     pub fn pwrite(&self, buf: &mut [u8], mut off: i64) -> Result<usize, LxError> {
+        if !self.open_flags.load().is_writable() {
+            return Err(LxError::EBADF);
+        }
+
         self.content.write(buf, &mut off)
+    }
+
+    pub fn ioctl_query(&self, cmd: IoctlCmd) -> Result<VirtualFdAvailCtrl, LxError> {
+        self.content.ioctl_query(cmd)
+    }
+
+    pub fn ioctl(&self, cmd: IoctlCmd, data: &[u8]) -> Result<Response, LxError> {
+        self.content.ioctl(cmd, data)
+    }
+
+    pub fn fcntl(&self, cmd: FcntlCmd, data: &[u8]) -> Result<Response, LxError> {
+        match cmd {
+            FcntlCmd::F_GETFL => Ok(Response::Ctrl(self.open_flags.load().bits() as _)),
+            FcntlCmd::F_GETFD => {
+                if self.open_flags.load().contains(OpenFlags::O_CLOEXEC) {
+                    Ok(Response::Ctrl(FdFlags::FD_CLOEXEC.bits() as _))
+                } else {
+                    Ok(Response::Ctrl(0))
+                }
+            }
+            FcntlCmd::F_SETFD => {
+                let mut fd_flags = [0u8; size_of::<u32>()];
+                fd_flags.copy_from_slice(data);
+                let fd_flags = u32::from_ne_bytes(fd_flags);
+                let Some(fd_flags) = FdFlags::from_bits(fd_flags) else {
+                    return Err(LxError::EINVAL);
+                };
+                if fd_flags.contains(FdFlags::FD_CLOEXEC) {
+                    self.open_flags
+                        .store(self.open_flags.load() | OpenFlags::O_CLOEXEC);
+                }
+                Ok(Response::Ctrl(0))
+            }
+            other => todo!("{other:?}"),
+        }
     }
 
     pub fn getdent(&self) -> Result<Option<Dirent64>, LxError> {
@@ -144,7 +187,7 @@ pub trait VfdContent: Send + Sync {
         Err(LxError::EOPNOTSUPP)
     }
 
-    fn ioctl(&self, _cmd: IoctlCmd, _data: &[u8]) -> Result<IoctlOutput, LxError> {
+    fn ioctl(&self, _cmd: IoctlCmd, _data: &[u8]) -> Result<Response, LxError> {
         Err(LxError::EOPNOTSUPP)
     }
 

@@ -8,10 +8,12 @@ use crate::{
         vfs::{Filesystem, LPath, NewlyOpen},
     },
     task::process::Process,
-    util::symlink_abs,
+    util::{now, symlink_abs},
     vfd::{Vfd, VfdContent},
 };
 use dashmap::DashMap;
+use mactux_ipc::response::{Response, VirtualFdAvailCtrl};
+use rustc_hash::FxBuildHasher;
 use std::{
     fmt::Debug,
     path::PathBuf,
@@ -24,6 +26,7 @@ use structures::{
     device::DeviceNumber,
     error::LxError,
     fs::{AccessFlags, Dirent64, FileMode, FileType, OpenFlags, Statx, StatxAttrs, StatxMask},
+    io::IoctlCmd,
     time::Timespec,
 };
 
@@ -38,7 +41,12 @@ pub struct Tmpfs {
 }
 impl Tmpfs {
     pub fn new() -> Result<Arc<Self>, LxError> {
-        todo!()
+        Ok(Arc::new(Self {
+            root: Arc::new(Dir {
+                metadata: Arc::new(Metadata::new()),
+                children: DashMap::default(),
+            }),
+        }))
     }
 
     fn locate(&self, path: LPath) -> Result<Location, LxError> {
@@ -84,15 +92,12 @@ impl Filesystem for Tmpfs {
                     if flags.contains(OpenFlags::O_DIRECTORY) {
                         return Err(LxError::ENOTDIR);
                     }
-                    if let Ok(vfd) = Arc::clone(&file).open_vfd(flags) {
-                        return Ok(NewlyOpen::Virtual(vfd));
+                    if let Some(native) = file.open_native() {
+                        return Ok(NewlyOpen::Native(
+                            native.into_os_string().into_encoded_bytes(),
+                        ));
                     }
-                    Ok(NewlyOpen::Native(
-                        file.open_native()
-                            .unwrap()
-                            .into_os_string()
-                            .into_encoded_bytes(),
-                    ))
+                    Arc::clone(&file).open_vfd(flags).map(NewlyOpen::Virtual)
                 }
                 Node::Symlink(symlink) => {
                     if flags.contains(OpenFlags::O_NOFOLLOW) {
@@ -304,6 +309,12 @@ impl VfdContent for DirFd {
     fn getdent(&self) -> Result<Option<Dirent64>, LxError> {
         todo!()
     }
+
+    fn stat(&self) -> Result<Statx, LxError> {
+        let statx = self.metadata.stat_template(StatxMask::all());
+
+        Ok(statx)
+    }
 }
 
 #[derive(Debug)]
@@ -374,11 +385,17 @@ struct CharDev {
 }
 impl File for CharDev {
     fn open_vfd(self: Arc<Self>, flags: OpenFlags) -> Result<Vfd, LxError> {
-        let device = app().devices.find_chr(self.dev)?;
-        device.open(flags)?;
+        let device = if flags.contains(OpenFlags::O_PATH) {
+            None
+        } else {
+            let x = app().devices.find_chr(self.dev)?;
+            x.open(flags)?;
+            Some(x)
+        };
         Ok(Vfd::new(
             Arc::new(DevFd {
                 metadata: self.metadata.clone(),
+                file_type: FileType::CharDevice,
                 device,
             }),
             flags,
@@ -393,11 +410,17 @@ struct BlockDev {
 }
 impl File for BlockDev {
     fn open_vfd(self: Arc<Self>, flags: OpenFlags) -> Result<Vfd, LxError> {
-        let device = app().devices.find_blk(self.dev)?;
-        device.open(flags)?;
+        let device = if flags.contains(OpenFlags::O_PATH) {
+            None
+        } else {
+            let x = app().devices.find_blk(self.dev)?;
+            x.open(flags)?;
+            Some(x)
+        };
         Ok(Vfd::new(
             Arc::new(DevFd {
                 metadata: self.metadata.clone(),
+                file_type: FileType::BlockDevice,
                 device,
             }),
             flags,
@@ -407,20 +430,39 @@ impl File for BlockDev {
 
 struct DevFd {
     metadata: Arc<Metadata>,
-    device: Arc<dyn Device>,
+    file_type: FileType,
+    device: Option<Arc<dyn Device>>,
 }
 impl VfdContent for DevFd {
     fn read(&self, buf: &mut [u8], off: &mut i64) -> Result<usize, LxError> {
-        self.device.read(buf, off)
+        self.device.as_ref().ok_or(LxError::EBADF)?.read(buf, off)
     }
 
     fn write(&self, buf: &[u8], off: &mut i64) -> Result<usize, LxError> {
-        self.device.write(buf, off)
+        self.device.as_ref().ok_or(LxError::EBADF)?.write(buf, off)
+    }
+
+    fn ioctl_query(&self, cmd: IoctlCmd) -> Result<VirtualFdAvailCtrl, LxError> {
+        self.device.as_ref().ok_or(LxError::EBADF)?.ioctl_query(cmd)
+    }
+
+    fn ioctl(&self, cmd: IoctlCmd, data: &[u8]) -> Result<Response, LxError> {
+        self.device.as_ref().ok_or(LxError::EBADF)?.ioctl(cmd, data)
+    }
+
+    fn stat(&self) -> Result<Statx, LxError> {
+        let mut statx = self.metadata.stat_template(StatxMask::all());
+
+        statx.stx_mode.set_file_type(self.file_type);
+
+        Ok(statx)
     }
 }
 impl Drop for DevFd {
     fn drop(&mut self) {
-        self.device.close();
+        if let Some(device) = &self.device {
+            device.close();
+        }
     }
 }
 
@@ -481,7 +523,7 @@ impl Symlink {
 
 #[derive(Debug)]
 struct Metadata {
-    xattrs: DashMap<Vec<u8>, Vec<u8>>,
+    xattrs: DashMap<Vec<u8>, Vec<u8>, FxBuildHasher>,
     uid: AtomicU32,
     gid: AtomicU32,
     permbits: AtomicU16,
@@ -492,7 +534,16 @@ struct Metadata {
 }
 impl Metadata {
     fn new() -> Self {
-        todo!()
+        Self {
+            xattrs: DashMap::default(),
+            uid: AtomicU32::new(0),
+            gid: AtomicU32::new(0),
+            permbits: AtomicU16::new(0o777),
+            atime: RwLock::new(now()),
+            btime: RwLock::new(now()),
+            ctime: RwLock::new(now()),
+            mtime: RwLock::new(now()),
+        }
     }
 
     fn kernfs(&self) -> bool {

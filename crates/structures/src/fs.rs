@@ -369,7 +369,7 @@ impl FileMode {
 
     pub const fn set_file_type(&mut self, file_type: FileType) {
         self.0 &= !Self::S_IFMT;
-        self.0 &= match file_type {
+        self.0 |= match file_type {
             FileType::Directory => Self::S_IFDIR,
             FileType::CharDevice => Self::S_IFCHR,
             FileType::BlockDevice => Self::S_IFBLK,

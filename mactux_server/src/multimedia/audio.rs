@@ -2,14 +2,18 @@
 
 use crossbeam::atomic::AtomicCell;
 use rodio::{
-    OutputStream, OutputStreamBuilder, Sample, Sink,
+    OutputStreamBuilder, Sample, Sink,
     buffer::SamplesBuffer,
     conversions::SampleTypeConverter,
     cpal::{FromSample, SampleFormat},
 };
 use std::{
+    fmt::Debug,
     io::{Cursor, Read},
-    sync::atomic::{self, AtomicU16, AtomicU32},
+    sync::{
+        atomic::{self, AtomicU16, AtomicU32},
+        mpsc,
+    },
 };
 use structures::error::LxError;
 
@@ -17,24 +21,37 @@ use structures::error::LxError;
 ///
 /// This is shared across different audio interfaces, and wraps the actual macOS API.
 pub struct AudioOutput {
-    _output_stream: OutputStream,
-    sink: Sink,
-    sample_rate: AtomicU32,
-    channels: AtomicU16,
-    sample_format: AtomicCell<SampleFormat>,
+    drop_notify: mpsc::SyncSender<()>,
+    pub sink: Sink,
+    pub sample_rate: AtomicU32,
+    pub channels: AtomicU16,
+    pub sample_format: AtomicCell<SampleFormat>,
 }
 impl AudioOutput {
     /// Creates a new audio output instance.
-    ///
-    /// Note that this is costly and may create some sound in the physical audio sink.
     pub fn new() -> Result<Self, LxError> {
-        let mut _output_stream =
-            OutputStreamBuilder::open_default_stream().map_err(from_stream_error)?;
-        _output_stream.log_on_drop(false);
-        let sink = Sink::connect_new(_output_stream.mixer());
+        let (drop_notify, drop_rx) = mpsc::sync_channel(1);
+        let (sink_tx, sink_rx) = mpsc::sync_channel(1);
+        std::thread::Builder::new()
+            .name(String::from("AudioOutput"))
+            .spawn(move || {
+                let output_stream = OutputStreamBuilder::open_default_stream();
+                let mut output_stream = match output_stream {
+                    Ok(x) => x,
+                    Err(err) => {
+                        _ = sink_tx.send(Err(from_stream_error(err)));
+                        return;
+                    }
+                };
+                output_stream.log_on_drop(false);
+                _ = sink_tx.send(Ok(Sink::connect_new(output_stream.mixer())));
+                _ = drop_rx.recv();
+            })
+            .map_err(|_| LxError::EIO)?;
+        let sink = sink_rx.recv().map_err(|_| LxError::EIO)??;
 
         Ok(Self {
-            _output_stream,
+            drop_notify,
             sink,
             sample_rate: 48000.into(),
             channels: 2.into(),
@@ -46,7 +63,7 @@ impl AudioOutput {
     ///
     /// Currently, partial samples are not written. For example, if we set the audio output to accept 16-bit samples,
     /// trying to write 3 samples will always return 2.
-    fn write_samples(&self, samples: &[u8]) -> Result<usize, LxError> {
+    pub fn write_samples(&self, samples: &[u8]) -> Result<usize, LxError> {
         let (samples, bytes) = convert_samples(self.sample_format.load(), samples);
         let buffer = SamplesBuffer::new(
             self.channels.load(atomic::Ordering::Relaxed),
@@ -58,15 +75,29 @@ impl AudioOutput {
     }
 
     /// Starts the audio output.
-    fn start(&self) -> Result<(), LxError> {
+    pub fn start(&self) -> Result<(), LxError> {
         self.sink.play();
         Ok(())
     }
 
     /// Stops the audio output.
-    fn stop(&self) -> Result<(), LxError> {
+    pub fn stop(&self) -> Result<(), LxError> {
         self.sink.pause();
         Ok(())
+    }
+}
+impl Debug for AudioOutput {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AudioOutput")
+            .field("sample_rate", &self.sample_rate)
+            .field("channels", &self.channels)
+            .field("sample_format", &self.sample_format)
+            .finish_non_exhaustive()
+    }
+}
+impl Drop for AudioOutput {
+    fn drop(&mut self) {
+        _ = self.drop_notify.send(());
     }
 }
 

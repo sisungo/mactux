@@ -8,6 +8,7 @@ mod util;
 use std::ptr::NonNull;
 use structures::{
     FromApple,
+    device::DeviceNumber,
     error::LxError,
     fs::{AccessFlags, AtFlags, OpenFlags, UmountFlags},
     io::{CloseRangeFlags, EventFdFlags, FcntlCmd, FlockOp, IoctlCmd, Whence},
@@ -126,7 +127,7 @@ impl_from_to_sys_bitflags!(
 );
 impl_from_to_sys_newtype!(
     Whence; FcntlCmd; IoctlCmd; FutexOp; ClockId; MaskHowto; SigNum; Domain; SocketType; Protocol;
-    ShutdownHow; FlockOp; Madvice; RLimitable; RUsageWho; PrctlOp; SockOptLevel; SockOpt
+    ShutdownHow; FlockOp; Madvice; RLimitable; RUsageWho; PrctlOp; SockOptLevel; SockOpt; DeviceNumber
 );
 impl<T> FromSyscall for *const T {
     fn from_syscall(value: usize) -> Self {

@@ -1,6 +1,7 @@
 use bincode::{Decode, Encode};
 use std::time::Duration;
 use structures::{
+    device::DeviceNumber,
     fs::{AccessFlags, FileMode},
     io::{FcntlCmd, IoctlCmd, Whence},
 };
@@ -22,6 +23,7 @@ pub enum Request {
     Rename(Vec<u8>, Vec<u8>),
     Link(Vec<u8>, Vec<u8>),
     Mkdir(Vec<u8>, FileMode),
+    Mknod(Vec<u8>, FileMode, DeviceNumber),
     GetSockPath(Vec<u8>, bool),
 
     VfdRead(u64, usize),

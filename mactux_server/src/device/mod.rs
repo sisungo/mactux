@@ -9,6 +9,7 @@ mod oss;
 
 use crate::vfd::IoctlOutput;
 use dashmap::DashMap;
+use mactux_ipc::response::{Response, VirtualFdAvailCtrl};
 use rustc_hash::FxBuildHasher;
 use std::{path::PathBuf, sync::Arc};
 use structures::{device::DeviceNumber, error::LxError, fs::OpenFlags, io::IoctlCmd};
@@ -78,8 +79,12 @@ pub trait Device: Send + Sync {
         Err(LxError::EOPNOTSUPP)
     }
 
+    fn ioctl_query(&self, cmd: IoctlCmd) -> Result<VirtualFdAvailCtrl, LxError> {
+        Err(LxError::EOPNOTSUPP)
+    }
+
     /// Controls the device.
-    fn ioctl(&self, cmd: IoctlCmd, buf: &[u8]) -> Result<IoctlOutput, LxError> {
+    fn ioctl(&self, cmd: IoctlCmd, buf: &[u8]) -> Result<Response, LxError> {
         Err(LxError::EOPNOTSUPP)
     }
 

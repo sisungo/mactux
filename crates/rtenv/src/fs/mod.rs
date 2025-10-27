@@ -7,6 +7,7 @@ use mactux_ipc::{request::Request, response::Response};
 use std::sync::Arc;
 use structures::{
     ToApple,
+    device::DeviceNumber,
     error::LxError,
     fs::{AccessFlags, AtFlags, Dirent64, FileMode, OpenFlags, Statx, UmountFlags},
 };
@@ -205,6 +206,25 @@ pub fn mkdir(path: Vec<u8>, mode: FileMode) -> Result<(), LxError> {
     with_client(|client| {
         match client
             .invoke(Request::Mkdir(full_path(path)?, mode))
+            .unwrap()
+        {
+            Response::Nothing => Ok(()),
+            Response::Error(err) => Err(err),
+            _ => ipc_fail(),
+        }
+    })
+}
+
+#[inline]
+pub fn mknodat(
+    dfd: c_int,
+    path: Vec<u8>,
+    mode: FileMode,
+    dev: DeviceNumber,
+) -> Result<(), LxError> {
+    with_client(|client| {
+        match client
+            .invoke(Request::Mknod(at_path(dfd, path)?, mode, dev))
             .unwrap()
         {
             Response::Nothing => Ok(()),

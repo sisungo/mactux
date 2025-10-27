@@ -2,12 +2,13 @@ use crate::{
     filesystem::{VPath, vfs::NewlyOpen},
     task::process::Process,
 };
-use mactux_ipc::response::{NetworkNames, Response};
+use mactux_ipc::response::{NetworkNames, Response, VirtualFdAvailCtrl};
 use std::sync::Arc;
 use structures::{
+    device::DeviceNumber,
     error::LxError,
     fs::{AccessFlags, Dirent64, FileMode, OpenFlags, Statx},
-    io::Whence,
+    io::{FcntlCmd, IoctlCmd, Whence},
 };
 
 pub fn open(path: Vec<u8>, flags: OpenFlags, mode: FileMode) -> Result<NewlyOpen, LxError> {
@@ -40,6 +41,13 @@ pub fn mkdir(path: Vec<u8>, mode: FileMode) -> Result<(), LxError> {
         .mnt
         .locate(&VPath::parse(&path))?
         .mkdir(mode)
+}
+
+pub fn mknod(path: Vec<u8>, mode: FileMode, dev: DeviceNumber) -> Result<(), LxError> {
+    Process::current()
+        .mnt
+        .locate(&VPath::parse(&path))?
+        .mknod(mode, dev)
 }
 
 pub fn symlink(src: &[u8], dst: &[u8]) -> Result<(), LxError> {
@@ -140,6 +148,30 @@ pub fn get_network_names() -> Result<NetworkNames, LxError> {
     })
 }
 
+pub fn vfd_ioctl_query(vfd: u64, cmd: IoctlCmd) -> Result<VirtualFdAvailCtrl, LxError> {
+    Process::current()
+        .vfd
+        .get(vfd)
+        .ok_or(LxError::EBADF)?
+        .ioctl_query(cmd)
+}
+
+pub fn vfd_ioctl(vfd: u64, cmd: IoctlCmd, data: &[u8]) -> Result<Response, LxError> {
+    Process::current()
+        .vfd
+        .get(vfd)
+        .ok_or(LxError::EBADF)?
+        .ioctl(cmd, data)
+}
+
+pub fn vfd_fcntl(vfd: u64, cmd: FcntlCmd, data: &[u8]) -> Result<Response, LxError> {
+    Process::current()
+        .vfd
+        .get(vfd)
+        .ok_or(LxError::EBADF)?
+        .fcntl(cmd, data)
+}
+
 pub fn before_fork() {
     crate::task::process::before_fork();
 }
@@ -197,6 +229,11 @@ impl IntoResponse for () {
 impl IntoResponse for NetworkNames {
     fn into_response(self) -> Response {
         Response::NetworkNames(self)
+    }
+}
+impl IntoResponse for VirtualFdAvailCtrl {
+    fn into_response(self) -> Response {
+        Response::VirtualFdAvailCtrl(self)
     }
 }
 impl<T> IntoResponse for Option<T>

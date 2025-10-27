@@ -8,7 +8,9 @@ use std::{
         Arc, Weak,
         atomic::{self, AtomicU64},
     },
+    time::SystemTime,
 };
+use structures::time::Timespec;
 
 pub struct ReclaimRegistry<T: 'static> {
     table: DashMap<u64, Shared<T>, FxBuildHasher>,
@@ -148,4 +150,14 @@ pub fn symlink_abs(sympath: LPath, symcontent: &[u8]) -> VPath {
     sympath.parts.append(&mut symcontent.parts);
     sympath.slash_suffix = symcontent.slash_suffix;
     sympath
+}
+
+pub fn now() -> Timespec {
+    let now = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .unwrap();
+    Timespec {
+        tv_sec: now.as_secs() as _,
+        tv_nsec: now.as_nanos() as _,
+    }
 }

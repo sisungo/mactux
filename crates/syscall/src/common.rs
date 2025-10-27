@@ -8,6 +8,7 @@ use rtenv::{error_report::ErrorReport, posix_num};
 use std::{io::Write, ptr::NonNull, time::Duration};
 use structures::{
     FromApple, ToApple,
+    device::DeviceNumber,
     error::LxError,
     fs::{AccessFlags, AtFlags, FileMode, OpenFlags, Stat, Statx, UmountFlags},
     io::{
@@ -275,6 +276,16 @@ pub unsafe fn sys_link(src: *const c_char, dst: *const c_char) -> Result<(), LxE
 #[syscall]
 pub unsafe fn sys_mkdir(path: *const c_char, mode: u32) -> Result<(), LxError> {
     unsafe { rtenv::fs::mkdir(rust_bytes(path).to_vec(), FileMode(mode as _)) }
+}
+
+#[syscall]
+pub unsafe fn sys_mknodat(
+    dfd: c_int,
+    path: *const c_char,
+    mode: u32,
+    dev: DeviceNumber,
+) -> Result<(), LxError> {
+    unsafe { rtenv::fs::mknodat(dfd, rust_bytes(path).to_vec(), FileMode(mode as _), dev) }
 }
 
 #[syscall]
