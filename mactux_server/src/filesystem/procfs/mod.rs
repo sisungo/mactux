@@ -3,7 +3,10 @@
 //! Actually, it is a special kind of `tmpfs`.
 
 use crate::filesystem::tmpfs::Tmpfs;
+use std::sync::Arc;
+use structures::error::LxError;
 
-pub struct Procfs {
-    tmpfs: Tmpfs,
+pub fn new() -> Result<Arc<Tmpfs>, LxError> {
+    let tmpfs = Tmpfs::new()?;
+    Ok(tmpfs)
 }

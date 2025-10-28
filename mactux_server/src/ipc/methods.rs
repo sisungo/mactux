@@ -7,15 +7,15 @@ use std::sync::Arc;
 use structures::{
     device::DeviceNumber,
     error::LxError,
-    fs::{AccessFlags, Dirent64, FileMode, OpenFlags, Statx},
+    fs::{AccessFlags, Dirent64, FileMode, OpenHow, Statx},
     io::{FcntlCmd, IoctlCmd, Whence},
 };
 
-pub fn open(path: Vec<u8>, flags: OpenFlags, mode: FileMode) -> Result<NewlyOpen, LxError> {
+pub fn open(path: Vec<u8>, how: OpenHow) -> Result<NewlyOpen, LxError> {
     Process::current()
         .mnt
         .locate(&VPath::parse(&path))?
-        .open(flags, mode)
+        .open(how)
 }
 
 pub fn access(path: Vec<u8>, flags: AccessFlags) -> Result<(), LxError> {
@@ -88,23 +88,21 @@ pub fn vfd_read(vfd: u64, bufsiz: usize) -> Result<Response, LxError> {
 }
 
 pub fn vfd_write(vfd: u64, buf: &[u8]) -> Result<Response, LxError> {
-    Ok(Response::Write(
-        Process::current()
-            .vfd
-            .get(vfd)
-            .ok_or(LxError::EBADF)?
-            .write(buf)?,
-    ))
+    Process::current()
+        .vfd
+        .get(vfd)
+        .ok_or(LxError::EBADF)?
+        .write(buf)
+        .map(Response::Write)
 }
 
 pub fn vfd_lseek(vfd: u64, whence: Whence, off: i64) -> Result<Response, LxError> {
-    Ok(Response::Lseek(
-        Process::current()
-            .vfd
-            .get(vfd)
-            .ok_or(LxError::EBADF)?
-            .seek(whence, off)?,
-    ))
+    Process::current()
+        .vfd
+        .get(vfd)
+        .ok_or(LxError::EBADF)?
+        .seek(whence, off)
+        .map(Response::Lseek)
 }
 
 pub fn vfd_stat(vfd: u64, mask: u32) -> Result<Statx, LxError> {
@@ -121,6 +119,15 @@ pub fn vfd_getdent(vfd: u64) -> Result<Option<Dirent64>, LxError> {
         .get(vfd)
         .ok_or(LxError::EBADF)?
         .getdent()
+}
+
+pub fn vfd_readlink(vfd: u64) -> Result<Response, LxError> {
+    Process::current()
+        .vfd
+        .get(vfd)
+        .ok_or(LxError::EBADF)?
+        .readlink()
+        .map(Response::Readlink)
 }
 
 pub fn vfd_orig_path(vfd: u64) -> Result<Option<Response>, LxError> {

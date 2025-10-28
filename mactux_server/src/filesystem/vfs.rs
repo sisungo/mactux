@@ -6,7 +6,7 @@ use std::{
 use structures::{
     device::DeviceNumber,
     error::LxError,
-    fs::{AccessFlags, FileMode, OpenFlags},
+    fs::{AccessFlags, FileMode, OpenFlags, OpenHow},
 };
 
 /// A mount namespace.
@@ -117,15 +117,13 @@ pub struct Location {
     path: LPath,
 }
 impl Location {
-    pub fn open(self, flags: OpenFlags, mode: FileMode) -> Result<NewlyOpen, LxError> {
-        self.filesystem
-            .open(self.path.clone(), flags, mode)
-            .inspect(|x| {
-                if let NewlyOpen::Virtual(vfd) = x {
-                    // We allow the filesystem driver to set the original path ahead of this.
-                    _ = vfd.set_orig_path(self.path.expand().express());
-                }
-            })
+    pub fn open(self, how: OpenHow) -> Result<NewlyOpen, LxError> {
+        self.filesystem.open(self.path.clone(), how).inspect(|x| {
+            if let NewlyOpen::Virtual(vfd) = x {
+                // We allow the filesystem driver to set the original path ahead of this.
+                _ = vfd.set_orig_path(self.path.expand().express());
+            }
+        })
     }
 
     pub fn access(self, mode: AccessFlags) -> Result<(), LxError> {
@@ -172,12 +170,7 @@ impl Location {
 }
 
 pub trait Filesystem: Send + Sync {
-    fn open(
-        self: Arc<Self>,
-        path: LPath,
-        flags: OpenFlags,
-        mode: FileMode,
-    ) -> Result<NewlyOpen, LxError>;
+    fn open(self: Arc<Self>, path: LPath, how: OpenHow) -> Result<NewlyOpen, LxError>;
     fn access(&self, path: LPath, mode: AccessFlags) -> Result<(), LxError>;
     fn unlink(&self, path: LPath) -> Result<(), LxError>;
     fn rmdir(&self, path: LPath) -> Result<(), LxError>;

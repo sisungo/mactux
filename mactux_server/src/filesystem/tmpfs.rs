@@ -27,15 +27,12 @@ use structures::{
     device::DeviceNumber,
     error::LxError,
     fs::{
-        AccessFlags, Dirent64, Dirent64Hdr, FileMode, FileType, OpenFlags, Statx, StatxAttrs,
-        StatxMask,
+        AccessFlags, Dirent64, Dirent64Hdr, FileMode, FileType, OpenFlags, OpenHow, OpenResolve,
+        Statx, StatxAttrs, StatxMask,
     },
     io::IoctlCmd,
     time::Timespec,
 };
-
-/// An extended attribute key to specify the file to behave like a kernfs file when the value is `1`.
-const XATTR_KERNFS: &[u8] = b"_mactux.kernfs";
 
 /// Size of a block.
 const BLOCK_SIZE: u32 = 4096;
@@ -51,6 +48,24 @@ impl Tmpfs {
                 children: DashMap::default(),
             }),
         }))
+    }
+
+    pub fn create_dynfile<R, W>(&self, path: LPath, obj: DynFile<R, W>) -> Result<(), LxError>
+    where
+        R: Fn() -> Result<Vec<u8>, LxError> + Send + Sync + 'static,
+        W: Fn(&[u8]) -> Result<usize, LxError> + Send + Sync + 'static,
+    {
+        match self.locate(path.clone())? {
+            Location::Direct(_, Some(_)) => Err(LxError::EEXIST),
+            Location::Direct(dir, None) => {
+                dir.children.insert(
+                    path.relative.parts.last().ok_or(LxError::EEXIST)?.clone(),
+                    Node::File(Arc::new(obj)),
+                );
+                Ok(())
+            }
+            Location::MidSymlink(_) => Err(LxError::EXDEV),
+        }
     }
 
     fn locate(&self, path: LPath) -> Result<Location, LxError> {
@@ -80,20 +95,15 @@ impl Tmpfs {
     }
 }
 impl Filesystem for Tmpfs {
-    fn open(
-        self: Arc<Self>,
-        path: LPath,
-        flags: OpenFlags,
-        mode: FileMode,
-    ) -> Result<NewlyOpen, LxError> {
+    fn open(self: Arc<Self>, path: LPath, how: OpenHow) -> Result<NewlyOpen, LxError> {
         match self.locate(path.clone())? {
             Location::Direct(_, Some(node)) => match node {
-                Node::Dir(dir) => dir.open_vfd(flags).map(NewlyOpen::Virtual),
+                Node::Dir(dir) => dir.open_vfd(how.flags()).map(NewlyOpen::Virtual),
                 Node::File(file) => {
-                    if flags.contains(OpenFlags::O_EXCL) {
+                    if how.flags().contains(OpenFlags::O_EXCL) {
                         return Err(LxError::EEXIST);
                     }
-                    if flags.contains(OpenFlags::O_DIRECTORY) {
+                    if how.flags().contains(OpenFlags::O_DIRECTORY) {
                         return Err(LxError::ENOTDIR);
                     }
                     if let Some(native) = file.open_native() {
@@ -101,27 +111,34 @@ impl Filesystem for Tmpfs {
                             native.into_os_string().into_encoded_bytes(),
                         ));
                     }
-                    Arc::clone(&file).open_vfd(flags).map(NewlyOpen::Virtual)
+                    Arc::clone(&file)
+                        .open_vfd(how.flags())
+                        .map(NewlyOpen::Virtual)
                 }
                 Node::Symlink(symlink) => {
-                    if flags.contains(OpenFlags::O_NOFOLLOW) {
+                    if how.resolve.contains(OpenResolve::RESOLVE_NO_SYMLINKS) {
+                        return Ok(NewlyOpen::Virtual(Vfd::new(symlink, how.flags())));
+                    }
+                    if how.flags().contains(OpenFlags::O_NOFOLLOW) {
                         return Err(LxError::ELOOP);
                     }
                     Process::current()
                         .mnt
                         .locate(&symlink.solve(path))?
-                        .open(flags, mode)
+                        .open(how)
                 }
             },
             Location::Direct(dir, None) => {
-                if !flags.contains(OpenFlags::O_CREAT) {
+                if !how.flags().contains(OpenFlags::O_CREAT) {
                     return Err(LxError::ENOENT);
                 }
-                if flags.contains(OpenFlags::O_DIRECTORY) || path.relative.slash_suffix {
+                if how.flags().contains(OpenFlags::O_DIRECTORY) || path.relative.slash_suffix {
                     return Err(LxError::ENOTDIR);
                 }
                 let metadata = Metadata::new();
-                metadata.permbits.store(mode.0, atomic::Ordering::Relaxed);
+                metadata
+                    .permbits
+                    .store(how.mode().0, atomic::Ordering::Relaxed);
                 let file = Arc::new(Reg {
                     metadata,
                     buf: RegBuf::new(),
@@ -130,9 +147,9 @@ impl Filesystem for Tmpfs {
                     path.relative.parts.last().ok_or(LxError::EEXIST)?.clone(),
                     Node::File(file.clone()),
                 );
-                Ok(NewlyOpen::Virtual(file.open_vfd(flags)?))
+                Ok(NewlyOpen::Virtual(file.open_vfd(how.flags())?))
             }
-            Location::MidSymlink(vpath) => Process::current().mnt.locate(&vpath)?.open(flags, mode),
+            Location::MidSymlink(vpath) => Process::current().mnt.locate(&vpath)?.open(how),
         }
     }
 
@@ -152,7 +169,7 @@ impl Filesystem for Tmpfs {
     }
 
     fn get_sock_path(&self, path: LPath, create: bool) -> Result<PathBuf, LxError> {
-        todo!()
+        Err(LxError::EINVAL)
     }
 
     fn link(&self, src: LPath, dst: LPath) -> Result<(), LxError> {
@@ -204,14 +221,7 @@ impl Filesystem for Tmpfs {
         match self.locate(dst.clone())? {
             Location::Direct(_, Some(_)) => Err(LxError::EEXIST),
             Location::Direct(dir, None) => {
-                let child = Symlink {
-                    metadata: Metadata::new(),
-                    target: content.to_vec(),
-                };
-                child
-                    .metadata
-                    .permbits
-                    .store(0o777, atomic::Ordering::Relaxed);
+                let child = Symlink::new(content.to_vec());
                 dir.children.insert(
                     dst.relative.parts.last().ok_or(LxError::EEXIST)?.clone(),
                     Node::Symlink(Arc::new(child)),
@@ -519,10 +529,17 @@ impl Drop for DevFd {
     }
 }
 
-struct DynFile<R, W> {
+pub struct DynFile<R, W> {
     metadata: Metadata,
     rdf: R,
     wrf: W,
+}
+impl<R, W> DynFile<R, W> {
+    pub fn new(rdf: R, wrf: W, permbits: u16) -> Self {
+        let metadata = Metadata::new();
+        metadata.permbits.store(permbits, atomic::Ordering::Relaxed);
+        Self { rdf, wrf, metadata }
+    }
 }
 impl<R, W> File for DynFile<R, W>
 where
@@ -577,6 +594,13 @@ struct Symlink {
     metadata: Metadata,
     target: Vec<u8>,
 }
+impl Symlink {
+    fn new(target: Vec<u8>) -> Self {
+        let metadata = Metadata::new();
+        metadata.permbits.store(0o777, atomic::Ordering::Relaxed);
+        Self { metadata, target }
+    }
+}
 impl File for Symlink {
     fn open_vfd(self: Arc<Self>, flags: OpenFlags) -> Result<Vfd, LxError> {
         Ok(Vfd::new(self, flags))
@@ -607,7 +631,7 @@ impl Symlink {
 }
 
 #[derive(Debug)]
-struct Metadata {
+pub struct Metadata {
     xattrs: DashMap<Vec<u8>, Vec<u8>, FxBuildHasher>,
     uid: AtomicU32,
     gid: AtomicU32,
@@ -628,21 +652,6 @@ impl Metadata {
             btime: RwLock::new(Timespec::now()),
             ctime: RwLock::new(Timespec::now()),
             mtime: RwLock::new(Timespec::now()),
-        }
-    }
-
-    fn kernfs(&self) -> bool {
-        match self.xattrs.get(XATTR_KERNFS) {
-            Some(val) if *val == b"1" => true,
-            _ => false,
-        }
-    }
-
-    fn set_kernfs(&self, value: bool) {
-        if value {
-            self.xattrs.insert(XATTR_KERNFS.to_vec(), b"1".to_vec());
-        } else {
-            self.xattrs.remove(XATTR_KERNFS);
         }
     }
 

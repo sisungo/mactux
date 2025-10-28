@@ -3,7 +3,6 @@ use crate::{ipc::RegChannel, task::process::Process};
 use anyhow::anyhow;
 use mactux_ipc::request::Request;
 use std::os::unix::net::UnixStream;
-use structures::fs::OpenFlags;
 
 #[derive(Debug)]
 pub struct RegSession(RegChannel);
@@ -38,9 +37,7 @@ impl RegSession {
 
         while let Ok(req) = self.0.recv::<Request>(&mut buf) {
             let resp = match req {
-                Request::Open(path, flags, mode) => {
-                    open(path, OpenFlags::from_bits_retain(flags), mode).into_response()
-                }
+                Request::Open(path, how) => open(path, how).into_response(),
                 Request::Access(path, flags) => access(path, flags).into_response(),
                 Request::Unlink(path) => unlink(path).into_response(),
                 Request::Rmdir(path) => rmdir(path).into_response(),
@@ -55,6 +52,7 @@ impl RegSession {
                 Request::VfdWrite(vfd, buf) => vfd_write(vfd, &buf).into_response(),
                 Request::VfdSeek(vfd, whence, off) => vfd_lseek(vfd, whence, off).into_response(),
                 Request::VfdGetdent(vfd) => vfd_getdent(vfd).into_response(),
+                Request::VfdReadlink(vfd) => vfd_readlink(vfd).into_response(),
                 Request::VfdClose(vfd) => vfd_close(vfd).into_response(),
                 Request::VfdOrigPath(vfd) => vfd_orig_path(vfd).into_response(),
                 Request::VfdIoctlQuery(vfd, cmd) => vfd_ioctl_query(vfd, cmd).into_response(),

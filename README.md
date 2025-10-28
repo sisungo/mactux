@@ -39,7 +39,6 @@ We currently prioritizes to implement:
 
  - Multi-thread support
  - Networking support
- - Symlink support
  - Epoll support
  - Full procfs support
  - sysfs support

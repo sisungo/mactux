@@ -24,7 +24,7 @@ use structures::{
     ToApple,
     device::DeviceNumber,
     error::LxError,
-    fs::{AccessFlags, Dirent64, Dirent64Hdr, DirentType, FileMode, OpenFlags, Statx},
+    fs::{AccessFlags, Dirent64, Dirent64Hdr, DirentType, FileMode, OpenFlags, OpenHow, Statx},
 };
 
 /// A nativefs mount.
@@ -40,12 +40,7 @@ impl NativeFs {
     }
 }
 impl Filesystem for NativeFs {
-    fn open(
-        self: Arc<Self>,
-        path: LPath,
-        flags: OpenFlags,
-        mode: FileMode,
-    ) -> Result<NewlyOpen, LxError> {
+    fn open(self: Arc<Self>, path: LPath, how: OpenHow) -> Result<NewlyOpen, LxError> {
         match NPath::resolve(&self.base, path)? {
             NPath::Direct(dst) => unsafe {
                 let mut statbuf = std::mem::zeroed();
@@ -55,19 +50,19 @@ impl Filesystem for NativeFs {
                 }
                 if statbuf.st_mode & libc::S_IFMT == libc::S_IFDIR {
                     let vfd_content = Arc::new(DirFd::new(dst, statbuf)?);
-                    return Ok(NewlyOpen::Virtual(Vfd::new(vfd_content, flags)));
+                    return Ok(NewlyOpen::Virtual(Vfd::new(vfd_content, how.flags())));
                 }
                 Ok(NewlyOpen::Native(dst.into_bytes()))
             },
             NPath::HasSymlink(symexpr) => Process::current()
                 .mnt
                 .locate(&symexpr.into_vpath())?
-                .open(flags, mode),
+                .open(how),
             NPath::IsSymlink(_, content) => {
-                if flags.contains(OpenFlags::O_NOFOLLOW) {
+                if how.flags().contains(OpenFlags::O_NOFOLLOW) {
                     return Err(LxError::ELOOP);
                 }
-                Process::current().mnt.locate(&content)?.open(flags, mode)
+                Process::current().mnt.locate(&content)?.open(how)
             }
         }
     }

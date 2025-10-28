@@ -75,6 +75,7 @@ OpenFlags;
     O_CLOEXEC,
     O_SYNC
 );
+impl_bincode_for_bitflags!(OpenFlags: u32);
 
 bitflags! {
     #[derive(Debug, Clone, Copy)]
@@ -83,7 +84,6 @@ bitflags! {
         const AT_EMPTY_PATH = 0x1000;
         const AT_SYMLINK_NOFOLLOW = 0x100;
         const AT_REMOVEDIR = 0x200;
-        const _AT_APPLE_SYMLINK = 0x8000;
     }
 }
 
@@ -460,3 +460,28 @@ bitflags! {
     }
 }
 impl_bincode_for_bitflags!(StatxMask: u32);
+
+#[derive(Debug, Clone, Encode, Decode)]
+pub struct OpenHow {
+    pub flags: u64,
+    pub mode: u64,
+    pub resolve: OpenResolve,
+}
+impl OpenHow {
+    pub fn flags(&self) -> OpenFlags {
+        OpenFlags::from_bits_retain(self.flags as _)
+    }
+
+    pub fn mode(&self) -> FileMode {
+        FileMode(self.mode as _)
+    }
+}
+
+bitflags! {
+    #[derive(Debug, Clone, Copy)]
+    #[repr(transparent)]
+    pub struct OpenResolve: u64 {
+        const RESOLVE_NO_SYMLINKS = 4;
+    }
+}
+impl_bincode_for_bitflags!(OpenResolve: u64);

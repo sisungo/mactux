@@ -118,7 +118,7 @@ pub unsafe fn sys_lstat(filename: *const c_char, statbuf: *mut Stat) -> Result<(
             -100,
             rust_bytes(filename).to_vec(),
             OpenFlags::O_PATH,
-            AtFlags::_AT_APPLE_SYMLINK,
+            AtFlags::AT_SYMLINK_NOFOLLOW,
             0,
             |fd| rtenv::fs::stat(fd),
         )?;
@@ -170,7 +170,7 @@ pub unsafe fn sys_readlink(
             -100,
             rust_bytes(path).to_vec(),
             OpenFlags::empty(),
-            AtFlags::_AT_APPLE_SYMLINK,
+            AtFlags::AT_SYMLINK_NOFOLLOW,
             0,
             rtenv::fs::readlink,
         )?;
@@ -190,7 +190,7 @@ pub unsafe fn sys_readlinkat(
             -dfd,
             rust_bytes(path).to_vec(),
             OpenFlags::empty(),
-            AtFlags::_AT_APPLE_SYMLINK,
+            AtFlags::AT_SYMLINK_NOFOLLOW,
             0,
             rtenv::fs::readlink,
         )?;
@@ -260,7 +260,16 @@ pub unsafe fn sys_sync() {
 
 #[syscall]
 pub unsafe fn sys_symlink(src: *const c_char, dst: *const c_char) -> Result<(), LxError> {
-    unsafe { rtenv::fs::symlink(rust_bytes(src).to_vec(), rust_bytes(dst).to_vec()) }
+    unsafe { rtenv::fs::symlinkat(rust_bytes(src).to_vec(), -100, rust_bytes(dst).to_vec()) }
+}
+
+#[syscall]
+pub unsafe fn sys_symlinkat(
+    src: *const c_char,
+    newdfd: c_int,
+    dst: *const c_char,
+) -> Result<(), LxError> {
+    unsafe { rtenv::fs::symlinkat(rust_bytes(src).to_vec(), newdfd, rust_bytes(dst).to_vec()) }
 }
 
 #[syscall]
@@ -347,7 +356,7 @@ pub unsafe fn sys_llistxattr(
             -100,
             rust_bytes(path).to_vec(),
             OpenFlags::O_PATH,
-            AtFlags::_AT_APPLE_SYMLINK,
+            AtFlags::AT_SYMLINK_NOFOLLOW,
             0,
             |fd| crate::util::ret_buf(&rtenv::fs::listxattr(fd)?, list, size),
         )

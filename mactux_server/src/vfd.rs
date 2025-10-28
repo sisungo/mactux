@@ -168,6 +168,10 @@ impl Vfd {
         self.content.removexattr(name)
     }
 
+    pub fn readlink(&self) -> Result<Vec<u8>, LxError> {
+        self.content.readlink()
+    }
+
     /// Returns the original path of this VFD, if any.
     pub fn orig_path(&self) -> Option<&[u8]> {
         self.orig_path.get().map(|x| &**x)

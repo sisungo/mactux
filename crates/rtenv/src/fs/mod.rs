@@ -9,7 +9,10 @@ use structures::{
     ToApple,
     device::DeviceNumber,
     error::LxError,
-    fs::{AccessFlags, AtFlags, Dirent64, FileMode, OpenFlags, Statx, UmountFlags},
+    fs::{
+        AccessFlags, AtFlags, Dirent64, FileMode, OpenFlags, OpenHow, OpenResolve, Statx,
+        UmountFlags,
+    },
 };
 
 #[derive(Debug)]
@@ -35,31 +38,35 @@ pub fn open(path: Vec<u8>, flags: OpenFlags, mode: FileMode) -> Result<c_int, Lx
 pub fn openat(
     dfd: c_int,
     path: Vec<u8>,
-    mut oflags: OpenFlags,
+    oflags: OpenFlags,
     atflags: AtFlags,
     mode: FileMode,
 ) -> Result<c_int, LxError> {
-    if atflags.contains(AtFlags::AT_SYMLINK_NOFOLLOW) {
-        oflags |= OpenFlags::O_NOFOLLOW;
-    }
-
     if path.is_empty() && atflags.contains(AtFlags::AT_EMPTY_PATH) {
         return crate::io::dup(dfd);
     }
 
     let path = at_path(dfd, path)?;
 
-    with_client(|client| {
-        match client
-            .invoke(Request::Open(path, oflags.bits(), mode))
-            .unwrap()
-        {
+    let mut resolve = OpenResolve::empty();
+    if atflags.contains(AtFlags::AT_SYMLINK_NOFOLLOW) {
+        resolve |= OpenResolve::RESOLVE_NO_SYMLINKS;
+    }
+
+    let how = OpenHow {
+        flags: oflags.bits() as _,
+        mode: mode.0 as _,
+        resolve,
+    };
+
+    with_client(
+        |client| match client.invoke(Request::Open(path, how)).unwrap() {
             Response::OpenNativePath(native) => open_native(native, oflags, atflags, mode.0 as _),
             Response::OpenVirtualFd(vfd) => crate::vfd::create(vfd, oflags),
             Response::Error(err) => Err(err),
             _ => ipc_fail(),
-        }
-    })
+        },
+    )
 }
 
 #[inline]
@@ -123,10 +130,10 @@ pub unsafe fn chown(fd: c_int, uid: u32, gid: u32) -> Result<(), LxError> {
 }
 
 #[inline]
-pub fn symlink(src: Vec<u8>, dst: Vec<u8>) -> Result<(), LxError> {
+pub fn symlinkat(src: Vec<u8>, newdfd: c_int, dst: Vec<u8>) -> Result<(), LxError> {
     with_client(|client| {
         match client
-            .invoke(Request::Symlink(src, full_path(dst)?))
+            .invoke(Request::Symlink(src, at_path(newdfd, dst)?))
             .unwrap()
         {
             Response::Nothing => Ok(()),
@@ -317,7 +324,7 @@ fn open_native(
         let c_path = crate::util::c_path(native);
         let mut oflags = oflags.to_apple()?;
 
-        if atflags.contains(AtFlags::_AT_APPLE_SYMLINK) {
+        if atflags.contains(AtFlags::AT_SYMLINK_NOFOLLOW) {
             oflags |= libc::O_SYMLINK;
         }
 
