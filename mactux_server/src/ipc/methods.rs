@@ -77,6 +77,16 @@ pub fn get_sock_path(path: Vec<u8>, create: bool) -> Result<Response, LxError> {
         .map(|path| Response::SockPath(path.into_os_string().into_encoded_bytes()))
 }
 
+pub fn vfd_dup(vfd: u64) -> Result<Response, LxError> {
+    let dup = Process::current()
+        .vfd
+        .unregister(vfd)
+        .ok_or(LxError::EBADF)?
+        .dup();
+    let id = Process::current().vfd.register(dup);
+    Ok(Response::DupVirtualFd(id))
+}
+
 pub fn vfd_read(vfd: u64, bufsiz: usize) -> Result<Response, LxError> {
     let mut buf = vec![0; bufsiz];
     Process::current()
@@ -87,12 +97,31 @@ pub fn vfd_read(vfd: u64, bufsiz: usize) -> Result<Response, LxError> {
     Ok(Response::Read(buf))
 }
 
+pub fn vfd_pread(vfd: u64, bufsiz: usize, off: i64) -> Result<Response, LxError> {
+    let mut buf = vec![0; bufsiz];
+    Process::current()
+        .vfd
+        .get(vfd)
+        .ok_or(LxError::EBADF)?
+        .pread(&mut buf, off)?;
+    Ok(Response::Read(buf))
+}
+
 pub fn vfd_write(vfd: u64, buf: &[u8]) -> Result<Response, LxError> {
     Process::current()
         .vfd
         .get(vfd)
         .ok_or(LxError::EBADF)?
         .write(buf)
+        .map(Response::Write)
+}
+
+pub fn vfd_pwrite(vfd: u64, buf: &[u8], off: i64) -> Result<Response, LxError> {
+    Process::current()
+        .vfd
+        .get(vfd)
+        .ok_or(LxError::EBADF)?
+        .pwrite(buf, off)
         .map(Response::Write)
 }
 

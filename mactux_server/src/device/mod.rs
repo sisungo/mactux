@@ -7,7 +7,7 @@ mod term;
 #[cfg(feature = "audio")]
 mod oss;
 
-use crate::file::{Ioctl, Stream};
+use crate::vfd::Stream;
 use dashmap::DashMap;
 use rustc_hash::FxBuildHasher;
 use std::{path::PathBuf, sync::Arc};
@@ -54,7 +54,7 @@ impl DeviceTable {
 }
 
 /// A device.
-pub trait Device: Stream + Ioctl + Send + Sync {
+pub trait Device: Send + Sync {
     /// If this device can map to a macOS device directly, returns its path, otherwise `None`.
     ///
     /// If the call to this device is requested by client Linux programs, it is guaranteed to use the macOS device if
@@ -64,10 +64,7 @@ pub trait Device: Stream + Ioctl + Send + Sync {
     }
 
     /// This is called when the device is opened with given flags.
-    fn open(&self, flags: OpenFlags) -> Result<(), LxError> {
-        Ok(())
+    fn open(&self, _flags: OpenFlags) -> Result<Arc<dyn Stream + Send + Sync>, LxError> {
+        Err(LxError::EINVAL)
     }
-
-    /// This is called when the device is closed.
-    fn close(&self) {}
 }

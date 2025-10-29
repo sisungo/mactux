@@ -1,9 +1,6 @@
 //! Virtual file descriptor support.
 
-use crate::{
-    file::{Ioctl, Stream},
-    poll::PollToken,
-};
+use crate::poll::PollToken;
 use crossbeam::atomic::AtomicCell;
 use dashmap::DashMap;
 use mactux_ipc::response::{CtrlOutput, VfdAvailCtrl};
@@ -75,7 +72,7 @@ impl Vfd {
         self.content.read(buf, &mut off)
     }
 
-    pub fn pwrite(&self, buf: &mut [u8], mut off: i64) -> Result<usize, LxError> {
+    pub fn pwrite(&self, buf: &[u8], mut off: i64) -> Result<usize, LxError> {
         if !self.open_flags.load().is_writable() {
             return Err(LxError::EBADF);
         }
@@ -111,10 +108,10 @@ impl Vfd {
                 }
             }
             FcntlCmd::F_SETFD => {
-                let mut fd_flags = [0u8; size_of::<u32>()];
+                let mut fd_flags = [0u8; size_of::<u64>()];
                 fd_flags.copy_from_slice(data);
-                let fd_flags = u32::from_ne_bytes(fd_flags);
-                let Some(fd_flags) = FdFlags::from_bits(fd_flags) else {
+                let fd_flags = u64::from_ne_bytes(fd_flags);
+                let Some(fd_flags) = FdFlags::from_bits(fd_flags as _) else {
                     return Err(LxError::EINVAL);
                 };
                 if fd_flags.contains(FdFlags::FD_CLOEXEC) {
@@ -185,7 +182,33 @@ impl Vfd {
     }
 }
 
-pub trait VfdContent: Stream + Ioctl + Send + Sync {
+pub trait Stream {
+    fn read(&self, _buf: &mut [u8], _off: &mut i64) -> Result<usize, LxError> {
+        Err(LxError::EOPNOTSUPP)
+    }
+
+    fn write(&self, _buf: &[u8], _off: &mut i64) -> Result<usize, LxError> {
+        Err(LxError::EOPNOTSUPP)
+    }
+
+    fn seek(&self, _whence: Whence, _off: i64) -> Result<u64, LxError> {
+        Err(LxError::EOPNOTSUPP)
+    }
+
+    fn ioctl_query(&self, _cmd: IoctlCmd) -> Result<VfdAvailCtrl, LxError> {
+        Err(LxError::EOPNOTSUPP)
+    }
+
+    fn ioctl(&self, _cmd: IoctlCmd, _data: &[u8]) -> Result<CtrlOutput, LxError> {
+        Err(LxError::EOPNOTSUPP)
+    }
+
+    fn poll(&self, _interest: PollEvents) -> Result<PollToken, LxError> {
+        Err(LxError::EOPNOTSUPP)
+    }
+}
+
+pub trait VfdContent: Stream + Send + Sync {
     fn stat(&self) -> Result<Statx, LxError> {
         Err(LxError::EOPNOTSUPP)
     }
@@ -214,10 +237,6 @@ pub trait VfdContent: Stream + Ioctl + Send + Sync {
     }
 
     fn get_socket(&self, _create: bool) -> Result<PathBuf, LxError> {
-        Err(LxError::EOPNOTSUPP)
-    }
-
-    fn poll(&self, _interest: PollEvents) -> Result<PollToken, LxError> {
         Err(LxError::EOPNOTSUPP)
     }
 

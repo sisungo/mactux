@@ -3,14 +3,13 @@
 use crate::{
     app,
     device::Device,
-    file::{Ioctl, Stream},
     filesystem::{
         VPath,
         vfs::{Filesystem, LPath, NewlyOpen},
     },
     task::process::Process,
     util::symlink_abs,
-    vfd::{Vfd, VfdContent},
+    vfd::{Stream, Vfd, VfdContent},
 };
 use dashmap::DashMap;
 use mactux_ipc::response::{CtrlOutput, VfdAvailCtrl};
@@ -30,7 +29,7 @@ use structures::{
         AccessFlags, Dirent64, Dirent64Hdr, FileMode, FileType, OpenFlags, OpenHow, OpenResolve,
         Statx, StatxAttrs, StatxMask,
     },
-    io::IoctlCmd,
+    io::{IoctlCmd, Whence},
     time::Timespec,
 };
 
@@ -235,7 +234,7 @@ impl Filesystem for Tmpfs {
     fn unlink(&self, path: LPath) -> Result<(), LxError> {
         match self.locate(path.clone())? {
             Location::Direct(dir, Some(node)) => {
-                if !matches!(node, Node::File(_)) {
+                if matches!(node, Node::Dir(_)) {
                     return Err(LxError::EISDIR);
                 }
                 dir.children
@@ -364,7 +363,6 @@ struct DirFd {
     iter: Mutex<Vec<Dirent64>>,
 }
 impl Stream for DirFd {}
-impl Ioctl for DirFd {}
 impl VfdContent for DirFd {
     fn getdent(&self) -> Result<Option<Dirent64>, LxError> {
         Ok(self.iter.lock().unwrap().pop())
@@ -431,7 +429,6 @@ impl Stream for Reg {
         }
     }
 }
-impl Ioctl for Reg {}
 impl VfdContent for Reg {
     fn stat(&self) -> Result<Statx, LxError> {
         let mut stat = self.metadata.stat_template(StatxMask::all());
@@ -466,11 +463,10 @@ impl File for Dev {
             None
         } else {
             let x = match self.file_type {
-                FileType::CharDevice => app().devices.find_chr(self.dev)?,
-                FileType::BlockDevice => app().devices.find_blk(self.dev)?,
+                FileType::CharDevice => app().devices.find_chr(self.dev)?.open(flags)?,
+                FileType::BlockDevice => app().devices.find_blk(self.dev)?.open(flags)?,
                 _ => unreachable!(),
             };
-            x.open(flags)?;
             Some(x)
         };
         Ok(Vfd::new(
@@ -488,7 +484,7 @@ impl File for Dev {
 struct DevFd {
     metadata: Arc<Metadata>,
     file_type: FileType,
-    device: Option<Arc<dyn Device>>,
+    device: Option<Arc<dyn Stream + Send + Sync>>,
     devnum: DeviceNumber,
 }
 impl Stream for DevFd {
@@ -499,8 +495,14 @@ impl Stream for DevFd {
     fn write(&self, buf: &[u8], off: &mut i64) -> Result<usize, LxError> {
         self.device.as_ref().ok_or(LxError::EBADF)?.write(buf, off)
     }
-}
-impl Ioctl for DevFd {
+
+    fn seek(&self, whence: Whence, off: i64) -> Result<u64, LxError> {
+        self.device
+            .as_ref()
+            .ok_or(LxError::EBADF)?
+            .seek(whence, off)
+    }
+
     fn ioctl_query(&self, cmd: IoctlCmd) -> Result<VfdAvailCtrl, LxError> {
         self.device.as_ref().ok_or(LxError::EBADF)?.ioctl_query(cmd)
     }
@@ -519,13 +521,6 @@ impl VfdContent for DevFd {
         statx.stx_rdev_minor = self.devnum.minor();
 
         Ok(statx)
-    }
-}
-impl Drop for DevFd {
-    fn drop(&mut self) {
-        if let Some(device) = &self.device {
-            device.close();
-        }
     }
 }
 
@@ -550,7 +545,6 @@ where
         Ok(Vfd::new(self, flags))
     }
 }
-impl<R, W> Ioctl for DynFile<R, W> {}
 impl<R, W> Stream for DynFile<R, W>
 where
     R: Fn() -> Result<Vec<u8>, LxError> + Send + Sync,
@@ -607,7 +601,6 @@ impl File for Symlink {
     }
 }
 impl Stream for Symlink {}
-impl Ioctl for Symlink {}
 impl VfdContent for Symlink {
     fn readlink(&self) -> Result<Vec<u8>, LxError> {
         Ok(self.target.clone())

@@ -2,39 +2,45 @@
 
 use crate::{
     device::{Device, DeviceTable},
-    file::{Ioctl, Stream},
     multimedia::audio::AudioOutput,
+    vfd::Stream,
 };
 use mactux_ipc::response::{CtrlOutput, VfdAvailCtrl};
 use rodio::cpal::SampleFormat;
 use std::{
     ffi::c_int,
-    sync::{
-        Arc, Mutex,
-        atomic::{self, AtomicBool},
-    },
+    sync::{Arc, atomic},
 };
 use structures::{error::LxError, fs::OpenFlags, io::IoctlCmd};
 
 /// The `/dev/dsp` device.
 #[derive(Debug)]
-struct Dsp {
-    locked: AtomicBool,
-    output: Mutex<Option<Arc<AudioOutput>>>,
+struct Dsp;
+impl Device for Dsp {
+    fn open(&self, flags: OpenFlags) -> Result<Arc<dyn Stream + Send + Sync>, LxError> {
+        Ok(DspFd::new(flags)?)
+    }
 }
-impl Dsp {
-    fn new() -> Self {
-        Self {
-            locked: AtomicBool::new(false),
-            output: Mutex::new(None),
-        }
+
+struct DspFd {
+    output: Option<Arc<AudioOutput>>,
+}
+impl DspFd {
+    fn new(flags: OpenFlags) -> Result<Arc<Self>, LxError> {
+        let output = if flags.is_writable() {
+            Some(Arc::new(AudioOutput::new()?))
+        } else {
+            None
+        };
+
+        Ok(Arc::new(Self { output }))
     }
 
     fn output(&self) -> Result<Arc<AudioOutput>, LxError> {
-        self.output.lock().unwrap().clone().ok_or(LxError::EBADF)
+        self.output.clone().ok_or(LxError::EBADF)
     }
 }
-impl Stream for Dsp {
+impl Stream for DspFd {
     fn write(&self, buf: &[u8], _off: &mut i64) -> Result<usize, LxError> {
         let output = self.output()?;
         let nbytes = output.write_samples(buf)?;
@@ -50,8 +56,7 @@ impl Stream for Dsp {
 
         Ok(nbytes)
     }
-}
-impl Ioctl for Dsp {
+
     fn ioctl_query(&self, cmd: IoctlCmd) -> Result<VfdAvailCtrl, LxError> {
         const AVAIL_CTRL: VfdAvailCtrl = VfdAvailCtrl {
             in_size: size_of::<c_int>() as _,
@@ -120,34 +125,7 @@ impl Ioctl for Dsp {
         }
     }
 }
-impl Device for Dsp {
-    fn open(&self, flags: OpenFlags) -> Result<(), LxError> {
-        if self
-            .locked
-            .compare_exchange(
-                false,
-                true,
-                atomic::Ordering::Relaxed,
-                atomic::Ordering::Relaxed,
-            )
-            .is_err()
-        {
-            return Err(LxError::EBUSY);
-        }
-
-        if flags.is_writable() {
-            *self.output.lock().unwrap() = Some(Arc::new(AudioOutput::new()?));
-        }
-
-        Ok(())
-    }
-
-    fn close(&self) {
-        *self.output.lock().unwrap() = None;
-        self.locked.store(false, atomic::Ordering::Relaxed);
-    }
-}
 
 pub fn discover(devices: &DeviceTable) {
-    devices.add_chr_fixed(14, 3, || Arc::new(Dsp::new()));
+    devices.add_chr_fixed(14, 3, || Arc::new(Dsp));
 }

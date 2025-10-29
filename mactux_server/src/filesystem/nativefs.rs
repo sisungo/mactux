@@ -1,14 +1,13 @@
 //! A filesystem that maps all Linux filesystem operations to the underlying macOS one.
 
 use crate::{
-    file::{Ioctl, Stream},
     filesystem::{
         VPath,
         vfs::{Filesystem, LPath, NewlyOpen},
     },
     task::process::Process,
     util::symlink_abs,
-    vfd::{Vfd, VfdContent},
+    vfd::{Stream, Vfd, VfdContent},
 };
 use libc::c_int;
 use std::{
@@ -296,7 +295,6 @@ impl DirFd {
     }
 }
 impl Stream for DirFd {}
-impl Ioctl for DirFd {}
 impl VfdContent for DirFd {
     fn getdent(&self) -> Result<Option<Dirent64>, LxError> {
         if let Some(entry) = self.dotself.lock().unwrap().pop() {

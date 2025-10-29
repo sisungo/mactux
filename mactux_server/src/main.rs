@@ -2,7 +2,6 @@
 
 mod config;
 mod device;
-mod file;
 mod filesystem;
 mod ipc;
 mod network;

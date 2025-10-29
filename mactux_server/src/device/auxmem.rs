@@ -2,7 +2,7 @@
 
 use crate::{
     device::{Device, DeviceTable},
-    file::{Ioctl, Stream},
+    vfd::Stream,
 };
 use std::{path::PathBuf, sync::Arc};
 use structures::error::LxError;
@@ -14,7 +14,6 @@ impl Stream for Zero {
         Ok(buf.len())
     }
 }
-impl Ioctl for Zero {}
 impl Device for Zero {
     fn macos_device(&self) -> Option<PathBuf> {
         Some(PathBuf::from("/dev/zero"))
@@ -31,7 +30,6 @@ impl Stream for Null {
         Ok(buf.len())
     }
 }
-impl Ioctl for Null {}
 impl Device for Null {
     fn macos_device(&self) -> Option<PathBuf> {
         Some(PathBuf::from("/dev/null"))
@@ -49,12 +47,10 @@ impl Stream for Full {
         Err(LxError::ENOSPC)
     }
 }
-impl Ioctl for Full {}
 impl Device for Full {}
 
 struct Random;
 impl Stream for Random {}
-impl Ioctl for Random {}
 impl Device for Random {
     fn macos_device(&self) -> Option<PathBuf> {
         Some(PathBuf::from("/dev/random"))
@@ -63,7 +59,6 @@ impl Device for Random {
 
 struct URandom;
 impl Stream for URandom {}
-impl Ioctl for URandom {}
 impl Device for URandom {
     fn macos_device(&self) -> Option<PathBuf> {
         Some(PathBuf::from("/dev/urandom"))
