@@ -5,13 +5,17 @@ use crate::{
     multimedia::audio::AudioOutput,
     vfd::Stream,
 };
-use mactux_ipc::response::{CtrlOutput, VfdAvailCtrl};
+use mactux_ipc::response::CtrlOutput;
 use rodio::cpal::SampleFormat;
 use std::{
     ffi::c_int,
     sync::{Arc, atomic},
 };
-use structures::{error::LxError, fs::OpenFlags, io::IoctlCmd};
+use structures::{
+    error::LxError,
+    fs::OpenFlags,
+    io::{IoctlCmd, VfdAvailCtrl},
+};
 
 /// The `/dev/dsp` device.
 #[derive(Debug)]

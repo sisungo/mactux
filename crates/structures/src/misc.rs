@@ -50,3 +50,17 @@ bitflags! {
         const GRND_RANDOM = 2;
     }
 }
+
+#[derive(Debug, Clone, Copy, Encode, Decode, PartialEq, Eq, PartialOrd, Ord)]
+#[repr(transparent)]
+pub struct LogLevel(pub u32);
+impl LogLevel {
+    pub const KERN_EMERG: Self = Self(0);
+    pub const KERN_ALERT: Self = Self(1);
+    pub const KERN_CRIT: Self = Self(2);
+    pub const KERN_ERR: Self = Self(3);
+    pub const KERN_WARNING: Self = Self(4);
+    pub const KERN_NOTICE: Self = Self(5);
+    pub const KERN_INFO: Self = Self(6);
+    pub const KERN_DEBUG: Self = Self(7);
+}

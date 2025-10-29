@@ -2,13 +2,16 @@ use crate::{
     filesystem::{VPath, vfs::NewlyOpen},
     task::process::Process,
 };
-use mactux_ipc::response::{CtrlOutput, NetworkNames, Response, VfdAvailCtrl};
+use mactux_ipc::{
+    response::{CtrlOutput, Response},
+    types::NetworkNames,
+};
 use std::sync::Arc;
 use structures::{
     device::DeviceNumber,
     error::LxError,
     fs::{AccessFlags, Dirent64, FileMode, OpenHow, Statx},
-    io::{FcntlCmd, IoctlCmd, Whence},
+    io::{FcntlCmd, IoctlCmd, VfdAvailCtrl, Whence},
 };
 
 pub fn open(path: Vec<u8>, how: OpenHow) -> Result<NewlyOpen, LxError> {

@@ -2,7 +2,12 @@ pub mod process;
 pub mod thread;
 pub mod tid_alloc;
 
-use crate::{app, filesystem::vfs::Filesystem, task::thread::Thread, util::Shared};
+use crate::{
+    app,
+    filesystem::{tmpfs::Tmpfs, vfs::Filesystem},
+    task::thread::Thread,
+    util::Shared,
+};
 use process::Process;
 use std::sync::Arc;
 use structures::error::LxError;
@@ -43,10 +48,14 @@ pub trait PidNamespace: Send + Sync {
     fn procfs(&self) -> Result<Arc<dyn Filesystem>, LxError>;
 }
 
-pub struct InitPid {}
+pub struct InitPid {
+    procfs: Arc<Tmpfs>,
+}
 impl InitPid {
     pub fn new() -> Self {
-        Self {}
+        let procfs = crate::filesystem::procfs::new()
+            .expect("it should never fail to create procfs for init_pid");
+        Self { procfs }
     }
 }
 impl PidNamespace for InitPid {
@@ -65,11 +74,11 @@ impl PidNamespace for InitPid {
     }
 
     fn register(&self, native: i32) -> Result<i32, LxError> {
-        todo!()
+        Ok(native)
     }
 
     fn unregister(&self, native: i32) -> Result<(), LxError> {
-        todo!()
+        Ok(())
     }
 
     fn parent(&self) -> Option<Shared<Box<dyn PidNamespace>>> {
@@ -81,7 +90,7 @@ impl PidNamespace for InitPid {
     }
 
     fn procfs(&self) -> Result<Arc<dyn Filesystem>, LxError> {
-        todo!()
+        Ok(self.procfs.clone())
     }
 }
 
@@ -123,7 +132,9 @@ impl Configuration {
             if created {
                 thread_builder.is_main();
             }
-            Thread::set_current(thread_builder.build()?);
+            let thread = thread_builder.build()?;
+            self.parent.pid.register(thread.tid())?;
+            Thread::set_current(thread);
         }
         Ok(())
     }

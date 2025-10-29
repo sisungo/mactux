@@ -1,8 +1,10 @@
+use crate::types::NetworkNames;
 use bincode::{Decode, Encode};
 use std::ffi::c_int;
 use structures::{
     error::LxError,
     fs::{Dirent64, Statx},
+    io::VfdAvailCtrl,
     misc::SysInfo,
 };
 
@@ -36,22 +38,8 @@ pub enum Response {
     Error(LxError),
 }
 
-/// Information about a virtual file descriptor's specific "ioctl" availability.
-#[derive(Debug, Clone, Encode, Decode)]
-pub struct VfdAvailCtrl {
-    pub in_size: isize,
-    pub out_size: usize,
-}
-
 #[derive(Debug, Clone, Encode, Decode)]
 pub struct CtrlOutput {
     pub status: c_int,
     pub blob: Vec<u8>,
-}
-
-/// Network names of current UTS namespace.
-#[derive(Debug, Clone, Encode, Decode)]
-pub struct NetworkNames {
-    pub nodename: Vec<u8>,
-    pub domainname: Vec<u8>,
 }

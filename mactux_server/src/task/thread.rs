@@ -45,6 +45,7 @@ impl Drop for Thread {
         if self.tid >= TID_MIN {
             tid_dealloc(self.tid);
         }
+        _ = self.process.pid.unregister(self.tid);
     }
 }
 

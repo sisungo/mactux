@@ -7,6 +7,7 @@ mod ipc;
 mod network;
 mod poll;
 mod sysinfo;
+mod syslog;
 mod task;
 mod util;
 mod vfd;
@@ -19,6 +20,7 @@ use crate::{
     device::DeviceTable,
     filesystem::{VPath, vfs::MountNamespace},
     sysinfo::{InitUts, UtsNamespace},
+    syslog::Syslog,
     task::{InitPid, PidNamespace, process::Process, thread::Thread},
     util::{ReclaimRegistry, Shared},
     vfd::VfdTable,
@@ -45,6 +47,9 @@ struct App {
     /// Namespaces.
     namespaces: Namespaces,
 
+    /// The system logger.
+    syslog: Syslog,
+
     /// The server thread.
     server_thread: OnceLock<Shared<Thread>>,
 }
@@ -62,6 +67,7 @@ impl App {
             threads,
             devices: DeviceTable::new(),
             namespaces: Namespaces::new(),
+            syslog: Syslog::new(),
             server_thread: OnceLock::new(),
         })
     }

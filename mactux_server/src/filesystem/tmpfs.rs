@@ -12,7 +12,7 @@ use crate::{
     vfd::{Stream, Vfd, VfdContent},
 };
 use dashmap::DashMap;
-use mactux_ipc::response::{CtrlOutput, VfdAvailCtrl};
+use mactux_ipc::response::CtrlOutput;
 use rustc_hash::FxBuildHasher;
 use std::{
     fmt::Debug,
@@ -29,7 +29,7 @@ use structures::{
         AccessFlags, Dirent64, Dirent64Hdr, FileMode, FileType, OpenFlags, OpenHow, OpenResolve,
         Statx, StatxAttrs, StatxMask,
     },
-    io::{IoctlCmd, Whence},
+    io::{IoctlCmd, VfdAvailCtrl, Whence},
     time::Timespec,
 };
 

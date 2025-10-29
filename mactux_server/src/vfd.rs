@@ -3,7 +3,7 @@
 use crate::poll::PollToken;
 use crossbeam::atomic::AtomicCell;
 use dashmap::DashMap;
-use mactux_ipc::response::{CtrlOutput, VfdAvailCtrl};
+use mactux_ipc::response::CtrlOutput;
 use rustc_hash::FxBuildHasher;
 use std::{
     path::PathBuf,
@@ -15,7 +15,7 @@ use std::{
 use structures::{
     error::LxError,
     fs::{Dirent64, OpenFlags, Statx, XATTR_NAMESPACE_PREFIXES},
-    io::{FcntlCmd, FdFlags, IoctlCmd, PollEvents, Whence},
+    io::{FcntlCmd, FdFlags, IoctlCmd, PollEvents, VfdAvailCtrl, Whence},
 };
 
 pub struct Vfd {

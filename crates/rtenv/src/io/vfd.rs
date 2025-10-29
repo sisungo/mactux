@@ -1,12 +1,9 @@
 use crate::{ipc_client::with_client, util::ipc_fail};
-use mactux_ipc::{
-    request::Request,
-    response::{Response, VfdAvailCtrl},
-};
+use mactux_ipc::{request::Request, response::Response};
 use std::ffi::c_int;
 use structures::{
     error::LxError,
-    io::{FcntlCmd, IoctlCmd, Whence},
+    io::{FcntlCmd, IoctlCmd, VfdAvailCtrl, Whence},
 };
 
 pub fn read(vfd: u64, buf: &mut [u8]) -> Result<usize, LxError> {

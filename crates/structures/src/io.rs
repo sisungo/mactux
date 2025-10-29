@@ -338,3 +338,10 @@ bitflags! {
         const CLOSE_RANGE_CLOEXEC = 4;
     }
 }
+
+/// Information about a virtual file descriptor's specific "ioctl" availability.
+#[derive(Debug, Clone, Encode, Decode)]
+pub struct VfdAvailCtrl {
+    pub in_size: isize,
+    pub out_size: usize,
+}

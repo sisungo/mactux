@@ -5,7 +5,7 @@ use crate::util::{rust_bytes, with_openat};
 use libc::{c_char, c_int, c_uint, c_void};
 use macros::syscall;
 use rtenv::{error_report::ErrorReport, posix_num};
-use std::{io::Write, ptr::NonNull, time::Duration};
+use std::{io::Write, num::NonZero, ptr::NonNull, time::Duration};
 use structures::{
     FromApple, ToApple,
     device::DeviceNumber,
@@ -1378,8 +1378,18 @@ pub unsafe fn sys_sched_getaffinity(
     cpusetsize: usize,
     cpuset: *mut u8,
 ) -> Result<(), LxError> {
+    let cpus = std::thread::available_parallelism()
+        .map(NonZero::get)
+        .unwrap_or(8);
+    let min_size = cpus.div_ceil(size_of::<u8>());
+    let last = 0xff << (cpus % size_of::<u8>());
+    if cpusetsize < min_size {
+        return Err(LxError::EINVAL);
+    }
     unsafe {
-        cpuset.write_bytes(0xff, cpusetsize);
+        cpuset.write_bytes(0, cpusetsize);
+        cpuset.write_bytes(0xff, min_size - 1);
+        cpuset.add(min_size - 1).write(last);
     }
     Ok(())
 }
@@ -1390,6 +1400,7 @@ pub unsafe fn sys_sched_setaffinity(
     _cpusetsize: usize,
     _cpuset: *const u8,
 ) -> Result<(), LxError> {
+    // TODO: We cannot really implement it on macOS.
     Err(LxError::EPERM)
 }
 
