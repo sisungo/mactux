@@ -1,17 +1,12 @@
 use crate::{
-    app,
     filesystem::vfs::MountNamespace,
     sysinfo::UtsNamespace,
     task::{PidNamespace, thread::Thread},
     util::Shared,
     vfd::VfdTable,
 };
-use std::cell::RefCell;
+use std::sync::RwLock;
 use structures::error::LxError;
-
-thread_local! {
-    static SAVED_PROCESS: RefCell<Option<Process>> = RefCell::new(None);
-}
 
 pub struct Process {
     pub mnt: Shared<MountNamespace>,

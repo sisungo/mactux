@@ -1,18 +1,21 @@
 use crate::{
+    app,
     filesystem::{VPath, vfs::NewlyOpen},
-    task::process::Process,
+    syslog::WriteLogRequest,
+    task::{process::Process, thread::Thread},
+    util::Shared,
 };
 use mactux_ipc::{
     response::{CtrlOutput, Response},
     types::NetworkNames,
 };
-use std::sync::Arc;
+use std::{io::Write, sync::Arc};
 use structures::{
     device::DeviceNumber,
     error::LxError,
     fs::{AccessFlags, Dirent64, FileMode, OpenHow, Statx},
     io::{FcntlCmd, IoctlCmd, VfdAvailCtrl, Whence},
-    misc::SysInfo,
+    misc::{LogLevel, SysInfo},
 };
 
 pub fn open(path: Vec<u8>, how: OpenHow) -> Result<NewlyOpen, LxError> {
@@ -231,6 +234,16 @@ pub fn after_fork(native_pid: libc::pid_t) -> Result<(), LxError> {
 
 pub fn after_exec() {
     Process::current().exec();
+}
+
+pub fn set_thread_name(name: Vec<u8>) {
+    *Thread::current().comm.write().unwrap() = Some(name);
+}
+
+pub fn write_syslog(level: LogLevel, mut content: Vec<u8>) {
+    let pid = Shared::id(&Process::current());
+    _ = write!(&mut content, " {{ pid={pid} }}");
+    app().syslog.write(WriteLogRequest { level, content });
 }
 
 pub trait IntoResponse {

@@ -67,7 +67,7 @@ impl SyslogImpl {
 
     fn write_log(&mut self, req: WriteLogRequest) {
         let mut fmt = Vec::with_capacity(req.content.len() + 16);
-        _ = fmt.write_all(b"[] ");
+        _ = write!(&mut fmt, "[] ");
         _ = fmt.write_all(&req.content);
         _ = fmt.write_all(b"\n");
 

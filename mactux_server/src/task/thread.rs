@@ -4,7 +4,7 @@
 
 use super::tid_alloc::{alloc as tid_alloc, dealloc as tid_dealloc};
 use crate::{app, task::process::Process, util::Shared};
-use std::cell::UnsafeCell;
+use std::{cell::UnsafeCell, sync::RwLock};
 use structures::{error::LxError, thread::TID_MIN};
 
 thread_local! {
@@ -14,6 +14,7 @@ thread_local! {
 pub struct Thread {
     tid: i32,
     pub process: Shared<Process>,
+    pub comm: RwLock<Option<Vec<u8>>>,
 }
 impl Thread {
     pub fn server() -> Shared<Self> {
@@ -77,6 +78,13 @@ impl Builder {
             true => Shared::id(&process) as i32,
             false => tid_alloc()?,
         };
-        Ok(app().threads.intervene(tid as _, Thread { tid, process }))
+        Ok(app().threads.intervene(
+            tid as _,
+            Thread {
+                tid,
+                process,
+                comm: None.into(),
+            },
+        ))
     }
 }

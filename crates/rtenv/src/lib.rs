@@ -29,6 +29,7 @@ pub unsafe fn install() -> std::io::Result<()> {
         thread::install()?;
         signal::install()?;
         structures::mapper::set_pid_mapper(Box::new(util::RtenvPidMapper));
+        log::set_logger(&misc::RustLogger).expect("a rust logger is set");
 
         Ok(())
     }

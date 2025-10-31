@@ -103,7 +103,6 @@ pub unsafe fn exec(
     }
 
     let mut args = Vec::with_capacity(argv.len() + 2 * envp.len() + 8);
-
     let mut argv = unsafe {
         argv.iter()
             .map(|&x| std::slice::from_raw_parts(x, libc::strlen(x as _)))

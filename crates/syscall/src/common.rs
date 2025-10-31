@@ -1474,11 +1474,7 @@ pub unsafe fn sys_invalid(uctx: &mut libc::ucontext_t) {
     unsafe {
         rtenv::emuctx::leave_emulated();
         if rtenv::switches::ignore_unsupported_syscalls() {
-            _ = writeln!(
-                ErrorReport,
-                " [ ! ] MacTux: Unsupported syscall: {}, ignoring!",
-                uctx.sysno()
-            );
+            log::warn!("ignored unsupported syscall {}", uctx.sysno());
             uctx.ret(-(LxError::ENOSYS.0 as isize) as usize);
             rtenv::emuctx::enter_emulated();
             return;

@@ -1,18 +1,29 @@
-use crate::util::sysctl_read;
+use crate::{app, util::sysctl_read};
 use libproc::{bsd_info::BSDInfo, task_info::TaskInfo};
 use std::io::Write;
 use structures::error::LxError;
 
 pub fn comm(apple_pid: libc::pid_t) -> impl Fn() -> Result<Vec<u8>, LxError> + Clone {
     move || {
+        if let Some(mut comm) = app()
+            .threads
+            .get(apple_pid as _)
+            .ok_or(LxError::EIO)?
+            .comm
+            .read()
+            .unwrap()
+            .clone()
+        {
+            comm.truncate(15);
+            comm.push(0);
+            return Ok(comm);
+        }
         let cmdline = parse_mactux_cmdline(apple_cmdline(apple_pid)?);
         let Some(arg0) = cmdline.get(0) else {
             return Ok(vec![0]);
         };
         let mut comm = arg0.rsplit(|x| *x == b'/').next().unwrap_or(&[]).to_vec();
-        if comm.len() > 15 {
-            comm.truncate(15);
-        }
+        comm.truncate(15);
         comm.push(0);
         Ok(comm)
     }

@@ -66,6 +66,10 @@ impl RegSession {
                 Request::SysInfo => sysinfo().into_response(),
                 Request::AfterFork(npid) => after_fork(npid).into_response(),
                 Request::AfterExec => after_exec().into_response(),
+                Request::WriteSyslog(level, content) => {
+                    write_syslog(level, content).into_response()
+                }
+                Request::SetThreadName(name) => set_thread_name(name).into_response(),
                 other => todo!("{other:?}"),
             };
             self.0.send(&resp)?;

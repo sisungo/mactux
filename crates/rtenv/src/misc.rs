@@ -2,7 +2,7 @@ use crate::{ipc_client::with_client, util::ipc_fail};
 use mactux_ipc::{request::Request, response::Response, types::NetworkNames};
 use structures::{
     error::LxError,
-    misc::{SysInfo, UtsName, uname_str},
+    misc::{LogLevel, SysInfo, UtsName, uname_str},
 };
 
 pub fn sysinfo() -> Result<SysInfo, LxError> {
@@ -59,6 +59,38 @@ pub fn set_network_names(nodename: Vec<u8>, domainname: Vec<u8>) -> Result<(), L
             _ => ipc_fail(),
         }
     })
+}
+
+pub fn write_syslog(level: LogLevel, content: Vec<u8>) {
+    with_client(|client| {
+        client.invoke(Request::WriteSyslog(level, content)).unwrap();
+    });
+}
+
+#[derive(Debug)]
+pub struct RustLogger;
+impl log::Log for RustLogger {
+    fn enabled(&self, _: &log::Metadata) -> bool {
+        true
+    }
+
+    fn flush(&self) {}
+
+    fn log(&self, record: &log::Record) {
+        let level = match record.level() {
+            log::Level::Trace => LogLevel::KERN_DEBUG,
+            log::Level::Debug => LogLevel::KERN_INFO,
+            log::Level::Info => LogLevel::KERN_NOTICE,
+            log::Level::Warn => LogLevel::KERN_WARNING,
+            log::Level::Error => LogLevel::KERN_ERR,
+        };
+        let content = format!(
+            "{}: {}",
+            record.module_path().unwrap_or("mactux"),
+            record.args()
+        );
+        write_syslog(level, content.into_bytes());
+    }
 }
 
 fn machine() -> [u8; 65] {

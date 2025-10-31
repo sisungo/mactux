@@ -416,7 +416,6 @@ impl Stream for Reg {
         if *off < 0 {
             return Err(LxError::EINVAL);
         }
-
         let orig_off = *off;
 
         loop {

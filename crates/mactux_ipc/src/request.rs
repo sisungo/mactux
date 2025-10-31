@@ -5,6 +5,7 @@ use structures::{
     device::DeviceNumber,
     fs::{AccessFlags, FileMode, OpenHow},
     io::{FcntlCmd, IoctlCmd, Whence},
+    misc::LogLevel,
 };
 
 /// An uninterruptible MacTux IPC request.
@@ -51,7 +52,7 @@ pub enum Request {
     SetNetworkNames(NetworkNames),
     SysInfo,
 
-    WriteSyslog(Vec<u8>),
+    WriteSyslog(LogLevel, Vec<u8>),
 
     AfterFork(i32),
     AfterExec,

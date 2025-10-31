@@ -89,7 +89,7 @@ pub fn mount(fs: &str, dev: &[u8], flags: u64, data: u8) -> Result<Arc<dyn Files
     match fs {
         "nativefs" => Ok(nativefs::NativeFs::new(dev, flags)?),
         "tmpfs" => Ok(tmpfs::Tmpfs::new()?),
-        "procfs" => Process::current().pid.procfs(),
+        "proc" => Process::current().pid.procfs(),
         _ => Err(LxError::ENODEV),
     }
 }
