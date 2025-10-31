@@ -167,7 +167,6 @@ pub unsafe fn exec(
 
 pub fn fork() -> Result<i32, LxError> {
     let new_client = crate::ipc_client::make_client();
-    new_client.invoke(Request::BeforeFork).unwrap();
 
     let status = may_fork(
         || unsafe {

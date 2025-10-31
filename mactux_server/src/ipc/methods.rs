@@ -225,10 +225,6 @@ pub fn vfd_fcntl(vfd: u64, cmd: FcntlCmd, data: &[u8]) -> Result<CtrlOutput, LxE
         .fcntl(cmd, data)
 }
 
-pub fn before_fork() {
-    crate::task::process::before_fork();
-}
-
 pub fn after_fork(native_pid: libc::pid_t) -> Result<(), LxError> {
     crate::task::process::after_fork(native_pid)
 }

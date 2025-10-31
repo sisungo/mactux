@@ -53,7 +53,6 @@ pub enum Request {
 
     WriteSyslog(Vec<u8>),
 
-    BeforeFork,
     AfterFork(i32),
     AfterExec,
 

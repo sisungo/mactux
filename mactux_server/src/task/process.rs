@@ -42,15 +42,9 @@ impl Process {
     }
 }
 
-pub fn before_fork() {
-    SAVED_PROCESS.set(Some(Process::current()._child()));
-}
-
-pub fn after_fork(native_pid: libc::pid_t) -> Result<(), LxError> {
-    let process = app()
-        .processes
-        .intervene(native_pid as _, SAVED_PROCESS.take().unwrap());
-    let thread = Thread::builder().process(process).is_main().build()?;
-    Thread::set_current(thread);
-    Ok(())
+pub fn after_fork(apple_pid: libc::pid_t) -> Result<(), LxError> {
+    crate::task::configure()
+        .parent(Process::current())
+        .apple_pid(apple_pid)
+        .exec()
 }

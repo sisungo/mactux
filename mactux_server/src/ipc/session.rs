@@ -64,7 +64,6 @@ impl RegSession {
                 Request::GetNetworkNames => get_network_names().into_response(),
                 Request::SetNetworkNames(set) => set_network_names(set).into_response(),
                 Request::SysInfo => sysinfo().into_response(),
-                Request::BeforeFork => before_fork().into_response(),
                 Request::AfterFork(npid) => after_fork(npid).into_response(),
                 Request::AfterExec => after_exec().into_response(),
                 other => todo!("{other:?}"),
