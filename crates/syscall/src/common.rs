@@ -420,7 +420,7 @@ pub unsafe fn sys_writev(
 }
 
 #[syscall]
-pub unsafe fn sys_lseek(fd: c_int, off: i64, whence: Whence) -> Result<u64, LxError> {
+pub unsafe fn sys_lseek(fd: c_int, off: i64, whence: Whence) -> Result<i64, LxError> {
     unsafe { rtenv::io::lseek(fd, off, whence) }
 }
 

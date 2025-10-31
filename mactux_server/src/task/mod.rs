@@ -4,13 +4,13 @@ pub mod tid_alloc;
 
 use crate::{
     app,
-    filesystem::{tmpfs::Tmpfs, vfs::Filesystem},
+    filesystem::{procfs, tmpfs::Tmpfs, vfs::Filesystem},
     task::thread::Thread,
     util::Shared,
 };
 use process::Process;
 use std::sync::Arc;
-use structures::error::LxError;
+use structures::{error::LxError, thread::TID_MIN};
 
 /// A pid namespace.
 ///
@@ -53,8 +53,7 @@ pub struct InitPid {
 }
 impl InitPid {
     pub fn new() -> Self {
-        let procfs = crate::filesystem::procfs::new()
-            .expect("it should never fail to create procfs for init_pid");
+        let procfs = procfs::new().expect("it should never fail to create procfs for init_pid");
         Self { procfs }
     }
 }
@@ -74,10 +73,16 @@ impl PidNamespace for InitPid {
     }
 
     fn register(&self, native: i32) -> Result<i32, LxError> {
+        if native < TID_MIN {
+            procfs::add_proc(&self.procfs, native, native)?;
+        }
         Ok(native)
     }
 
     fn unregister(&self, native: i32) -> Result<(), LxError> {
+        if native < TID_MIN {
+            procfs::del_proc(&self.procfs, native)?;
+        }
         Ok(())
     }
 

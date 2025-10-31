@@ -2,7 +2,6 @@
 
 use crate::{
     app,
-    device::Device,
     filesystem::{
         VPath,
         vfs::{Filesystem, LPath, NewlyOpen},
@@ -49,20 +48,42 @@ impl Tmpfs {
         }))
     }
 
-    pub fn create_dynfile<R, W>(&self, path: LPath, obj: DynFile<R, W>) -> Result<(), LxError>
+    pub fn create_dynfile<R, W>(&self, path: VPath, obj: DynFile<R, W>) -> Result<(), LxError>
     where
-        R: Fn() -> Result<Vec<u8>, LxError> + Send + Sync + 'static,
-        W: Fn(&[u8]) -> Result<usize, LxError> + Send + Sync + 'static,
+        R: DynFileReadFn,
+        W: DynFileWriteFn,
     {
-        match self.locate(path.clone())? {
+        let lpath = LPath {
+            mountpoint: VPath::parse(b"/"),
+            relative: path.clone(),
+        };
+        match self.locate(lpath)? {
             Location::Direct(_, Some(_)) => Err(LxError::EEXIST),
             Location::Direct(dir, None) => {
                 dir.children.insert(
-                    path.relative.parts.last().ok_or(LxError::EEXIST)?.clone(),
+                    path.parts.last().ok_or(LxError::EEXIST)?.clone(),
                     Node::File(Arc::new(obj)),
                 );
                 Ok(())
             }
+            Location::MidSymlink(_) => Err(LxError::EXDEV),
+        }
+    }
+
+    pub fn rmdir_all(&self, path: VPath) -> Result<(), LxError> {
+        let lpath = LPath {
+            mountpoint: VPath::parse(b"/"),
+            relative: path.clone(),
+        };
+        match self.locate(lpath)? {
+            Location::Direct(parent, Some(Node::Dir(_))) => {
+                parent
+                    .children
+                    .remove(path.parts.last().ok_or(LxError::EPERM)?);
+                Ok(())
+            }
+            Location::Direct(_, Some(_)) => Err(LxError::ENOTDIR),
+            Location::Direct(dir, None) => Err(LxError::ENOENT),
             Location::MidSymlink(_) => Err(LxError::EXDEV),
         }
     }
@@ -496,7 +517,7 @@ impl Stream for DevFd {
         self.device.as_ref().ok_or(LxError::EBADF)?.write(buf, off)
     }
 
-    fn seek(&self, whence: Whence, off: i64) -> Result<u64, LxError> {
+    fn seek(&self, whence: Whence, off: i64) -> Result<i64, LxError> {
         self.device
             .as_ref()
             .ok_or(LxError::EBADF)?
@@ -524,6 +545,12 @@ impl VfdContent for DevFd {
     }
 }
 
+pub trait DynFileReadFn: Fn() -> Result<Vec<u8>, LxError> + Send + Sync + 'static {}
+impl<T: Fn() -> Result<Vec<u8>, LxError> + Send + Sync + 'static> DynFileReadFn for T {}
+
+pub trait DynFileWriteFn: Fn(Vec<u8>) -> Result<usize, LxError> + Send + Sync + 'static {}
+impl<T: Fn(Vec<u8>) -> Result<usize, LxError> + Send + Sync + 'static> DynFileWriteFn for T {}
+
 pub struct DynFile<R, W> {
     metadata: Metadata,
     rdf: R,
@@ -538,8 +565,8 @@ impl<R, W> DynFile<R, W> {
 }
 impl<R, W> File for DynFile<R, W>
 where
-    R: Fn() -> Result<Vec<u8>, LxError> + Send + Sync + 'static,
-    W: Fn(&[u8]) -> Result<usize, LxError> + Send + Sync + 'static,
+    R: DynFileReadFn,
+    W: DynFileWriteFn,
 {
     fn open_vfd(self: Arc<Self>, flags: OpenFlags) -> Result<Vfd, LxError> {
         Ok(Vfd::new(self, flags))
@@ -547,8 +574,8 @@ where
 }
 impl<R, W> Stream for DynFile<R, W>
 where
-    R: Fn() -> Result<Vec<u8>, LxError> + Send + Sync,
-    W: Fn(&[u8]) -> Result<usize, LxError> + Send + Sync,
+    R: DynFileReadFn,
+    W: DynFileWriteFn,
 {
     fn read(&self, buf: &mut [u8], off: &mut i64) -> Result<usize, LxError> {
         let s = (self.rdf)()?;
@@ -563,8 +590,8 @@ where
 }
 impl<R, W> VfdContent for DynFile<R, W>
 where
-    R: Fn() -> Result<Vec<u8>, LxError> + Send + Sync,
-    W: Fn(&[u8]) -> Result<usize, LxError> + Send + Sync,
+    R: DynFileReadFn,
+    W: DynFileWriteFn,
 {
     fn stat(&self) -> Result<Statx, LxError> {
         let mut stat = self.metadata.stat_template(StatxMask::all());

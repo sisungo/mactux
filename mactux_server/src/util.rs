@@ -2,6 +2,7 @@ use crate::filesystem::{VPath, vfs::LPath};
 use dashmap::{DashMap, mapref::entry::Entry};
 use rustc_hash::FxBuildHasher;
 use std::{
+    ffi::c_int,
     fmt::Debug,
     ops::Deref,
     sync::{
@@ -9,6 +10,7 @@ use std::{
         atomic::{self, AtomicU64},
     },
 };
+use structures::error::LxError;
 
 pub struct ReclaimRegistry<T: 'static> {
     table: DashMap<u64, Shared<T>, FxBuildHasher>,
@@ -148,4 +150,23 @@ pub fn symlink_abs(sympath: LPath, symcontent: &[u8]) -> VPath {
     sympath.parts.append(&mut symcontent.parts);
     sympath.slash_suffix = symcontent.slash_suffix;
     sympath
+}
+
+/// Performs a `sysctl` read operation.
+pub unsafe fn sysctl_read<T: Copy, const N: usize>(mut name: [c_int; N]) -> Result<T, LxError> {
+    unsafe {
+        let mut data: T = std::mem::zeroed();
+        let mut size = size_of::<T>();
+        match libc::sysctl(
+            name.as_mut_ptr(),
+            N as _,
+            (&raw mut data).cast(),
+            &mut size,
+            std::ptr::null_mut(),
+            0,
+        ) {
+            -1 => Err(LxError::EINVAL),
+            _ => Ok(data),
+        }
+    }
 }

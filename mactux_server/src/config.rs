@@ -36,7 +36,10 @@ impl WorkDir {
 }
 
 fn init_work_dir(dir: &WorkDir) -> anyhow::Result<()> {
-    tracing::info!("initializing working directory at {}", dir.0.display());
+    eprintln!(
+        "mactux_server: initializing working directory at {}",
+        dir.0.display()
+    );
 
     std::fs::create_dir_all(dir.rootfs())?;
     std::fs::File::create_new(dir.init_flag())?;

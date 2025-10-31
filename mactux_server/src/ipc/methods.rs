@@ -12,6 +12,7 @@ use structures::{
     error::LxError,
     fs::{AccessFlags, Dirent64, FileMode, OpenHow, Statx},
     io::{FcntlCmd, IoctlCmd, VfdAvailCtrl, Whence},
+    misc::SysInfo,
 };
 
 pub fn open(path: Vec<u8>, how: OpenHow) -> Result<NewlyOpen, LxError> {
@@ -92,21 +93,23 @@ pub fn vfd_dup(vfd: u64) -> Result<Response, LxError> {
 
 pub fn vfd_read(vfd: u64, bufsiz: usize) -> Result<Response, LxError> {
     let mut buf = vec![0; bufsiz];
-    Process::current()
+    let nbytes = Process::current()
         .vfd
         .get(vfd)
         .ok_or(LxError::EBADF)?
         .read(&mut buf)?;
+    buf.truncate(nbytes);
     Ok(Response::Read(buf))
 }
 
 pub fn vfd_pread(vfd: u64, bufsiz: usize, off: i64) -> Result<Response, LxError> {
     let mut buf = vec![0; bufsiz];
-    Process::current()
+    let nbytes = Process::current()
         .vfd
         .get(vfd)
         .ok_or(LxError::EBADF)?
         .pread(&mut buf, off)?;
+    buf.truncate(nbytes);
     Ok(Response::Read(buf))
 }
 
@@ -185,6 +188,17 @@ pub fn get_network_names() -> Result<NetworkNames, LxError> {
         nodename: uts.nodename(),
         domainname: uts.domainname(),
     })
+}
+
+pub fn set_network_names(set: NetworkNames) -> Result<(), LxError> {
+    let uts = &Process::current().uts;
+    uts.set_nodename(set.nodename)?;
+    uts.set_domainname(set.domainname)?;
+    Ok(())
+}
+
+pub fn sysinfo() -> Result<SysInfo, LxError> {
+    crate::sysinfo::sysinfo()
 }
 
 pub fn vfd_ioctl_query(vfd: u64, cmd: IoctlCmd) -> Result<VfdAvailCtrl, LxError> {
@@ -278,6 +292,11 @@ impl IntoResponse for VfdAvailCtrl {
 impl IntoResponse for CtrlOutput {
     fn into_response(self) -> Response {
         Response::CtrlOutput(self)
+    }
+}
+impl IntoResponse for SysInfo {
+    fn into_response(self) -> Response {
+        Response::SysInfo(self)
     }
 }
 impl<T> IntoResponse for Option<T>

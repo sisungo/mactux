@@ -1,5 +1,5 @@
 use crate::{ipc_client::with_client, util::ipc_fail};
-use mactux_ipc::{request::Request, response::Response};
+use mactux_ipc::{request::Request, response::Response, types::NetworkNames};
 use structures::{
     error::LxError,
     misc::{SysInfo, UtsName, uname_str},
@@ -48,7 +48,10 @@ pub fn get_network_names() -> Result<(Vec<u8>, Vec<u8>), LxError> {
 pub fn set_network_names(nodename: Vec<u8>, domainname: Vec<u8>) -> Result<(), LxError> {
     with_client(|client| {
         match client
-            .invoke(Request::SetNetworkNames(nodename, domainname))
+            .invoke(Request::SetNetworkNames(NetworkNames {
+                nodename,
+                domainname,
+            }))
             .unwrap()
         {
             Response::Nothing => Ok(()),

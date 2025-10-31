@@ -60,7 +60,7 @@ pub fn pwrite(vfd: u64, off: i64, buf: &[u8]) -> Result<usize, LxError> {
     })
 }
 
-pub fn lseek(vfd: u64, whence: Whence, off: i64) -> Result<u64, LxError> {
+pub fn lseek(vfd: u64, whence: Whence, off: i64) -> Result<i64, LxError> {
     with_client(
         |client| match client.invoke(Request::VfdSeek(vfd, whence, off)).unwrap() {
             Response::Lseek(n) => Ok(n),

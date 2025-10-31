@@ -151,20 +151,20 @@ struct Cli {
 fn main() {
     let cli: Cli = clap::Parser::parse();
 
-    tracing_subscriber::fmt::init();
-
     if let Err(err) = init_app(cli) {
-        tracing::error!("cannot initialize application: {err}");
+        eprintln!("mactux_server: cannot initialize application: {err}");
         std::process::exit(1);
     }
 
     if let Err(err) = init_env() {
-        tracing::error!("cannot initialize Linux environment: {err}");
+        eprintln!("mactux_server: cannot initialize Linux environment: {err}");
         std::process::exit(1);
     }
 
+    syslog::install_rust().expect("syslog::install_rust called twice");
+
     if let Err(err) = app().run() {
-        tracing::error!("cannot run application: {err}");
+        log::error!("cannot run application: {err}");
         std::process::exit(1);
     }
 }

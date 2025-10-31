@@ -20,7 +20,7 @@ pub enum Response {
 
     Read(Vec<u8>),
     Write(usize),
-    Lseek(u64),
+    Lseek(i64),
     CtrlOutput(CtrlOutput),
     DupVirtualFd(u64),
     OrigPath(Vec<u8>),

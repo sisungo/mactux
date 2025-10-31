@@ -114,7 +114,7 @@ pub fn dup2(old: c_int, new: c_int) -> Result<c_int, LxError> {
 }
 
 #[inline]
-pub unsafe fn lseek(fd: c_int, off: i64, whence: Whence) -> Result<u64, LxError> {
+pub unsafe fn lseek(fd: c_int, off: i64, whence: Whence) -> Result<i64, LxError> {
     match crate::vfd::get(fd) {
         Some(vfd) => vfd::lseek(vfd, whence, off),
         None => unsafe { posix_num!(libc::lseek(fd, off, whence.to_apple()?)) },

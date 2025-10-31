@@ -1,3 +1,4 @@
+use crate::types::NetworkNames;
 use bincode::{Decode, Encode};
 use std::time::Duration;
 use structures::{
@@ -47,7 +48,7 @@ pub enum Request {
     EventFd(u64, u32),
 
     GetNetworkNames,
-    SetNetworkNames(Vec<u8>, Vec<u8>),
+    SetNetworkNames(NetworkNames),
     SysInfo,
 
     WriteSyslog(Vec<u8>),
