@@ -4,6 +4,7 @@ mod config;
 mod device;
 mod filesystem;
 mod ipc;
+mod multimedia;
 mod network;
 mod poll;
 mod sysinfo;
@@ -11,9 +12,6 @@ mod syslog;
 mod task;
 mod util;
 mod vfd;
-
-#[cfg(feature = "audio")]
-mod multimedia;
 
 use crate::{
     config::WorkDir,

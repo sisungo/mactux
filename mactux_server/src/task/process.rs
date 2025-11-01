@@ -5,7 +5,6 @@ use crate::{
     util::Shared,
     vfd::VfdTable,
 };
-use std::sync::RwLock;
 use structures::error::LxError;
 
 pub struct Process {

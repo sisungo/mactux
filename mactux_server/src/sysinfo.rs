@@ -22,26 +22,40 @@ pub struct InitUts;
 impl UtsNamespace for InitUts {
     fn nodename(&self) -> Vec<u8> {
         unsafe {
-            let mut utsname = std::mem::zeroed();
-            libc::uname(&mut utsname);
-            utsname.nodename[..65]
-                .iter()
-                .map(|x| *x as u8)
-                .filter(|x| *x != 0)
-                .collect()
+            let mut nodename = vec![0; 65];
+            if libc::gethostname(nodename.as_mut_ptr().cast(), nodename.len()) == -1 {
+                return b"localhost".into();
+            }
+            nodename
         }
     }
 
-    fn set_nodename(&self, _name: Vec<u8>) -> Result<(), LxError> {
-        Err(LxError::EPERM)
+    fn set_nodename(&self, name: Vec<u8>) -> Result<(), LxError> {
+        unsafe {
+            match libc::sethostname(name.as_ptr().cast(), name.len() as _) {
+                -1 => Err(LxError::last_apple_error()),
+                _ => Ok(()),
+            }
+        }
     }
 
     fn domainname(&self) -> Vec<u8> {
-        self.nodename()
+        unsafe {
+            let mut domainname = vec![0; 65];
+            if libc::getdomainname(domainname.as_mut_ptr().cast(), domainname.len() as _) == -1 {
+                return b"localhost.local".into();
+            }
+            domainname
+        }
     }
 
-    fn set_domainname(&self, _name: Vec<u8>) -> Result<(), LxError> {
-        Err(LxError::EPERM)
+    fn set_domainname(&self, name: Vec<u8>) -> Result<(), LxError> {
+        unsafe {
+            match libc::setdomainname(name.as_ptr().cast(), name.len() as _) {
+                -1 => Err(LxError::last_apple_error()),
+                _ => Ok(()),
+            }
+        }
     }
 }
 
