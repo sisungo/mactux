@@ -7,31 +7,43 @@ use std::{
 };
 use structures::fs::{FileMode, OpenFlags};
 
+/// Specifies [`MiMalloc`] as memory allocator.
+///
+/// We have to do some dynamic memory allocations in our signal handler. The allocator is lock-free, and works well in
+/// signal handlers.
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
 
 #[derive(Debug, clap::Parser)]
 struct Mactux {
+    /// Specify path of the server socket
     #[arg(long)]
     server_sock_path: Option<PathBuf>,
 
+    /// Specify fd number of server socket of the initial thread
     #[arg(long)]
     init_sock_fd: Option<std::ffi::c_int>,
 
+    /// Initial VFD table mapping
     #[arg(long)]
     init_vfd_table: Option<String>,
 
+    /// Initial current working directory
     #[arg(long)]
     cwd: Option<OsString>,
 
+    /// Path of the binary to execute
     exec: OsString,
 
+    /// The `0`-th argument
     #[arg(long)]
     arg0: Option<OsString>,
 
+    /// Arguments passed to the program
     #[arg(last = true)]
     args: Vec<OsString>,
 
+    /// Environment variables passed to the program
     #[arg(short, long)]
     env: Vec<OsString>,
 }

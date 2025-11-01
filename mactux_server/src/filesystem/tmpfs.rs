@@ -48,46 +48,6 @@ impl Tmpfs {
         }))
     }
 
-    pub fn create_dynfile<R, W>(&self, path: VPath, obj: DynFile<R, W>) -> Result<(), LxError>
-    where
-        R: DynFileReadFn,
-        W: DynFileWriteFn,
-    {
-        let lpath = LPath {
-            mountpoint: VPath::parse(b"/"),
-            relative: path.clone(),
-        };
-        match self.locate(lpath)? {
-            Location::Direct(_, Some(_)) => Err(LxError::EEXIST),
-            Location::Direct(dir, None) => {
-                dir.children.insert(
-                    path.parts.last().ok_or(LxError::EEXIST)?.clone(),
-                    Node::File(Arc::new(obj)),
-                );
-                Ok(())
-            }
-            Location::MidSymlink(_) => Err(LxError::EXDEV),
-        }
-    }
-
-    pub fn rmdir_all(&self, path: VPath) -> Result<(), LxError> {
-        let lpath = LPath {
-            mountpoint: VPath::parse(b"/"),
-            relative: path.clone(),
-        };
-        match self.locate(lpath)? {
-            Location::Direct(parent, Some(Node::Dir(_))) => {
-                parent
-                    .children
-                    .remove(path.parts.last().ok_or(LxError::EPERM)?);
-                Ok(())
-            }
-            Location::Direct(_, Some(_)) => Err(LxError::ENOTDIR),
-            Location::Direct(dir, None) => Err(LxError::ENOENT),
-            Location::MidSymlink(_) => Err(LxError::EXDEV),
-        }
-    }
-
     fn locate(&self, path: LPath) -> Result<Location, LxError> {
         if path.relative.parts.is_empty() {
             return Ok(Location::Direct(
@@ -99,12 +59,18 @@ impl Tmpfs {
         let mut dir_name = path.relative.parts.clone();
         let file_name = dir_name.pop().expect("empty parts should return early");
         let mut dir = self.root.clone();
-        for dir_part in dir_name.into_iter().rev() {
+        for (n, dir_part) in dir_name.into_iter().rev().enumerate() {
             let node = dir.children.get(&dir_part).ok_or(LxError::ENOENT)?.clone();
             dir = match node {
                 Node::Dir(x) => x.clone(),
                 Node::File(_) => return Err(LxError::ENOTDIR),
-                Node::Symlink(symlink) => return Ok(Location::MidSymlink(symlink.solve(path))),
+                Node::Symlink(symlink) => {
+                    let mut dir_path = path.clone();
+                    dir_path.relative.parts.truncate(n + 1);
+                    let mut solved = symlink.solve(dir_path);
+                    solved.parts.push(file_name);
+                    return Ok(Location::MidSymlink(solved));
+                }
             };
         }
         let node = dir.children.get(&file_name).map(|x| x.clone());
@@ -241,7 +207,7 @@ impl Filesystem for Tmpfs {
         match self.locate(dst.clone())? {
             Location::Direct(_, Some(_)) => Err(LxError::EEXIST),
             Location::Direct(dir, None) => {
-                let child = Symlink::new(content.to_vec());
+                let child = Symlink::fixed(content.to_vec());
                 dir.children.insert(
                     dst.relative.parts.last().ok_or(LxError::EEXIST)?.clone(),
                     Node::Symlink(Arc::new(child)),
@@ -290,6 +256,68 @@ impl Filesystem for Tmpfs {
                 Ok(())
             }
             Location::MidSymlink(vpath) => Process::current().mnt.locate(&vpath)?.mknod(mode, dev),
+        }
+    }
+}
+impl Tmpfs {
+    pub fn create_dynfile<R, W>(&self, path: VPath, obj: DynFile<R, W>) -> Result<(), LxError>
+    where
+        R: DynFileReadFn,
+        W: DynFileWriteFn,
+    {
+        let lpath = LPath {
+            mountpoint: VPath::parse(b"/"),
+            relative: path.clone(),
+        };
+        match self.locate(lpath)? {
+            Location::Direct(_, Some(_)) => Err(LxError::EEXIST),
+            Location::Direct(dir, None) => {
+                dir.children.insert(
+                    path.parts.last().ok_or(LxError::EEXIST)?.clone(),
+                    Node::File(Arc::new(obj)),
+                );
+                Ok(())
+            }
+            Location::MidSymlink(_) => Err(LxError::EXDEV),
+        }
+    }
+
+    pub fn create_dynlink<F>(&self, path: VPath, f: F) -> Result<(), LxError>
+    where
+        F: Fn() -> Vec<u8> + Send + Sync + 'static,
+    {
+        let lpath = LPath {
+            mountpoint: VPath::parse(b"/"),
+            relative: path.clone(),
+        };
+        match self.locate(lpath)? {
+            Location::Direct(_, Some(_)) => Err(LxError::EEXIST),
+            Location::Direct(dir, None) => {
+                dir.children.insert(
+                    path.parts.last().ok_or(LxError::EEXIST)?.clone(),
+                    Node::Symlink(Arc::new(Symlink::dynamic(f))),
+                );
+                Ok(())
+            }
+            Location::MidSymlink(_) => Err(LxError::EXDEV),
+        }
+    }
+
+    pub fn rmdir_all(&self, path: VPath) -> Result<(), LxError> {
+        let lpath = LPath {
+            mountpoint: VPath::parse(b"/"),
+            relative: path.clone(),
+        };
+        match self.locate(lpath)? {
+            Location::Direct(parent, Some(Node::Dir(_))) => {
+                parent
+                    .children
+                    .remove(path.parts.last().ok_or(LxError::EPERM)?);
+                Ok(())
+            }
+            Location::Direct(_, Some(_)) => Err(LxError::ENOTDIR),
+            Location::Direct(_, None) => Err(LxError::ENOENT),
+            Location::MidSymlink(_) => Err(LxError::EXDEV),
         }
     }
 }
@@ -609,16 +637,34 @@ impl<R, W> Debug for DynFile<R, W> {
     }
 }
 
-#[derive(Debug)]
 struct Symlink {
     metadata: Metadata,
-    target: Vec<u8>,
+    target: Box<dyn Fn() -> Vec<u8> + Send + Sync + 'static>,
 }
 impl Symlink {
-    fn new(target: Vec<u8>) -> Self {
+    fn fixed(target: Vec<u8>) -> Self {
         let metadata = Metadata::new();
         metadata.permbits.store(0o777, atomic::Ordering::Relaxed);
-        Self { metadata, target }
+        Self {
+            metadata,
+            target: Box::new(move || target.clone()),
+        }
+    }
+
+    fn dynamic(f: impl Fn() -> Vec<u8> + Send + Sync + 'static) -> Self {
+        let metadata = Metadata::new();
+        metadata.permbits.store(0o777, atomic::Ordering::Relaxed);
+        Self {
+            metadata,
+            target: Box::new(f),
+        }
+    }
+}
+impl Debug for Symlink {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Symlink")
+            .field("metadata", &self.metadata)
+            .finish_non_exhaustive()
     }
 }
 impl File for Symlink {
@@ -629,7 +675,7 @@ impl File for Symlink {
 impl Stream for Symlink {}
 impl VfdContent for Symlink {
     fn readlink(&self) -> Result<Vec<u8>, LxError> {
-        Ok(self.target.clone())
+        Ok((self.target)().into())
     }
 
     fn stat(&self) -> Result<Statx, LxError> {
@@ -637,7 +683,7 @@ impl VfdContent for Symlink {
 
         stat.stx_mode.set_file_type(FileType::Symlink);
 
-        stat.stx_size = self.target.len() as _;
+        stat.stx_size = (self.target)().len() as _;
         stat.stx_blocks = 1;
 
         Ok(stat)
@@ -645,7 +691,7 @@ impl VfdContent for Symlink {
 }
 impl Symlink {
     fn solve(&self, lpath: LPath) -> VPath {
-        symlink_abs(lpath, &self.target)
+        symlink_abs(lpath, &(self.target)())
     }
 }
 

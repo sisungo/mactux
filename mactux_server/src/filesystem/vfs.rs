@@ -6,7 +6,7 @@ use std::{
 use structures::{
     device::DeviceNumber,
     error::LxError,
-    fs::{AccessFlags, FileMode, OpenFlags, OpenHow},
+    fs::{AccessFlags, FileMode, OpenHow},
 };
 
 /// A mount namespace.

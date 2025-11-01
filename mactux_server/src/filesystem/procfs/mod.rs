@@ -5,10 +5,14 @@
 mod pid;
 mod sysinfo;
 
-use crate::filesystem::{
-    VPath,
-    tmpfs::{DynFile, Tmpfs},
-    vfs::{Filesystem, LPath},
+use crate::{
+    filesystem::{
+        VPath,
+        tmpfs::{DynFile, Tmpfs},
+        vfs::{Filesystem, LPath},
+    },
+    task::process::Process,
+    util::Shared,
 };
 use std::sync::Arc;
 use structures::{error::LxError, fs::FileMode};
@@ -22,6 +26,9 @@ pub fn new() -> Result<Arc<Tmpfs>, LxError> {
     create_dynfile_ro(&tmpfs, "/loadavg", sysinfo::loadavg, 0o444)?;
     create_dynfile_ro(&tmpfs, "/stat", sysinfo::stat, 0o444)?;
     create_dynfile_ro(&tmpfs, "/uptime", sysinfo::uptime, 0o444)?;
+    tmpfs.create_dynlink(VPath::parse(b"/self"), || {
+        Shared::id(&Process::current()).to_string().into_bytes()
+    })?;
 
     Ok(tmpfs)
 }

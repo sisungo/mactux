@@ -77,7 +77,11 @@ impl Debug for VPath {
             .field("slash_prefix", &self.slash_prefix)
             .field(
                 "parts",
-                &self.parts.iter().map(|x| String::from_utf8_lossy(x)),
+                &self
+                    .parts
+                    .iter()
+                    .map(|x| String::from_utf8_lossy(x))
+                    .collect::<Vec<_>>(),
             )
             .field("slash_suffix", &self.slash_suffix)
             .finish()
