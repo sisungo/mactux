@@ -158,17 +158,22 @@ pub fn rename(src: Vec<u8>, dst: Vec<u8>) -> Result<(), LxError> {
 }
 
 #[inline]
-pub fn link(src: Vec<u8>, dst: Vec<u8>) -> Result<(), LxError> {
-    with_client(|client| {
-        match client
-            .invoke(Request::Link(full_path(src)?, full_path(dst)?))
-            .unwrap()
-        {
+pub fn linkat(
+    sdfd: c_int,
+    src: Vec<u8>,
+    ddfd: c_int,
+    dst: Vec<u8>,
+    flags: AtFlags,
+) -> Result<(), LxError> {
+    let full_src = at_path(sdfd, src)?;
+    let full_dst = at_path(sdfd, dst)?;
+    with_client(
+        |client| match client.invoke(Request::Link(full_src, full_dst)).unwrap() {
             Response::Nothing => Ok(()),
             Response::Error(err) => Err(err),
             _ => ipc_fail(),
-        }
-    })
+        },
+    )
 }
 
 #[inline]

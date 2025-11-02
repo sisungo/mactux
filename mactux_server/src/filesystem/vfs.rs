@@ -166,14 +166,14 @@ impl Location {
         if !Arc::ptr_eq(&self.filesystem, &new.filesystem) {
             return Err(LxError::EXDEV);
         }
-        self.filesystem.rename(self.path, new.path)
+        self.filesystem.rename(new.path, self.path)
     }
 
     pub fn link_to(self, new: Self) -> Result<(), LxError> {
         if !Arc::ptr_eq(&self.filesystem, &new.filesystem) {
             return Err(LxError::EXDEV);
         }
-        self.filesystem.link(self.path, new.path)
+        self.filesystem.link(new.path, self.path)
     }
 }
 

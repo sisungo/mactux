@@ -23,7 +23,10 @@ use structures::{
     ToApple,
     device::DeviceNumber,
     error::LxError,
-    fs::{AccessFlags, Dirent64, Dirent64Hdr, DirentType, FileMode, OpenFlags, OpenHow, Statx},
+    fs::{
+        AccessFlags, Dirent64, Dirent64Hdr, DirentType, FileMode, OpenFlags, OpenHow, OpenResolve,
+        Statx,
+    },
 };
 
 /// A nativefs mount.
@@ -57,9 +60,12 @@ impl Filesystem for NativeFs {
                 .mnt
                 .locate(&symexpr.into_vpath())?
                 .open(how),
-            NPath::IsSymlink(_, content) => {
+            NPath::IsSymlink(sympath, content) => {
                 if how.flags().contains(OpenFlags::O_NOFOLLOW) {
                     return Err(LxError::ELOOP);
+                }
+                if how.resolve.contains(OpenResolve::RESOLVE_NO_SYMLINKS) {
+                    return Ok(NewlyOpen::Native(sympath.into_bytes()));
                 }
                 Process::current().mnt.locate(&content)?.open(how)
             }
@@ -113,7 +119,33 @@ impl Filesystem for NativeFs {
     }
 
     fn link(&self, src: LPath, dst: LPath) -> Result<(), LxError> {
-        todo!()
+        let src_solved = NPath::resolve(&self.base, src.clone())?;
+        let dst_solved = NPath::resolve(&self.base, dst.clone())?;
+        match dst_solved {
+            NPath::Direct(dst_cstr) => match src_solved {
+                NPath::Direct(src_cstr) | NPath::IsSymlink(src_cstr, _) => unsafe {
+                    match libc::link(src_cstr.as_ptr(), dst_cstr.as_ptr()) {
+                        -1 => Err(LxError::last_apple_error()),
+                        _ => Ok(()),
+                    }
+                },
+                NPath::HasSymlink(symexpr) => {
+                    let src_location = Process::current().mnt.locate(&symexpr.into_vpath())?;
+                    Process::current()
+                        .mnt
+                        .locate(&dst.expand())?
+                        .link_to(src_location)
+                }
+            },
+            NPath::HasSymlink(symexpr) => {
+                let src_location = Process::current().mnt.locate(&src.expand())?;
+                Process::current()
+                    .mnt
+                    .locate(&symexpr.into_vpath())?
+                    .link_to(src_location)
+            }
+            NPath::IsSymlink(_, _) => Err(LxError::EEXIST),
+        }
     }
 
     fn mkdir(&self, path: LPath, mode: FileMode) -> Result<(), LxError> {
@@ -128,7 +160,32 @@ impl Filesystem for NativeFs {
     }
 
     fn rename(&self, src: LPath, dst: LPath) -> Result<(), LxError> {
-        todo!()
+        let src_solved = NPath::resolve(&self.base, src.clone())?;
+        let dst_solved = NPath::resolve(&self.base, dst.clone())?;
+        match dst_solved {
+            NPath::Direct(dst_cstr) | NPath::IsSymlink(dst_cstr, _) => match src_solved {
+                NPath::Direct(src_cstr) | NPath::IsSymlink(src_cstr, _) => unsafe {
+                    match libc::rename(src_cstr.as_ptr(), dst_cstr.as_ptr()) {
+                        -1 => Err(LxError::last_apple_error()),
+                        _ => Ok(()),
+                    }
+                },
+                NPath::HasSymlink(symexpr) => {
+                    let src_location = Process::current().mnt.locate(&symexpr.into_vpath())?;
+                    Process::current()
+                        .mnt
+                        .locate(&dst.expand())?
+                        .rename_to(src_location)
+                }
+            },
+            NPath::HasSymlink(symexpr) => {
+                let src_location = Process::current().mnt.locate(&src.expand())?;
+                Process::current()
+                    .mnt
+                    .locate(&symexpr.into_vpath())?
+                    .rename_to(src_location)
+            }
+        }
     }
 
     fn unlink(&self, path: LPath) -> Result<(), LxError> {

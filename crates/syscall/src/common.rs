@@ -279,7 +279,34 @@ pub unsafe fn sys_rename(src: *const c_char, dst: *const c_char) -> Result<(), L
 
 #[syscall]
 pub unsafe fn sys_link(src: *const c_char, dst: *const c_char) -> Result<(), LxError> {
-    unsafe { rtenv::fs::link(rust_bytes(src).to_vec(), rust_bytes(dst).to_vec()) }
+    unsafe {
+        rtenv::fs::linkat(
+            -100,
+            rust_bytes(src).to_vec(),
+            -100,
+            rust_bytes(dst).to_vec(),
+            AtFlags::empty(),
+        )
+    }
+}
+
+#[syscall]
+pub unsafe fn sys_linkat(
+    sdfd: c_int,
+    src: *const c_char,
+    ddfd: c_int,
+    dst: *const c_char,
+    flags: AtFlags,
+) -> Result<(), LxError> {
+    unsafe {
+        rtenv::fs::linkat(
+            sdfd,
+            rust_bytes(src).to_vec(),
+            ddfd,
+            rust_bytes(dst).to_vec(),
+            flags,
+        )
+    }
 }
 
 #[syscall]
