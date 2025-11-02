@@ -143,6 +143,22 @@ pub fn vfd_lseek(vfd: u64, whence: Whence, off: i64) -> Result<Response, LxError
         .map(Response::Lseek)
 }
 
+pub fn vfd_truncate(vfd: u64, len: u64) -> Result<(), LxError> {
+    Process::current()
+        .vfd
+        .get(vfd)
+        .ok_or(LxError::EBADF)?
+        .truncate(len)
+}
+
+pub fn vfd_chown(vfd: u64, uid: u32, gid: u32) -> Result<(), LxError> {
+    Process::current()
+        .vfd
+        .get(vfd)
+        .ok_or(LxError::EBADF)?
+        .chown(uid, gid)
+}
+
 pub fn vfd_stat(vfd: u64, mask: u32) -> Result<Statx, LxError> {
     Process::current()
         .vfd

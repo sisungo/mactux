@@ -146,6 +146,17 @@ impl Vfd {
         })
     }
 
+    pub fn truncate(&self, len: u64) -> Result<(), LxError> {
+        if !self.open_flags.load().is_writable() {
+            return Err(LxError::EBADF);
+        }
+        self.content.truncate(len)
+    }
+
+    pub fn chown(&self, uid: u32, gid: u32) -> Result<(), LxError> {
+        self.content.chown(uid, gid)
+    }
+
     pub fn listxattr(&self) -> Result<Vec<Vec<u8>>, LxError> {
         self.content.listxattr()
     }

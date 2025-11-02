@@ -12,7 +12,7 @@ use crate::{
 use libc::c_int;
 use std::{
     collections::VecDeque,
-    ffi::{CString, OsString},
+    ffi::{CStr, CString, OsString},
     fmt::Debug,
     fs::ReadDir,
     os::unix::{ffi::OsStringExt, fs::DirEntryExt},
@@ -166,22 +166,21 @@ impl NPath {
     pub fn resolve(nbase: &NBase, lpath: LPath) -> Result<Self, LxError> {
         debug_assert!(lpath.relative.slash_prefix);
 
-        let xvpath = bytes_to_cstring(lpath.relative.express())?;
-        let full_path = bytes_to_cstring([nbase.path.clone(), lpath.relative.express()].concat())?;
+        let crelpath = bytes_to_cstring(lpath.relative.express())?;
+        let prefixed_path =
+            bytes_to_cstring([nbase.path.clone(), lpath.relative.express()].concat())?;
 
         unsafe {
-            match libc::faccessat(nbase.dirfd, xvpath.as_ptr(), libc::F_OK, 0x2000 | 0x800) {
+            match libc::faccessat(nbase.dirfd, crelpath.as_ptr().add(1), libc::F_OK, 0x2800) {
                 -1 => match LxError::last_apple_error() {
                     LxError::ELOOP => Self::_resolve_symlink(nbase, lpath.clone()),
-                    _ => Ok(Self::Direct(full_path)),
+                    _ => Ok(Self::Direct(prefixed_path)),
                 },
                 _ => {
-                    if let Ok(content) =
-                        readlinkat(nbase.dirfd, bytes_to_cstring(lpath.relative.express())?)
-                    {
-                        return Ok(Self::IsSymlink(full_path, symlink_abs(lpath, &content)));
+                    if let Some(solved) = Self::_check_symlink(nbase, lpath) {
+                        return Ok(Self::IsSymlink(prefixed_path, solved));
                     }
-                    Ok(Self::Direct(full_path))
+                    Ok(Self::Direct(prefixed_path))
                 }
             }
         }
@@ -194,10 +193,11 @@ impl NPath {
             slash_suffix: first.relative.slash_suffix,
         };
         let mut second_parts = VecDeque::new();
+        first.relative.slash_suffix = false;
         loop {
-            let xfirst = bytes_to_cstring(first.relative.express())?;
+            let crelfirst = bytes_to_cstring(first.relative.express())?;
             unsafe {
-                match libc::faccessat(nbase.dirfd, xfirst.as_ptr(), libc::F_OK, 0x2000 | 0x800) {
+                match libc::faccessat(nbase.dirfd, crelfirst.as_ptr().add(1), libc::F_OK, 0x2800) {
                     -1 => match LxError::last_apple_error() {
                         LxError::ELOOP => {
                             let element = first.relative.parts.pop().ok_or(LxError::EIO)?;
@@ -210,12 +210,21 @@ impl NPath {
                 };
             }
         }
-        let first_content = readlinkat(nbase.dirfd, bytes_to_cstring(first.relative.express())?)?;
+        let first_path = bytes_to_cstring(first.relative.express())?;
+        let first_content = readlinkat(nbase.dirfd, &first_path.as_c_str()[1..])?;
         second.parts = second_parts.into();
         Ok(Self::HasSymlink(SymlinkExpression(
             symlink_abs(first, &first_content),
             second,
         )))
+    }
+
+    fn _check_symlink(nbase: &NBase, lpath: LPath) -> Option<VPath> {
+        let xvpath = bytes_to_cstring(lpath.relative.express()).ok()?;
+        match readlinkat(nbase.dirfd, &xvpath.as_c_str()[1..]) {
+            Ok(content) => Some(symlink_abs(lpath, &content)),
+            Err(_) => None,
+        }
     }
 }
 
@@ -332,7 +341,7 @@ fn bytes_to_cstring(mut data: Vec<u8>) -> Result<CString, LxError> {
     CString::from_vec_with_nul(data).map_err(|_| LxError::EINVAL)
 }
 
-fn readlinkat(dirfd: c_int, path: CString) -> Result<Vec<u8>, LxError> {
+fn readlinkat(dirfd: c_int, path: &CStr) -> Result<Vec<u8>, LxError> {
     let mut buf = vec![0u8; libc::PATH_MAX as _];
     unsafe {
         let nbytes =

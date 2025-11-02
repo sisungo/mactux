@@ -1,16 +1,21 @@
-use crate::filesystem::{VPath, vfs::LPath};
+use crate::filesystem::{
+    VPath,
+    vfs::{LPath, MountNamespace, NewlyOpen},
+};
 use dashmap::{DashMap, mapref::entry::Entry};
 use rustc_hash::FxBuildHasher;
 use std::{
-    ffi::c_int,
+    ffi::{OsString, c_int},
     fmt::Debug,
     ops::Deref,
+    os::unix::ffi::OsStringExt,
+    path::PathBuf,
     sync::{
         Arc, Weak,
         atomic::{self, AtomicU64},
     },
 };
-use structures::error::LxError;
+use structures::{error::LxError, fs::OpenHow};
 
 pub struct ReclaimRegistry<T: 'static> {
     table: DashMap<u64, Shared<T>, FxBuildHasher>,
@@ -150,6 +155,16 @@ pub fn symlink_abs(sympath: LPath, symcontent: &[u8]) -> VPath {
     sympath.parts.append(&mut symcontent.parts);
     sympath.slash_suffix = symcontent.slash_suffix;
     sympath
+}
+
+pub fn test_path(mnt: &MountNamespace, target: &VPath, how: OpenHow) -> bool {
+    mnt.locate(target)
+        .and_then(|x| x.open(how))
+        .map(|x| match x {
+            NewlyOpen::Native(np) => PathBuf::from(OsString::from_vec(np)).exists(),
+            NewlyOpen::Virtual(_) => true,
+        })
+        .unwrap_or(false)
 }
 
 /// Performs a `sysctl` read operation.

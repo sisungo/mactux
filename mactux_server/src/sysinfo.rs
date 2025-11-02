@@ -22,10 +22,17 @@ pub struct InitUts;
 impl UtsNamespace for InitUts {
     fn nodename(&self) -> Vec<u8> {
         unsafe {
-            let mut nodename = vec![0; 65];
+            let mut nodename = vec![0; 256];
             if libc::gethostname(nodename.as_mut_ptr().cast(), nodename.len()) == -1 {
                 return b"localhost".into();
             }
+            let zero_pos = nodename
+                .iter()
+                .enumerate()
+                .find(|(_, x)| **x == 0)
+                .map(|x| x.0)
+                .unwrap_or(255);
+            nodename.truncate(zero_pos);
             nodename
         }
     }
@@ -41,10 +48,17 @@ impl UtsNamespace for InitUts {
 
     fn domainname(&self) -> Vec<u8> {
         unsafe {
-            let mut domainname = vec![0; 65];
+            let mut domainname = vec![0; 256];
             if libc::getdomainname(domainname.as_mut_ptr().cast(), domainname.len() as _) == -1 {
                 return b"localhost.local".into();
             }
+            let zero_pos = domainname
+                .iter()
+                .enumerate()
+                .find(|(_, x)| **x == 0)
+                .map(|x| x.0)
+                .unwrap_or(255);
+            domainname.truncate(zero_pos);
             domainname
         }
     }

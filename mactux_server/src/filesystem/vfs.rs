@@ -6,7 +6,7 @@ use std::{
 use structures::{
     device::DeviceNumber,
     error::LxError,
-    fs::{AccessFlags, FileMode, OpenHow},
+    fs::{AccessFlags, FileMode, OpenFlags, OpenHow, OpenResolve},
 };
 
 /// A mount namespace.
@@ -28,23 +28,31 @@ impl MountNamespace {
         flags: u64,
         data: u8,
     ) -> Result<(), LxError> {
-        if !self
-            .locate(target)
-            .map(|x| x.access(AccessFlags::F_OK))
-            .flatten()
-            .is_ok()
-            && !target.parts.is_empty()
-        {
+        let is_root = target.parts.is_empty();
+        let path_exists = crate::util::test_path(
+            self,
+            target,
+            OpenHow {
+                flags: OpenFlags::O_PATH.bits() as _,
+                mode: 0,
+                resolve: OpenResolve::RESOLVE_NO_SYMLINKS,
+            },
+        );
+        if !path_exists && !is_root {
             return Err(LxError::ENOENT);
         }
+
         let filesystem = crate::filesystem::mount(fs, source, flags, data)?;
+
         let mut mountpoint = target.clone();
         mountpoint.slash_suffix = false;
+
         let mount = Mount {
             mountpoint,
             filesystem,
         };
         self.mounts.write().unwrap().push(mount);
+
         Ok(())
     }
 

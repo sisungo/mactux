@@ -14,10 +14,9 @@ pub fn sysinfo() -> Result<SysInfo, LxError> {
 }
 
 pub fn uname() -> Result<UtsName, LxError> {
-    let (rnodename, rdomainname) = get_network_names()?;
-    if rnodename.len() >= 65 || rdomainname.len() >= 65 {
-        return Err(LxError::ENOMEM);
-    }
+    let (mut rnodename, mut rdomainname) = get_network_names()?;
+    rnodename.truncate(64);
+    rdomainname.truncate(64);
     let mut nodename = [0; _];
     let mut domainname = [0; _];
     nodename[..rnodename.len()].copy_from_slice(&rnodename);
