@@ -159,6 +159,14 @@ pub fn vfd_chown(vfd: u64, uid: u32, gid: u32) -> Result<(), LxError> {
         .chown(uid, gid)
 }
 
+pub fn vfd_sync(vfd: u64) -> Result<(), LxError> {
+    Process::current()
+        .vfd
+        .get(vfd)
+        .ok_or(LxError::EBADF)?
+        .sync()
+}
+
 pub fn vfd_stat(vfd: u64, mask: u32) -> Result<Statx, LxError> {
     Process::current()
         .vfd

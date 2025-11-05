@@ -166,7 +166,7 @@ pub fn linkat(
     flags: AtFlags,
 ) -> Result<(), LxError> {
     let full_src = at_path(sdfd, src)?;
-    let full_dst = at_path(sdfd, dst)?;
+    let full_dst = at_path(ddfd, dst)?;
     with_client(
         |client| match client.invoke(Request::Link(full_src, full_dst)).unwrap() {
             Response::Nothing => Ok(()),

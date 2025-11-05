@@ -17,6 +17,7 @@ use crate::{
     config::WorkDir,
     device::DeviceTable,
     filesystem::{VPath, vfs::MountNamespace},
+    network::NetNamespace,
     sysinfo::{InitUts, UtsNamespace},
     syslog::Syslog,
     task::{InitPid, PidNamespace, process::Process, thread::Thread},
@@ -92,6 +93,9 @@ struct Namespaces {
     /// Registry of all UTS namespaces.
     uts: ReclaimRegistry<Box<dyn UtsNamespace>>,
 
+    /// Registry of all network namespaces.
+    net: ReclaimRegistry<NetNamespace>,
+
     /// The initial mount namespace.
     init_mnt: OnceLock<Shared<MountNamespace>>,
 
@@ -107,6 +111,7 @@ impl Namespaces {
             mount: ReclaimRegistry::new(),
             pid: ReclaimRegistry::new(),
             uts: ReclaimRegistry::new(),
+            net: ReclaimRegistry::new(),
             init_mnt: OnceLock::new(),
             init_pid: OnceLock::new(),
             init_uts: OnceLock::new(),

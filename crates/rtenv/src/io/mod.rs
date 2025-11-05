@@ -114,9 +114,32 @@ pub fn dup2(old: c_int, new: c_int) -> Result<c_int, LxError> {
 }
 
 #[inline]
+pub fn dup3(old: c_int, new: c_int, flags: OpenFlags) -> Result<c_int, LxError> {
+    if old == new {
+        return Err(LxError::EINVAL);
+    }
+
+    let new = match crate::vfd::get(old) {
+        Some(vfd) => {
+            let new_fd = unsafe { posix_num!(libc::dup2(old, new))? };
+            let new_vfd = vfd::dup(vfd);
+            crate::vfd::register(new_fd, new_vfd);
+            Ok(new)
+        }
+        None => unsafe { posix_num!(libc::dup2(old, new)) },
+    }?;
+
+    if flags.contains(OpenFlags::O_CLOEXEC) {
+        set_cloexec(new).inspect_err(|_| _ = close(new))?;
+    }
+
+    Ok(new)
+}
+
+#[inline]
 pub unsafe fn lseek(fd: c_int, off: i64, whence: Whence) -> Result<i64, LxError> {
     match crate::vfd::get(fd) {
-        Some(vfd) => vfd::lseek(vfd, whence, off),
+        Some(vfd) => vfd::seek(vfd, whence, off),
         None => unsafe { posix_num!(libc::lseek(fd, off, whence.to_apple()?)) },
     }
 }

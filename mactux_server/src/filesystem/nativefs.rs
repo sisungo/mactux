@@ -201,7 +201,17 @@ impl Filesystem for NativeFs {
     }
 
     fn mknod(&self, path: LPath, mode: FileMode, dev: DeviceNumber) -> Result<(), LxError> {
-        todo!()
+        let apple_dev = libc::makedev(dev.major() as _, dev.minor() as _);
+        match NPath::resolve(&self.base, path)? {
+            NPath::Direct(path) => unsafe {
+                posix_result(libc::mknod(path.as_ptr(), mode.to_apple()?, apple_dev))
+            },
+            NPath::HasSymlink(symexpr) => Process::current()
+                .mnt
+                .locate(&symexpr.into_vpath())?
+                .mknod(mode, dev),
+            NPath::IsSymlink(_, _) => Err(LxError::EEXIST),
+        }
     }
 }
 

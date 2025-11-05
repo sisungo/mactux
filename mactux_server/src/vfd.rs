@@ -157,6 +157,10 @@ impl Vfd {
         self.content.chown(uid, gid)
     }
 
+    pub fn sync(&self) -> Result<(), LxError> {
+        self.content.sync()
+    }
+
     pub fn listxattr(&self) -> Result<Vec<Vec<u8>>, LxError> {
         self.content.listxattr()
     }

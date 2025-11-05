@@ -70,9 +70,9 @@ pub fn stat(apple_pid: libc::pid_t) -> impl Fn() -> Result<Vec<u8>, LxError> + C
         let priority = 0;
         let nice = 0;
         let num_threads = task_info.pti_threadnum;
-        let it_real_value = 0;
         let vsize = task_info.pti_virtual_size;
         let rss = task_info.pti_resident_size;
+        let rsslim = 0;
 
         let mut s = Vec::new();
         write!(&mut s, "{pid} ({comm}) {state} {ppid} {pgid} ").unwrap();
@@ -81,8 +81,8 @@ pub fn stat(apple_pid: libc::pid_t) -> impl Fn() -> Result<Vec<u8>, LxError> + C
         write!(&mut s, "{utime} {stime} {cutime} {cstime} ").unwrap();
         write!(&mut s, "{priority} {nice} ").unwrap();
         write!(&mut s, "{num_threads} ").unwrap();
-        write!(&mut s, "{it_real_value} {start_time} ").unwrap();
-        write!(&mut s, "{vsize} {rss} 0 ").unwrap();
+        write!(&mut s, "0 {start_time} ").unwrap();
+        write!(&mut s, "{vsize} {rss} {rsslim} ").unwrap();
         write!(&mut s, "0 0 0 0 0 ").unwrap();
         write!(&mut s, "0 0 0 0 ").unwrap();
         write!(&mut s, "0 0 0 ").unwrap();

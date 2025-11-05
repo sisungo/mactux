@@ -482,6 +482,11 @@ pub unsafe fn sys_dup2(old: c_int, new: c_int) -> Result<c_int, LxError> {
 }
 
 #[syscall]
+pub unsafe fn sys_dup3(old: c_int, new: c_int, flags: OpenFlags) -> Result<c_int, LxError> {
+    rtenv::io::dup3(old, new, flags)
+}
+
+#[syscall]
 pub unsafe fn sys_fsync(fd: c_int) -> Result<(), LxError> {
     rtenv::io::fsync(fd)
 }
@@ -1435,12 +1440,12 @@ pub unsafe fn sys_sched_setaffinity(
 
 #[syscall]
 pub unsafe fn sys_setuid(uid: u32) -> Result<(), LxError> {
-    Err(LxError::EPERM)
+    rtenv::security::setuid(uid)
 }
 
 #[syscall]
 pub unsafe fn sys_setgid(gid: u32) -> Result<(), LxError> {
-    Err(LxError::EPERM)
+    rtenv::security::setgid(gid)
 }
 
 #[syscall]
