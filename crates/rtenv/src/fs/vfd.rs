@@ -43,7 +43,7 @@ pub fn readlink(vfd: u64) -> Result<Vec<u8>, LxError> {
     with_client(|client| {
         let response = client.invoke(Request::VfdReadlink(vfd)).unwrap();
         match response {
-            Response::Readlink(path) => Ok(path),
+            Response::Bytes(path) => Ok(path),
             Response::Error(err) => Err(err),
             _ => ipc_fail(),
         }
@@ -54,7 +54,7 @@ pub fn readlink(vfd: u64) -> Result<Vec<u8>, LxError> {
 pub fn orig_path(vfd: u64) -> Result<Vec<u8>, LxError> {
     with_client(
         |client| match client.invoke(Request::VfdOrigPath(vfd)).unwrap() {
-            Response::OrigPath(path) => Ok(path),
+            Response::LxPath(path) => Ok(path),
             Response::Error(err) => Err(err),
             _ => ipc_fail(),
         },

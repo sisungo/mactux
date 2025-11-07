@@ -232,7 +232,7 @@ pub fn get_name() -> [u8; 16] {
     let mut result = [0u8; 16];
     let buf = with_client(
         |client| match client.invoke(Request::GetThreadName).unwrap() {
-            Response::ThreadName(name) => name,
+            Response::Bytes(name) => name,
             _ => ipc_fail(),
         },
     );

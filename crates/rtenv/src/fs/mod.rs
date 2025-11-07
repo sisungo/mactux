@@ -61,8 +61,8 @@ pub fn openat(
 
     with_client(
         |client| match client.invoke(Request::Open(path, how)).unwrap() {
-            Response::OpenNativePath(native) => open_native(native, oflags, atflags, mode.0 as _),
-            Response::OpenVirtualFd(vfd) => crate::vfd::create(vfd, oflags),
+            Response::NativePath(native) => open_native(native, oflags, atflags, mode.0 as _),
+            Response::Vfd(vfd) => crate::vfd::create(vfd, oflags),
             Response::Error(err) => Err(err),
             _ => ipc_fail(),
         },
@@ -312,7 +312,7 @@ pub fn get_sock_path(path: Vec<u8>, create: bool) -> Result<Vec<u8>, LxError> {
             .invoke(Request::GetSockPath(full_path(path)?, create))
             .unwrap()
         {
-            Response::SockPath(path) => Ok(path),
+            Response::LxPath(path) => Ok(path),
             Response::Error(err) => Err(err),
             _ => ipc_fail(),
         }

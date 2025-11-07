@@ -308,26 +308,27 @@ unsafe extern "C" fn handle_signal(
 }
 
 /// Handles SIGSEGV.
+#[cfg(target_arch = "x86_64")]
 unsafe extern "C" fn handle_sigsegv(_: c_int, info: &libc::siginfo_t, ctx: &mut libc::ucontext_t) {
     // This special handler may process all `fs` accesses to `gs` ones.
-    let in_emulated = reentrant_in_emulated(info);
-    if !in_emulated {
+    if !reentrant_in_emulated(info) {
         return raise(SigNum::SIGSEGV, info, ctx, false);
     }
-    let insc_byte = unsafe { &*((*ctx.uc_mcontext).__ss.__rip as usize as *const AtomicU8) };
-    if insc_byte
-        .compare_exchange(
+
+    unsafe {
+        let insc_byte = (*ctx.uc_mcontext).__ss.__rip as usize as *const AtomicU8;
+        match (*insc_byte).compare_exchange(
             0x64,
             0x65,
             atomic::Ordering::Relaxed,
             atomic::Ordering::Relaxed,
-        )
-        .is_err()
-    {
-        unsafe {
-            crate::emuctx::leave_emulated();
+        ) {
+            Ok(_) => (),
+            Err(_) => {
+                crate::emuctx::leave_emulated();
+                raise(SigNum::SIGSEGV, info, ctx, true);
+            }
         }
-        raise(SigNum::SIGSEGV, info, ctx, true);
     }
 }
 

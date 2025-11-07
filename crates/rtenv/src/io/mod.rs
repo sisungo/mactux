@@ -431,7 +431,7 @@ pub fn eventfd(initval: u64, flags: EventFdFlags) -> Result<c_int, LxError> {
             .invoke(Request::EventFd(initval, flags.bits()))
             .unwrap()
         {
-            Response::EventFd(vfd) => crate::vfd::create(vfd, flags.open_flags()),
+            Response::Vfd(vfd) => crate::vfd::create(vfd, flags.open_flags()),
             Response::Error(err) => Err(err),
             _ => ipc_fail(),
         }

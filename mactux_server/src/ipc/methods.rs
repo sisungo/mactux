@@ -81,7 +81,7 @@ pub fn get_sock_path(path: Vec<u8>, create: bool) -> Result<Response, LxError> {
         .mnt
         .locate(&VPath::parse(&path))?
         .get_sock_path(create)
-        .map(|path| Response::SockPath(path.into_os_string().into_encoded_bytes()))
+        .map(|path| Response::NativePath(path.into_os_string().into_encoded_bytes()))
 }
 
 pub fn vfd_dup(vfd: u64) -> Result<Response, LxError> {
@@ -91,7 +91,7 @@ pub fn vfd_dup(vfd: u64) -> Result<Response, LxError> {
         .ok_or(LxError::EBADF)?
         .dup();
     let id = Process::current().vfd.register(dup);
-    Ok(Response::DupVirtualFd(id))
+    Ok(Response::Vfd(id))
 }
 
 pub fn vfd_read(vfd: u64, bufsiz: usize) -> Result<Response, LxError> {
@@ -102,7 +102,7 @@ pub fn vfd_read(vfd: u64, bufsiz: usize) -> Result<Response, LxError> {
         .ok_or(LxError::EBADF)?
         .read(&mut buf)?;
     buf.truncate(nbytes);
-    Ok(Response::Read(buf))
+    Ok(Response::Bytes(buf))
 }
 
 pub fn vfd_pread(vfd: u64, bufsiz: usize, off: i64) -> Result<Response, LxError> {
@@ -113,7 +113,7 @@ pub fn vfd_pread(vfd: u64, bufsiz: usize, off: i64) -> Result<Response, LxError>
         .ok_or(LxError::EBADF)?
         .pread(&mut buf, off)?;
     buf.truncate(nbytes);
-    Ok(Response::Read(buf))
+    Ok(Response::Bytes(buf))
 }
 
 pub fn vfd_write(vfd: u64, buf: &[u8]) -> Result<Response, LxError> {
@@ -122,7 +122,7 @@ pub fn vfd_write(vfd: u64, buf: &[u8]) -> Result<Response, LxError> {
         .get(vfd)
         .ok_or(LxError::EBADF)?
         .write(buf)
-        .map(Response::Write)
+        .map(Response::Length)
 }
 
 pub fn vfd_pwrite(vfd: u64, buf: &[u8], off: i64) -> Result<Response, LxError> {
@@ -131,7 +131,7 @@ pub fn vfd_pwrite(vfd: u64, buf: &[u8], off: i64) -> Result<Response, LxError> {
         .get(vfd)
         .ok_or(LxError::EBADF)?
         .pwrite(buf, off)
-        .map(Response::Write)
+        .map(Response::Length)
 }
 
 pub fn vfd_lseek(vfd: u64, whence: Whence, off: i64) -> Result<Response, LxError> {
@@ -140,7 +140,7 @@ pub fn vfd_lseek(vfd: u64, whence: Whence, off: i64) -> Result<Response, LxError
         .get(vfd)
         .ok_or(LxError::EBADF)?
         .seek(whence, off)
-        .map(Response::Lseek)
+        .map(Response::Offset)
 }
 
 pub fn vfd_truncate(vfd: u64, len: u64) -> Result<(), LxError> {
@@ -189,7 +189,7 @@ pub fn vfd_readlink(vfd: u64) -> Result<Response, LxError> {
         .get(vfd)
         .ok_or(LxError::EBADF)?
         .readlink()
-        .map(Response::Readlink)
+        .map(Response::Bytes)
 }
 
 pub fn vfd_orig_path(vfd: u64) -> Result<Option<Response>, LxError> {
@@ -198,7 +198,7 @@ pub fn vfd_orig_path(vfd: u64) -> Result<Option<Response>, LxError> {
         .get(vfd)
         .ok_or(LxError::EBADF)?
         .orig_path()
-        .map(|x| Response::OrigPath(x.to_vec())))
+        .map(|x| Response::LxPath(x.to_vec())))
 }
 
 pub fn vfd_close(vfd: u64) -> Result<(), LxError> {
@@ -289,10 +289,10 @@ impl<T: IntoResponse> IntoResponse for Result<T, LxError> {
 impl IntoResponse for NewlyOpen {
     fn into_response(self) -> Response {
         match self {
-            Self::Native(npath) => Response::OpenNativePath(npath),
+            Self::Native(npath) => Response::NativePath(npath),
             Self::Virtual(vfd) => {
                 let id = Process::current().vfd.register(Arc::new(vfd));
-                Response::OpenVirtualFd(id)
+                Response::Vfd(id)
             }
         }
     }
@@ -319,7 +319,7 @@ impl IntoResponse for NetworkNames {
 }
 impl IntoResponse for VfdAvailCtrl {
     fn into_response(self) -> Response {
-        Response::IoctlQuery(self)
+        Response::VfdAvailCtrl(self)
     }
 }
 impl IntoResponse for CtrlOutput {

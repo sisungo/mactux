@@ -12,29 +12,19 @@ use structures::{
 #[derive(Debug, Clone, Encode, Decode)]
 pub enum Response {
     Nothing,
-
-    OpenNativePath(Vec<u8>),
-    OpenVirtualFd(u64),
-    SockPath(Vec<u8>),
-    EventFd(u64),
-
-    Read(Vec<u8>),
-    Write(usize),
-    Lseek(i64),
+    NativePath(Vec<u8>),
+    LxPath(Vec<u8>),
+    Vfd(u64),
+    Bytes(Vec<u8>),
+    Length(usize),
+    Offset(i64),
     CtrlOutput(CtrlOutput),
-    DupVirtualFd(u64),
-    OrigPath(Vec<u8>),
-    IoctlQuery(VfdAvailCtrl),
+    VfdAvailCtrl(VfdAvailCtrl),
     Stat(Statx),
     Dirent64(Dirent64),
-    Readlink(Vec<u8>),
-
     NetworkNames(NetworkNames),
     SysInfo(SysInfo),
-    ThreadName(Vec<u8>),
-
     Poll(u64, u16),
-
     Error(LxError),
 }
 

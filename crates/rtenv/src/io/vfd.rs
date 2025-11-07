@@ -9,7 +9,7 @@ use structures::{
 pub fn read(vfd: u64, buf: &mut [u8]) -> Result<usize, LxError> {
     with_client(
         |client| match client.invoke(Request::VfdRead(vfd, buf.len())).unwrap() {
-            Response::Read(blob) => {
+            Response::Bytes(blob) => {
                 debug_assert!(blob.len() <= buf.len());
                 buf[..blob.len()].copy_from_slice(&blob);
                 Ok(blob.len())
@@ -26,7 +26,7 @@ pub fn pread(vfd: u64, off: i64, buf: &mut [u8]) -> Result<usize, LxError> {
             .invoke(Request::VfdPread(vfd, off, buf.len()))
             .unwrap()
         {
-            Response::Read(blob) => {
+            Response::Bytes(blob) => {
                 debug_assert!(blob.len() <= buf.len());
                 buf[..blob.len()].copy_from_slice(&blob);
                 Ok(blob.len())
@@ -40,7 +40,7 @@ pub fn pread(vfd: u64, off: i64, buf: &mut [u8]) -> Result<usize, LxError> {
 pub fn write(vfd: u64, buf: &[u8]) -> Result<usize, LxError> {
     with_client(
         |client| match client.invoke(Request::VfdWrite(vfd, buf.to_vec())).unwrap() {
-            Response::Write(n) => Ok(n),
+            Response::Length(n) => Ok(n),
             Response::Error(err) => Err(err),
             _ => ipc_fail(),
         },
@@ -53,7 +53,7 @@ pub fn pwrite(vfd: u64, off: i64, buf: &[u8]) -> Result<usize, LxError> {
             .invoke(Request::VfdPwrite(vfd, off, buf.to_vec()))
             .unwrap()
         {
-            Response::Write(n) => Ok(n),
+            Response::Length(n) => Ok(n),
             Response::Error(err) => Err(err),
             _ => ipc_fail(),
         }
@@ -63,7 +63,7 @@ pub fn pwrite(vfd: u64, off: i64, buf: &[u8]) -> Result<usize, LxError> {
 pub fn seek(vfd: u64, whence: Whence, off: i64) -> Result<i64, LxError> {
     with_client(
         |client| match client.invoke(Request::VfdSeek(vfd, whence, off)).unwrap() {
-            Response::Lseek(n) => Ok(n),
+            Response::Offset(n) => Ok(n),
             Response::Error(err) => Err(err),
             _ => ipc_fail(),
         },
@@ -73,7 +73,7 @@ pub fn seek(vfd: u64, whence: Whence, off: i64) -> Result<i64, LxError> {
 pub fn dup(vfd: u64) -> u64 {
     with_client(
         |client| match client.invoke(Request::VfdDup(vfd)).unwrap() {
-            Response::DupVirtualFd(x) => x,
+            Response::Vfd(x) => x,
             _ => ipc_fail(),
         },
     )
@@ -83,7 +83,7 @@ pub fn ioctl(vfd: u64, cmd: IoctlCmd, arg: *mut u8) -> Result<c_int, LxError> {
     let avail_ctrl =
         with_client(
             |client| match client.invoke(Request::VfdIoctlQuery(vfd, cmd)).unwrap() {
-                Response::IoctlQuery(avail_ctrl) => Ok(avail_ctrl),
+                Response::VfdAvailCtrl(avail_ctrl) => Ok(avail_ctrl),
                 Response::Error(err) => Err(err),
                 _ => ipc_fail(),
             },

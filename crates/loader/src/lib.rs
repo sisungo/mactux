@@ -4,7 +4,7 @@ mod elf;
 mod shebang;
 
 use std::{
-    io::{Read, Seek},
+    io::{Read, Seek, SeekFrom},
     os::fd::{AsFd, AsRawFd, BorrowedFd, OwnedFd},
 };
 use structures::error::LxError;
@@ -22,6 +22,9 @@ impl Program {
         let mut buf = [0; 8];
         io_fd
             .read_exact(&mut buf)
+            .map_err(|x| Error::ReadImage(x.into()))?;
+        io_fd
+            .seek(SeekFrom::Start(0))
             .map_err(|x| Error::ReadImage(x.into()))?;
 
         if buf.starts_with(elf::Program::MAGIC) {

@@ -1,6 +1,6 @@
 use crate::{Error, IoFd};
 use std::{
-    io::{BufRead, BufReader, Seek, SeekFrom},
+    io::{BufRead, BufReader},
     os::fd::{AsFd, FromRawFd, OwnedFd},
 };
 use structures::{
@@ -17,10 +17,7 @@ impl Program {
     pub const MAGIC: &[u8] = b"#!";
 
     pub fn load(exec_fd: OwnedFd) -> Result<Self, Error> {
-        let mut io_fd = IoFd(exec_fd.as_fd());
-        io_fd
-            .seek(SeekFrom::Start(0))
-            .map_err(|x| Error::ReadImage(x.into()))?;
+        let io_fd = IoFd(exec_fd.as_fd());
         let mut buf_read = BufReader::new(io_fd);
         let mut first_line = Vec::with_capacity(32);
         buf_read
