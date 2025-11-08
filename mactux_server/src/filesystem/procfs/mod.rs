@@ -19,6 +19,7 @@ use structures::{error::LxError, fs::FileMode};
 
 pub fn new() -> Result<Arc<Tmpfs>, LxError> {
     let tmpfs = Tmpfs::new()?;
+    tmpfs.set_fs_type("procfs");
 
     create_dynfile_ro(&tmpfs, "/meminfo", sysinfo::meminfo, 0o444)?;
     create_dynfile_ro(&tmpfs, "/cmdline", sysinfo::cmdline, 0o444)?;
@@ -26,10 +27,12 @@ pub fn new() -> Result<Arc<Tmpfs>, LxError> {
     create_dynfile_ro(&tmpfs, "/loadavg", sysinfo::loadavg, 0o444)?;
     create_dynfile_ro(&tmpfs, "/stat", sysinfo::stat, 0o444)?;
     create_dynfile_ro(&tmpfs, "/uptime", sysinfo::uptime, 0o444)?;
-    create_dynfile_ro(&tmpfs, "/mounts", sysinfo::mounts, 0o444)?;
+
     tmpfs.create_dynlink(VPath::parse(b"/self"), || {
         Shared::id(&Process::current()).to_string().into_bytes()
     })?;
+
+    tmpfs.create_dynlink(VPath::parse(b"/mounts"), || b"self/mounts".into())?;
 
     Ok(tmpfs)
 }
@@ -57,6 +60,12 @@ pub fn add_proc(tmpfs: &Tmpfs, apple_pid: libc::pid_t, linux_pid: i32) -> Result
         tmpfs,
         &format!("/{linux_pid}/stat"),
         pid::stat(apple_pid),
+        0o444,
+    )?;
+    create_dynfile_ro(
+        tmpfs,
+        &format!("/{linux_pid}/mounts"),
+        pid::mounts(apple_pid),
         0o444,
     )?;
 

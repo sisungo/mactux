@@ -281,7 +281,7 @@ pub fn listxattr(fd: c_int) -> Result<Vec<u8>, LxError> {
 pub fn umount(path: Vec<u8>, flags: UmountFlags) -> Result<(), LxError> {
     with_client(|client| {
         match client
-            .invoke(Request::Umount(full_path(path)?, flags.bits()))
+            .invoke(Request::Umount(full_path(path)?, flags))
             .unwrap()
         {
             Response::Nothing => Ok(()),

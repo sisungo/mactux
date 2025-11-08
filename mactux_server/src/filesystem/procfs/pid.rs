@@ -1,7 +1,35 @@
 use crate::{app, util::sysctl_read};
 use libproc::{bsd_info::BSDInfo, task_info::TaskInfo};
 use std::io::Write;
-use structures::error::LxError;
+use structures::{
+    error::LxError,
+    files::{Fstab, FstabEntry},
+};
+
+pub fn mounts(apple_pid: libc::pid_t) -> impl Fn() -> Result<Vec<u8>, LxError> + Clone {
+    move || {
+        let mounts = app()
+            .processes
+            .get(apple_pid as _)
+            .ok_or(LxError::ENOENT)?
+            .mnt
+            .mounts();
+        let mut fstab = Fstab(Vec::with_capacity(mounts.len()));
+
+        for mount in mounts {
+            fstab.0.push(FstabEntry {
+                device: String::from_utf8_lossy(&mount.source).to_string(),
+                mount_point: String::from_utf8_lossy(&mount.mountpoint.express()).to_string(),
+                fs_type: mount.filesystem.fs_type().into(),
+                options: "defaults".into(),
+                dump: 0,
+                pass: 0,
+            });
+        }
+
+        Ok(fstab.to_string().into_bytes())
+    }
+}
 
 pub fn comm(apple_pid: libc::pid_t) -> impl Fn() -> Result<Vec<u8>, LxError> + Clone {
     move || {

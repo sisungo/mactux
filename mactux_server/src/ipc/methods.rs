@@ -13,7 +13,7 @@ use std::{io::Write, sync::Arc};
 use structures::{
     device::DeviceNumber,
     error::LxError,
-    fs::{AccessFlags, Dirent64, FileMode, OpenHow, Statx},
+    fs::{AccessFlags, Dirent64, FileMode, OpenHow, Statx, UmountFlags},
     io::{FcntlCmd, IoctlCmd, VfdAvailCtrl, Whence},
     misc::{LogLevel, SysInfo},
 };
@@ -74,6 +74,10 @@ pub fn rename(src: &[u8], dst: &[u8]) -> Result<(), LxError> {
     let dst = Process::current().mnt.locate(&VPath::parse(dst))?;
     let src = Process::current().mnt.locate(&VPath::parse(src))?;
     dst.rename_to(src)
+}
+
+pub fn umount(path: &[u8], flags: UmountFlags) -> Result<(), LxError> {
+    Process::current().mnt.umount(&VPath::parse(path), flags)
 }
 
 pub fn get_sock_path(path: Vec<u8>, create: bool) -> Result<Response, LxError> {

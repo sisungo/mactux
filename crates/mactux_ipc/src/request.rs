@@ -3,7 +3,7 @@ use bincode::{Decode, Encode};
 use std::time::Duration;
 use structures::{
     device::DeviceNumber,
-    fs::{AccessFlags, FileMode, OpenHow},
+    fs::{AccessFlags, FileMode, OpenHow, UmountFlags},
     io::{FcntlCmd, IoctlCmd, Whence},
     misc::LogLevel,
 };
@@ -15,7 +15,7 @@ pub enum Request {
     SetPidNamespace(u64),
     SetUtsNamespace(u64),
 
-    Umount(Vec<u8>, u32),
+    Umount(Vec<u8>, UmountFlags),
 
     Open(Vec<u8>, OpenHow),
     Access(Vec<u8>, AccessFlags),

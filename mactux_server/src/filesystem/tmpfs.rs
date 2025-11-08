@@ -17,7 +17,7 @@ use std::{
     fmt::Debug,
     path::PathBuf,
     sync::{
-        Arc, Mutex, RwLock,
+        Arc, Mutex, OnceLock, RwLock,
         atomic::{self, AtomicU16, AtomicU32, AtomicUsize},
     },
 };
@@ -37,6 +37,7 @@ const BLOCK_SIZE: u32 = 4096;
 
 pub struct Tmpfs {
     root: Arc<Dir>,
+    fs_type: OnceLock<&'static str>,
 }
 impl Tmpfs {
     pub fn new() -> Result<Arc<Self>, LxError> {
@@ -45,7 +46,18 @@ impl Tmpfs {
                 metadata: Arc::new(Metadata::new()),
                 children: DashMap::default(),
             }),
+            fs_type: OnceLock::new(),
         }))
+    }
+
+    /// Sets filesystem type.
+    ///
+    /// # Panics
+    /// Panics if this function is called twice.
+    pub fn set_fs_type(&self, new: &'static str) {
+        self.fs_type
+            .set(new)
+            .expect("Tmpfs::set_fs_type is called twice");
     }
 
     fn locate(&self, path: LPath) -> Result<Location, LxError> {
@@ -260,7 +272,7 @@ impl Filesystem for Tmpfs {
     }
 
     fn fs_type(&self) -> &'static str {
-        "tmpfs"
+        *self.fs_type.get_or_init(|| "tmpfs")
     }
 }
 impl Tmpfs {

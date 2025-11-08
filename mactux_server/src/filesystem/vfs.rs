@@ -6,7 +6,7 @@ use std::{
 use structures::{
     device::DeviceNumber,
     error::LxError,
-    fs::{AccessFlags, FileMode, OpenFlags, OpenHow, OpenResolve},
+    fs::{AccessFlags, FileMode, OpenFlags, OpenHow, OpenResolve, UmountFlags},
 };
 
 /// A mount namespace.
@@ -28,10 +28,11 @@ impl MountNamespace {
         flags: u64,
         data: u8,
     ) -> Result<(), LxError> {
+        let target = target.clearize()?;
         let is_root = target.parts.is_empty();
         let path_exists = crate::util::test_path(
             self,
-            target,
+            &target,
             OpenHow {
                 flags: OpenFlags::O_PATH.bits() as _,
                 mode: 0,
@@ -57,17 +58,34 @@ impl MountNamespace {
         Ok(())
     }
 
-    pub fn umount(&self, path: &VPath) -> Result<(), LxError> {
-        let mut lock = self.mounts.write().unwrap();
-        let index = lock
-            .iter()
-            .enumerate()
-            .rev()
-            .find(|(_, mount)| mount.mountpoint.parts == path.parts)
-            .ok_or(LxError::EINVAL)?
-            .0;
-        lock.remove(index);
-        Ok(())
+    pub fn umount(&self, path: &VPath, flags: UmountFlags) -> Result<(), LxError> {
+        let has_submount = |p: &VPath, m: &Mount| {
+            (p.parts.len() > m.mountpoint.parts.len())
+                && (p.parts[..m.mountpoint.parts.len()] == m.mountpoint.parts)
+        };
+
+        let path = path.clearize()?;
+        let mut nelem = None;
+
+        let mut mounts = self.mounts.write().unwrap();
+
+        for (n, mount) in mounts.iter().rev().enumerate() {
+            if has_submount(&path, mount) {
+                return Err(LxError::EBUSY);
+            }
+            if mount.mountpoint.parts == path.parts {
+                nelem = Some(n);
+                break;
+            }
+        }
+
+        match nelem {
+            Some(i) => {
+                mounts.remove(i);
+                Ok(())
+            }
+            None => Err(LxError::EINVAL),
+        }
     }
 
     pub fn locate(&self, full_path: &VPath) -> Result<Location, LxError> {

@@ -47,6 +47,7 @@ impl RegSession {
                 Request::Link(src, dst) => link(&src, &dst).into_response(),
                 Request::Rename(src, dst) => rename(&src, &dst).into_response(),
                 Request::GetSockPath(path, create) => get_sock_path(path, create).into_response(),
+                Request::Umount(path, flags) => umount(&path, flags).into_response(),
                 Request::VfdDup(vfd) => vfd_dup(vfd).into_response(),
                 Request::VfdStat(vfd) => vfd_stat(vfd, 0xfffffff).into_response(),
                 Request::VfdRead(vfd, bufsiz) => vfd_read(vfd, bufsiz).into_response(),

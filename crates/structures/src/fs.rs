@@ -114,6 +114,7 @@ bitflags! {
         const UMOUNT_NOFOLLOW = 8;
     }
 }
+impl_bincode_for_bitflags!(UmountFlags: u32);
 
 #[derive(Debug, Clone, Copy, Encode, Decode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(C)]
