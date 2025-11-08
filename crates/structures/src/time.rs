@@ -107,3 +107,24 @@ pub struct Timezone {
     pub tz_minuteswest: c_int,
     pub tz_dsttime: c_int,
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[repr(C)]
+pub struct Tms {
+    pub tms_utime: i64,
+    pub tms_stime: i64,
+    pub tms_cutime: i64,
+    pub tms_cstime: i64,
+}
+impl FromApple for Tms {
+    type Apple = libc::tms;
+
+    fn from_apple(apple: libc::tms) -> Result<Self, LxError> {
+        Ok(Self {
+            tms_utime: apple.tms_utime as _,
+            tms_stime: apple.tms_stime as _,
+            tms_cutime: apple.tms_cutime as _,
+            tms_cstime: apple.tms_cstime as _,
+        })
+    }
+}

@@ -23,7 +23,7 @@ use structures::{
     process::{PrctlOp, RLimit64, RLimitable, RUsage, RUsageWho, WaitOptions, WaitStatus},
     signal::{KernelSigSet, MaskHowto, SigAction, SigAltStack, SigNum},
     sync::{FutexCmd, FutexOp, RSeq},
-    time::{ClockId, TimerFlags, Timespec, Timeval, Timezone},
+    time::{ClockId, TimerFlags, Timespec, Timeval, Timezone, Tms},
 };
 
 // -== Filesystem Operations ==-
@@ -1067,6 +1067,19 @@ pub unsafe fn sys_pause() -> Result<(), LxError> {
 #[syscall]
 pub unsafe fn sys_alarm(secs: c_uint) -> c_uint {
     unsafe { libc::alarm(secs) }
+}
+
+#[syscall]
+pub unsafe fn sys_times(tms: *mut Tms) -> Result<i64, LxError> {
+    unsafe {
+        let mut apple = std::mem::zeroed();
+        let result = libc::times(&mut apple);
+        if result == (-1 as _) {
+            return Err(LxError::last_apple_error());
+        }
+        tms.write(Tms::from_apple(apple)?);
+        Ok(result as _)
+    }
 }
 
 #[syscall]

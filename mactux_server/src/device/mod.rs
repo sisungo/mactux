@@ -47,6 +47,7 @@ impl DeviceTable {
 
     pub fn discover(&self) {
         auxmem::discover(self);
+        term::discover(self);
 
         #[cfg(feature = "audio")]
         oss::discover(self);

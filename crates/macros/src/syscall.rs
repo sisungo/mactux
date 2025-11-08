@@ -42,7 +42,6 @@ pub fn syscall(_: TokenStream, item: TokenStream) -> TokenStream {
             unsafe { ::rtenv::emuctx::leave_emulated(); }
             #(#input_conversion)*
             crate::UcontextExt::ret(uctx, crate::ToSysret::to_sysret(__impl(#(#call_impl_inputs,)*)));
-            //eprintln!("{}{:?} = {}", stringify!(#ident), (#(#call_impl_inputs,)*), uctx.sysno());
             unsafe { ::rtenv::emuctx::enter_emulated(); }
         }
     }.into()

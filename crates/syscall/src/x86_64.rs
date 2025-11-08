@@ -174,7 +174,7 @@ const SYSTEM_CALL_HANDLERS: &[SystemCallHandler] = &[
     sys_invalid,           // 97
     sys_getrusage,         // 98
     sys_sysinfo,           // 99
-    sys_invalid,           // 100
+    sys_times,             // 100
     sys_invalid,           // 101
     sys_getuid,            // 102
     sys_invalid,           // 103
