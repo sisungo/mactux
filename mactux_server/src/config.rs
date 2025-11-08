@@ -11,6 +11,8 @@ impl WorkDir {
         if !this.init_flag().exists() {
             init_work_dir(&this)?;
         }
+        _ = std::fs::remove_dir_all(this.net());
+        std::fs::create_dir(this.net())?;
         Ok(this)
     }
 
@@ -32,6 +34,10 @@ impl WorkDir {
 
     pub fn init_flag(&self) -> PathBuf {
         self.0.join("init_flag")
+    }
+
+    pub fn net(&self) -> PathBuf {
+        self.0.join("net")
     }
 }
 

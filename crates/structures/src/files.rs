@@ -16,6 +16,14 @@ impl FromStr for Fstab {
         Ok(Fstab(entries))
     }
 }
+impl Display for Fstab {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for i in self.0.iter() {
+            writeln!(f, "{i}")?;
+        }
+        Ok(())
+    }
+}
 
 /// An entry in `/dev/fstab`.
 #[derive(Debug, Clone)]
@@ -54,6 +62,15 @@ impl FromStr for FstabEntry {
             dump,
             pass,
         })
+    }
+}
+impl Display for FstabEntry {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{} {} {} {} {} {}",
+            self.device, self.mount_point, self.fs_type, self.options, self.dump, self.pass
+        )
     }
 }
 

@@ -48,6 +48,7 @@ impl MountNamespace {
         mountpoint.slash_suffix = false;
 
         let mount = Mount {
+            source: source.to_vec(),
             mountpoint,
             filesystem,
         };
@@ -96,12 +97,18 @@ impl MountNamespace {
         }
         Err(LxError::ENOENT)
     }
+
+    pub fn mounts(&self) -> Vec<Mount> {
+        self.mounts.read().unwrap().clone()
+    }
 }
 
 /// A mounted filesystem.
-struct Mount {
-    mountpoint: VPath,
-    filesystem: Arc<dyn Filesystem>,
+#[derive(Clone)]
+pub struct Mount {
+    pub source: Vec<u8>,
+    pub mountpoint: VPath,
+    pub filesystem: Arc<dyn Filesystem>,
 }
 
 /// A path containing both the located mountpoint [`VPath`] and the relative [`VPath`].
@@ -188,6 +195,8 @@ pub trait Filesystem: Send + Sync {
     fn get_sock_path(&self, path: LPath, create: bool) -> Result<PathBuf, LxError>;
     fn rename(&self, src: LPath, dst: LPath) -> Result<(), LxError>;
     fn link(&self, src: LPath, dst: LPath) -> Result<(), LxError>;
+
+    fn fs_type(&self) -> &'static str;
 }
 
 pub enum NewlyOpen {

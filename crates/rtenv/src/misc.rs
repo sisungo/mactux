@@ -66,32 +66,6 @@ pub fn write_syslog(level: LogLevel, content: Vec<u8>) {
     });
 }
 
-#[derive(Debug)]
-pub struct RustLogger;
-impl log::Log for RustLogger {
-    fn enabled(&self, _: &log::Metadata) -> bool {
-        true
-    }
-
-    fn flush(&self) {}
-
-    fn log(&self, record: &log::Record) {
-        let level = match record.level() {
-            log::Level::Trace => LogLevel::KERN_DEBUG,
-            log::Level::Debug => LogLevel::KERN_INFO,
-            log::Level::Info => LogLevel::KERN_NOTICE,
-            log::Level::Warn => LogLevel::KERN_WARNING,
-            log::Level::Error => LogLevel::KERN_ERR,
-        };
-        let content = format!(
-            "{}: {}",
-            record.module_path().unwrap_or("mactux"),
-            record.args()
-        );
-        write_syslog(level, content.into_bytes());
-    }
-}
-
 fn machine() -> [u8; 65] {
     if cfg!(target_arch = "x86_64") {
         uname_str(b"x86_64").unwrap()

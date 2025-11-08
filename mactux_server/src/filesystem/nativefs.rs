@@ -213,6 +213,10 @@ impl Filesystem for NativeFs {
             NPath::IsSymlink(_, _) => Err(LxError::EEXIST),
         }
     }
+
+    fn fs_type(&self) -> &'static str {
+        "nativefs"
+    }
 }
 
 enum NPath {

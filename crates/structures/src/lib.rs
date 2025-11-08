@@ -1,8 +1,8 @@
 //! Structures and definitions of Linux types, along with utilities converting them from and to the apple ones.
 
-pub mod convention;
 pub mod device;
 pub mod error;
+pub mod files;
 pub mod fs;
 pub mod io;
 pub mod mapper;

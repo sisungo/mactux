@@ -104,6 +104,9 @@ struct Namespaces {
 
     /// The initial UTS namespace.
     init_uts: OnceLock<Shared<Box<dyn UtsNamespace>>>,
+
+    /// The initial network namespace.
+    init_net: OnceLock<Shared<NetNamespace>>,
 }
 impl Namespaces {
     fn new() -> Self {
@@ -115,10 +118,11 @@ impl Namespaces {
             init_mnt: OnceLock::new(),
             init_pid: OnceLock::new(),
             init_uts: OnceLock::new(),
+            init_net: OnceLock::new(),
         }
     }
 
-    fn init(&'static self) {
+    fn init(&'static self) -> anyhow::Result<()> {
         let init_mnt = self.mount.register(MountNamespace::new());
         assert_eq!(Shared::id(&init_mnt), 1);
         _ = self.init_mnt.set(init_mnt);
@@ -130,6 +134,12 @@ impl Namespaces {
         let init_uts = self.uts.register(Box::new(InitUts));
         assert_eq!(Shared::id(&init_uts), 1);
         _ = self.init_uts.set(init_uts);
+
+        let init_net = self.net.register(NetNamespace::new()?);
+        assert_eq!(Shared::id(&init_net), 1);
+        _ = self.init_net.set(init_net);
+
+        Ok(())
     }
 
     fn init_mnt(&self) -> Shared<MountNamespace> {
@@ -181,7 +191,7 @@ fn init_app(cli: Cli) -> anyhow::Result<()> {
         return Err(anyhow!("init_app is called twice"));
     }
 
-    app().namespaces.init();
+    app().namespaces.init()?;
 
     let server_proc: Shared<Process> = app().processes.intervene(
         std::process::id() as _,
@@ -213,7 +223,7 @@ fn init_mounts() -> anyhow::Result<()> {
     let fstab = app().work_dir.rootfs().join("etc/fstab");
     let fstab =
         std::fs::read_to_string(&fstab).context(format!("failed to read {}", fstab.display()))?;
-    let fstab = fstab.parse::<structures::convention::Fstab>()?;
+    let fstab = fstab.parse::<structures::files::Fstab>()?;
     let init_mnt = app().namespaces.init_mnt();
     let rootfs_source = format!("native={}", app().work_dir.rootfs().display());
     init_mnt.mount(

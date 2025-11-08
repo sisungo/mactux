@@ -1,4 +1,4 @@
-use structures::{error::LxError, mapper::PidMapper};
+use structures::{error::LxError, mapper::PidMapper, misc::LogLevel};
 
 /// Converts a POSIX function that returns something like what `read()`/`write()` returns to [`Result<Integer, LxError>`] in
 /// Rust.
@@ -44,5 +44,31 @@ impl PidMapper for RtenvPidMapper {
 
     fn linux_to_apple(&self, linux: i32) -> Result<libc::pid_t, LxError> {
         Ok(linux)
+    }
+}
+
+#[derive(Debug)]
+pub struct RustLogger;
+impl log::Log for RustLogger {
+    fn enabled(&self, _: &log::Metadata) -> bool {
+        true
+    }
+
+    fn flush(&self) {}
+
+    fn log(&self, record: &log::Record) {
+        let level = match record.level() {
+            log::Level::Trace => LogLevel::KERN_DEBUG,
+            log::Level::Debug => LogLevel::KERN_INFO,
+            log::Level::Info => LogLevel::KERN_NOTICE,
+            log::Level::Warn => LogLevel::KERN_WARNING,
+            log::Level::Error => LogLevel::KERN_ERR,
+        };
+        let content = format!(
+            "{}: {}",
+            record.module_path().unwrap_or("mactux"),
+            record.args()
+        );
+        crate::misc::write_syslog(level, content.into_bytes());
     }
 }

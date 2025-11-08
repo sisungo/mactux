@@ -1,5 +1,10 @@
 use std::io::Write;
-use structures::error::LxError;
+use structures::{
+    error::LxError,
+    files::{Fstab, FstabEntry},
+};
+
+use crate::task::process::Process;
 
 pub fn meminfo() -> Result<Vec<u8>, LxError> {
     let mem_info = crate::sysinfo::MemInfo::acquire()?;
@@ -13,6 +18,24 @@ pub fn meminfo() -> Result<Vec<u8>, LxError> {
     writeln!(&mut s, "SwapTotal: {} kB", mem_info.total_swap / 1024).unwrap();
     writeln!(&mut s, "SwapFree: {} kB", mem_info.free_swap / 1024).unwrap();
     Ok(s)
+}
+
+pub fn mounts() -> Result<Vec<u8>, LxError> {
+    let mounts = Process::current().mnt.mounts();
+    let mut fstab = Fstab(Vec::with_capacity(mounts.len()));
+
+    for mount in mounts {
+        fstab.0.push(FstabEntry {
+            device: String::from_utf8_lossy(&mount.source).to_string(),
+            mount_point: String::from_utf8_lossy(&mount.mountpoint.express()).to_string(),
+            fs_type: mount.filesystem.fs_type().into(),
+            options: "defaults".into(),
+            dump: 0,
+            pass: 0,
+        });
+    }
+
+    Ok(fstab.to_string().into_bytes())
 }
 
 pub fn uptime() -> Result<Vec<u8>, LxError> {

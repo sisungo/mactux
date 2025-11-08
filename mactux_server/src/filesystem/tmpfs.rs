@@ -258,6 +258,10 @@ impl Filesystem for Tmpfs {
             Location::MidSymlink(vpath) => Process::current().mnt.locate(&vpath)?.mknod(mode, dev),
         }
     }
+
+    fn fs_type(&self) -> &'static str {
+        "tmpfs"
+    }
 }
 impl Tmpfs {
     pub fn create_dynfile<R, W>(&self, path: VPath, obj: DynFile<R, W>) -> Result<(), LxError>
