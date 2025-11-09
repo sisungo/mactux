@@ -423,22 +423,19 @@ pub fn pipe(flags: OpenFlags) -> Result<[c_int; 2], LxError> {
 
 #[inline]
 pub fn eventfd(initval: u64, flags: EventFdFlags) -> Result<c_int, LxError> {
-    with_client(|client| {
-        match client
-            .invoke(Request::EventFd(initval, flags.bits()))
-            .unwrap()
-        {
+    with_client(
+        |client| match client.invoke(Request::EventFd(initval, flags)).unwrap() {
             Response::Vfd(vfd) => crate::vfd::create(vfd, flags.open_flags()),
             Response::Error(err) => Err(err),
             _ => ipc_fail(),
-        }
-    })
+        },
+    )
 }
 
 #[inline]
-pub fn set_mount_namespace(new: u64) {
+pub fn set_mnt_namespace(new: u64) {
     with_client(|client| {
-        client.invoke(Request::SetMountNamespace(new)).unwrap();
+        client.invoke(Request::SetMntNamespace(new)).unwrap();
     });
 }
 

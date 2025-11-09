@@ -1,6 +1,6 @@
 use crate::{
-    FromApple, ToApple, error::LxError, mapper, signal::KernelSigSet, terminal::Termios2,
-    unixvariants,
+    FromApple, ToApple, error::LxError, impl_bincode_for_bitflags, mapper, signal::KernelSigSet,
+    terminal::Termios2, unixvariants,
 };
 use bincode::{Decode, Encode};
 use bitflags::bitflags;
@@ -329,6 +329,7 @@ impl EventFdFlags {
         result
     }
 }
+impl_bincode_for_bitflags!(EventFdFlags: u32);
 
 bitflags! {
     #[derive(Debug, Clone, Copy)]

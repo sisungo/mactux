@@ -159,7 +159,7 @@ const SYSTEM_CALL_HANDLERS: &[SystemCallHandler] = &[
     sys_rename,            // 82
     sys_mkdir,             // 83
     sys_rmdir,             // 84
-    sys_invalid,           // 85
+    sys_creat,             // 85
     sys_link,              // 86
     sys_unlink,            // 87
     sys_symlink,           // 88

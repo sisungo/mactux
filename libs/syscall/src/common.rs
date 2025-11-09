@@ -34,6 +34,17 @@ pub unsafe fn sys_open(path: *const c_char, flags: OpenFlags, mode: u32) -> Resu
 }
 
 #[syscall]
+pub unsafe fn sys_creat(path: *const c_char, mode: u32) -> Result<c_int, LxError> {
+    unsafe {
+        rtenv::fs::open(
+            rust_bytes(path).to_vec(),
+            OpenFlags::O_CREAT | OpenFlags::O_TRUNC | OpenFlags::O_WRONLY,
+            FileMode(mode as _),
+        )
+    }
+}
+
+#[syscall]
 pub unsafe fn sys_openat(
     dfd: c_int,
     filename: *const c_char,

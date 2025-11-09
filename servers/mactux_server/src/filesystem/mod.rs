@@ -1,3 +1,4 @@
+pub mod eventfd;
 pub mod nativefs;
 pub mod procfs;
 pub mod tmpfs;

@@ -2,7 +2,7 @@ use crate::{
     device::DeviceNumber,
     error::LxError,
     fs::{AccessFlags, Dirent64, FileMode, OpenHow, Statx, UmountFlags},
-    io::{FcntlCmd, IoctlCmd, VfdAvailCtrl, Whence},
+    io::{EventFdFlags, FcntlCmd, IoctlCmd, VfdAvailCtrl, Whence},
     misc::{LogLevel, SysInfo},
 };
 use bincode::{Decode, Encode};
@@ -48,7 +48,7 @@ impl HandshakeResponse {
 /// An uninterruptible MacTux IPC request.
 #[derive(Debug, Clone, Encode, Decode)]
 pub enum Request {
-    SetMountNamespace(u64),
+    SetMntNamespace(u64),
     SetPidNamespace(u64),
     SetUtsNamespace(u64),
 
@@ -83,7 +83,7 @@ pub enum Request {
     VfdSync(u64),
     VfdReadlink(u64),
 
-    EventFd(u64, u32),
+    EventFd(u64, EventFdFlags),
 
     GetNetworkNames,
     SetNetworkNames(NetworkNames),

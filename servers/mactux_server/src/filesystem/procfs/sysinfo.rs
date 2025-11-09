@@ -48,5 +48,11 @@ pub fn stat() -> Result<Vec<u8>, LxError> {
 }
 
 pub fn cmdline() -> Result<Vec<u8>, LxError> {
-    Ok(Vec::new())
+    let mut s = Vec::new();
+    for i in std::env::args().skip(1) {
+        s.append(&mut i.into_bytes());
+        s.push(b' ');
+    }
+    s.push(b'\n');
+    Ok(s)
 }

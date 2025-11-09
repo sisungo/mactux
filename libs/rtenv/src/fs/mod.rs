@@ -106,7 +106,7 @@ pub fn getdents64(fd: c_int) -> Result<Option<Dirent64>, LxError> {
 }
 
 #[inline]
-pub unsafe fn stat(fd: c_int) -> Result<Statx, LxError> {
+pub fn stat(fd: c_int) -> Result<Statx, LxError> {
     match crate::vfd::get(fd) {
         Some(vfd) => vfd::stat(vfd),
         None => unsafe {

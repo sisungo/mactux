@@ -37,6 +37,9 @@ impl RegSession {
 
         while let Ok(req) = self.0.recv::<Request>(&mut buf) {
             let resp = match req {
+                Request::SetMntNamespace(ns) => set_mnt_namespace(ns).into_response(),
+                Request::SetPidNamespace(ns) => set_pid_namespace(ns).into_response(),
+                Request::SetUtsNamespace(ns) => set_uts_namespace(ns).into_response(),
                 Request::Open(path, how) => open(path, how).into_response(),
                 Request::Access(path, flags) => access(path, flags).into_response(),
                 Request::Unlink(path) => unlink(path).into_response(),
@@ -74,6 +77,7 @@ impl RegSession {
                     write_syslog(level, content).into_response()
                 }
                 Request::SetThreadName(name) => set_thread_name(name).into_response(),
+                Request::EventFd(count, flags) => eventfd(count, flags).into_response(),
                 other => todo!("{other:?}"),
             };
             self.0.send(&resp)?;

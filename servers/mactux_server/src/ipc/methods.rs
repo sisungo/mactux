@@ -4,15 +4,19 @@ use crate::{
     syslog::WriteLogRequest,
     task::{process::Process, thread::Thread},
     util::Shared,
+    vfd::Vfd,
 };
 use std::{io::Write, sync::Arc};
-use structures::mactux_ipc::{CtrlOutput, NetworkNames, Response};
 use structures::{
     device::DeviceNumber,
     error::LxError,
     fs::{AccessFlags, Dirent64, FileMode, OpenHow, Statx, UmountFlags},
     io::{FcntlCmd, IoctlCmd, VfdAvailCtrl, Whence},
     misc::{LogLevel, SysInfo},
+};
+use structures::{
+    io::EventFdFlags,
+    mactux_ipc::{CtrlOutput, NetworkNames, Response},
 };
 
 pub fn open(path: Vec<u8>, how: OpenHow) -> Result<NewlyOpen, LxError> {
@@ -85,14 +89,8 @@ pub fn get_sock_path(path: Vec<u8>, create: bool) -> Result<Response, LxError> {
         .map(|path| Response::NativePath(path.into_os_string().into_encoded_bytes()))
 }
 
-pub fn vfd_dup(vfd: u64) -> Result<Response, LxError> {
-    let dup = Process::current()
-        .vfd
-        .unregister(vfd)
-        .ok_or(LxError::EBADF)?
-        .dup();
-    let id = Process::current().vfd.register(dup);
-    Ok(Response::Vfd(id))
+pub fn vfd_dup(vfd: u64) -> Result<Arc<Vfd>, LxError> {
+    Ok(Process::current().vfd.get(vfd).ok_or(LxError::EBADF)?.dup())
 }
 
 pub fn vfd_read(vfd: u64, bufsiz: usize) -> Result<Response, LxError> {
@@ -271,6 +269,22 @@ pub fn write_syslog(level: LogLevel, mut content: Vec<u8>) {
     app().syslog.write(WriteLogRequest { level, content });
 }
 
+pub fn set_mnt_namespace(ns: u64) -> Result<(), LxError> {
+    todo!()
+}
+
+pub fn set_pid_namespace(ns: u64) -> Result<(), LxError> {
+    todo!()
+}
+
+pub fn set_uts_namespace(ns: u64) -> Result<(), LxError> {
+    todo!()
+}
+
+pub fn eventfd(count: u64, flags: EventFdFlags) -> Result<Vfd, LxError> {
+    crate::filesystem::eventfd::open(count, flags)
+}
+
 pub trait IntoResponse {
     fn into_response(self) -> Response;
 }
@@ -342,5 +356,15 @@ where
             Some(val) => val.into_response(),
             None => Response::Nothing,
         }
+    }
+}
+impl IntoResponse for Vfd {
+    fn into_response(self) -> Response {
+        Arc::new(self).into_response()
+    }
+}
+impl IntoResponse for Arc<Vfd> {
+    fn into_response(self) -> Response {
+        Response::Vfd(Process::current().vfd.register(self))
     }
 }

@@ -26,6 +26,7 @@ use crate::{
 };
 use anyhow::{Context, anyhow};
 use std::{path::PathBuf, sync::OnceLock};
+use structures::misc::LogLevel;
 
 static APP: OnceLock<App> = OnceLock::new();
 
@@ -53,10 +54,10 @@ struct App {
     server_thread: OnceLock<Shared<Thread>>,
 }
 impl App {
-    fn new(cli: Cli) -> anyhow::Result<Self> {
+    fn new(cli: &Cli) -> anyhow::Result<Self> {
         let processes = ReclaimRegistry::new();
         let threads = ReclaimRegistry::new();
-        let work_dir = match cli.work_dir {
+        let work_dir = match cli.work_dir.clone() {
             Some(dir) => WorkDir::new(dir)?,
             None => WorkDir::try_default()?,
         };
@@ -159,20 +160,32 @@ impl Namespaces {
 struct Cli {
     #[arg(short = 'd', long)]
     work_dir: Option<PathBuf>,
+
+    #[arg(long)]
+    console_loglevel: Option<u32>,
+
+    #[arg(long)]
+    record_loglevel: Option<u32>,
 }
 
 fn main() {
     let cli: Cli = clap::Parser::parse();
 
-    if let Err(err) = init_app(cli) {
+    if let Err(err) = init_app(&cli) {
         eprintln!("mactux_server: cannot initialize application: {err}");
         std::process::exit(1);
     }
 
     syslog::install_rust().expect("syslog::install_rust is called twice");
+    if let Some(level) = cli.record_loglevel {
+        app().syslog.config.record_loglevel.store(LogLevel(level));
+    }
+    if let Some(level) = cli.console_loglevel {
+        app().syslog.config.console_loglevel.store(LogLevel(level));
+    }
 
     if let Err(err) = init_env() {
-        eprintln!("mactux_server: cannot initialize Linux environment: {err}");
+        log::error!("cannot initialize Linux environment: {err}");
         std::process::exit(1);
     }
 
@@ -186,7 +199,7 @@ fn main() {
 ///
 /// Some initializations requires to be set here, instead of [`App::new`] and simply [`OnceLock::set`], because they
 /// use [`ReclaimRegistry`]s, which requires a static lifetime.
-fn init_app(cli: Cli) -> anyhow::Result<()> {
+fn init_app(cli: &Cli) -> anyhow::Result<()> {
     if APP.set(App::new(cli)?).is_err() {
         return Err(anyhow!("init_app is called twice"));
     }

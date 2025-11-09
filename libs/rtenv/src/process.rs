@@ -14,13 +14,15 @@ use std::{
     path::PathBuf,
     sync::Arc,
 };
-use structures::mactux_ipc::Request;
 use structures::{
     ToApple,
     error::LxError,
-    fs::AccessFlags,
     process::{ChildType, CloneArgs, CloneFlags},
     signal::{SigAction, SigNum},
+};
+use structures::{
+    fs::{FileMode, FileType, OpenFlags},
+    mactux_ipc::Request,
 };
 
 static mut PROCESS_CTX: MaybeUninit<ProcessCtx> = MaybeUninit::uninit();
@@ -95,10 +97,18 @@ pub unsafe fn exec(
     argv: &[*const u8],
     envp: &[*const u8],
 ) -> Result<Infallible, LxError> {
-    if crate::fs::access(path.to_vec(), AccessFlags::X_OK).is_err() {
-        if crate::fs::access(path.to_vec(), AccessFlags::F_OK).is_err() {
-            return Err(LxError::ENOENT);
-        }
+    let fd = crate::fs::open(
+        path.to_vec(),
+        OpenFlags::O_CLOEXEC | OpenFlags::O_PATH,
+        FileMode(0),
+    )?;
+    let stat = crate::fs::stat(fd).inspect_err(|_| _ = crate::io::close(fd))?;
+    _ = crate::io::close(fd);
+    match stat.stx_mode.file_type() {
+        FileType::Directory => return Err(LxError::EISDIR),
+        _ => (),
+    }
+    if stat.stx_mode.permbits() & 0o111 == 0 {
         return Err(LxError::EPERM);
     }
 

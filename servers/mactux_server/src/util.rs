@@ -11,7 +11,7 @@ use std::{
     os::unix::ffi::OsStringExt,
     path::PathBuf,
     sync::{
-        Arc, Weak,
+        Arc, Condvar, Mutex, Weak,
         atomic::{self, AtomicU64},
     },
 };
@@ -142,6 +142,39 @@ impl<T> Clone for WeakShared<T> {
             id: self.id,
             value: self.value.clone(),
         }
+    }
+}
+
+#[derive(Debug)]
+pub struct Watch<T> {
+    mutex: Mutex<T>,
+    condvar: Condvar,
+}
+impl<T: Clone> Watch<T> {
+    pub fn new(val: T) -> Self {
+        Self {
+            mutex: Mutex::new(val),
+            condvar: Condvar::new(),
+        }
+    }
+
+    pub fn get(&self) -> T {
+        self.mutex.lock().unwrap().clone()
+    }
+
+    pub fn set(&self, val: T) {
+        *self.mutex.lock().unwrap() = val;
+        self.condvar.notify_all();
+    }
+
+    pub fn update(&self, f: impl FnOnce(&mut T)) {
+        f(&mut self.mutex.lock().unwrap());
+        self.condvar.notify_all();
+    }
+
+    pub fn wait_until(&self, f: impl FnMut(&mut T) -> bool) -> T {
+        let guard = self.mutex.lock().unwrap();
+        self.condvar.wait_while(guard, f).unwrap().clone()
     }
 }
 
