@@ -1,5 +1,11 @@
+use crate::ipc_client::with_client;
 use std::{ffi::c_int, panic::PanicHookInfo};
-use structures::{error::LxError, mapper::PidMapper, misc::LogLevel};
+use structures::{
+    error::LxError,
+    mactux_ipc::{Request, Response},
+    mapper::PidMapper,
+    misc::LogLevel,
+};
 
 /// Converts a POSIX function that returns something like what `read()`/`write()` returns to [`Result<Integer, LxError>`] in
 /// Rust.
@@ -34,13 +40,24 @@ pub fn ipc_fail() -> ! {
 #[derive(Debug, Clone, Copy)]
 pub struct RtenvPidMapper;
 impl PidMapper for RtenvPidMapper {
-    // TODO
     fn apple_to_linux(&self, apple: libc::pid_t) -> Result<i32, LxError> {
-        Ok(apple)
+        with_client(
+            |client| match client.invoke(Request::PidNativeToLinux(apple)).unwrap() {
+                Response::Pid(pid) => Ok(pid),
+                Response::Error(err) => Err(err),
+                _ => ipc_fail(),
+            },
+        )
     }
 
     fn linux_to_apple(&self, linux: i32) -> Result<libc::pid_t, LxError> {
-        Ok(linux)
+        with_client(
+            |client| match client.invoke(Request::PidLinuxToNative(linux)).unwrap() {
+                Response::Pid(pid) => Ok(pid),
+                Response::Error(err) => Err(err),
+                _ => ipc_fail(),
+            },
+        )
     }
 }
 

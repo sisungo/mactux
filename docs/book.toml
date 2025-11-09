@@ -1,0 +1,5 @@
+[book]
+authors = ["sisungo"]
+language = "en"
+src = "src"
+title = "The MacTux Book"

@@ -1,7 +1,7 @@
 use crate::{
     device::DeviceNumber,
     error::LxError,
-    fs::{AccessFlags, Dirent64, FileMode, OpenHow, Statx, UmountFlags},
+    fs::{AccessFlags, Dirent64, FileMode, OpenFlags, OpenHow, Statx, UmountFlags},
     io::{EventFdFlags, FcntlCmd, IoctlCmd, VfdAvailCtrl, Whence},
     misc::{LogLevel, SysInfo},
 };
@@ -94,6 +94,7 @@ pub enum Request {
     VfdReadlink(u64),
 
     EventFd(u64, EventFdFlags),
+    InvalidFd(OpenFlags),
 
     GetNetworkNames,
     SetNetworkNames(NetworkNames),
@@ -106,6 +107,9 @@ pub enum Request {
 
     GetThreadName,
     SetThreadName(Vec<u8>),
+
+    PidNativeToLinux(i32),
+    PidLinuxToNative(i32),
 
     CallInterruptible(InterruptibleRequest),
 }
@@ -123,6 +127,7 @@ pub enum Response {
     NativePath(Vec<u8>),
     LxPath(Vec<u8>),
     Vfd(u64),
+    Pid(i32),
     Bytes(Vec<u8>),
     Length(usize),
     Offset(i64),

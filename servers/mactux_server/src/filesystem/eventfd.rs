@@ -6,24 +6,16 @@ use crate::{
 use std::sync::Arc;
 use structures::{
     error::LxError,
-    fs::OpenFlags,
     io::{EventFdFlags, PollEvents, Whence},
 };
 
 pub fn open(count: u64, flags: EventFdFlags) -> Result<Vfd, LxError> {
-    let mut open_flags = OpenFlags::empty();
-    if flags.contains(EventFdFlags::EFD_CLOEXEC) {
-        open_flags |= OpenFlags::O_CLOEXEC;
-    }
-    if flags.contains(EventFdFlags::EFD_NONBLOCK) {
-        open_flags |= OpenFlags::O_NONBLOCK;
-    }
     Ok(Vfd::new(
         Arc::new(EventFd {
             inner: Watch::new(count),
             flags,
         }),
-        open_flags,
+        flags.open_flags(),
     ))
 }
 

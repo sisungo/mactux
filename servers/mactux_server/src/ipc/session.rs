@@ -78,7 +78,10 @@ impl RegSession {
                 }
                 Request::GetThreadName => get_thread_name().into_response(),
                 Request::SetThreadName(name) => set_thread_name(name).into_response(),
+                Request::PidLinuxToNative(pid) => pid_linux_to_native(pid).into_response(),
+                Request::PidNativeToLinux(pid) => pid_native_to_linux(pid).into_response(),
                 Request::EventFd(count, flags) => eventfd(count, flags).into_response(),
+                Request::InvalidFd(flags) => invalidfd(flags).into_response(),
                 Request::CallInterruptible(_) => todo!(),
             };
             self.0.send(&resp)?;

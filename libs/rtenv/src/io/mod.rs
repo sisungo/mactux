@@ -422,10 +422,21 @@ pub fn pipe(flags: OpenFlags) -> Result<[c_int; 2], LxError> {
 }
 
 #[inline]
-pub fn eventfd(initval: u64, flags: EventFdFlags) -> Result<c_int, LxError> {
+pub fn eventfd(count: u64, flags: EventFdFlags) -> Result<c_int, LxError> {
     with_client(
-        |client| match client.invoke(Request::EventFd(initval, flags)).unwrap() {
+        |client| match client.invoke(Request::EventFd(count, flags)).unwrap() {
             Response::Vfd(vfd) => crate::vfd::create(vfd, flags.open_flags()),
+            Response::Error(err) => Err(err),
+            _ => ipc_fail(),
+        },
+    )
+}
+
+#[inline]
+pub fn invalidfd(flags: OpenFlags) -> Result<c_int, LxError> {
+    with_client(
+        |client| match client.invoke(Request::InvalidFd(flags)).unwrap() {
+            Response::Vfd(vfd) => crate::vfd::create(vfd, flags),
             Response::Error(err) => Err(err),
             _ => ipc_fail(),
         },

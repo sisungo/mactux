@@ -5,6 +5,7 @@ static PID_MAPPER: LazyLock<RwLock<Box<dyn PidMapper>>> =
     LazyLock::new(|| RwLock::new(Box::new(FailMapper)));
 
 pub trait PidMapper: Send + Sync {
+    // TODO: Clarify semantics; Rename `apple` to `native`? (with meaning of Thread IDs)
     fn apple_to_linux(&self, apple: libc::pid_t) -> Result<i32, LxError>;
     fn linux_to_apple(&self, linux: i32) -> Result<libc::pid_t, LxError>;
 }

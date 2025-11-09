@@ -10,7 +10,7 @@ use std::{io::Write, sync::Arc};
 use structures::{
     device::DeviceNumber,
     error::LxError,
-    fs::{AccessFlags, Dirent64, FileMode, OpenHow, Statx, UmountFlags},
+    fs::{AccessFlags, Dirent64, FileMode, OpenFlags, OpenHow, Statx, UmountFlags},
     io::{FcntlCmd, IoctlCmd, VfdAvailCtrl, Whence},
     misc::{LogLevel, SysInfo},
 };
@@ -294,6 +294,18 @@ pub fn set_uts_namespace(ns: u64) -> Result<(), LxError> {
 
 pub fn eventfd(count: u64, flags: EventFdFlags) -> Result<Vfd, LxError> {
     crate::filesystem::eventfd::open(count, flags)
+}
+
+pub fn invalidfd(flags: OpenFlags) -> Result<Vfd, LxError> {
+    crate::filesystem::invalidfd::open(flags)
+}
+
+pub fn pid_linux_to_native(linux: i32) -> Result<Response, LxError> {
+    Process::current().pid.lton(linux).map(Response::Pid)
+}
+
+pub fn pid_native_to_linux(native: i32) -> Result<Response, LxError> {
+    Process::current().pid.ntol(native).map(Response::Pid)
 }
 
 pub trait IntoResponse {
