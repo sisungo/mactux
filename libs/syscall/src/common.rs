@@ -1311,20 +1311,19 @@ pub unsafe fn sys_execve(
     envp: *const *const u8,
 ) -> Result<(), LxError> {
     unsafe {
-        let path = rust_bytes(path);
-
         let mut argc = 0;
+        let mut envc = 0;
+
         while !(*argv.add(argc)).is_null() {
             argc += 1;
         }
 
-        let mut envc = 0;
-        while !(*argv.add(envc)).is_null() {
+        while !(*envp.add(envc)).is_null() {
             envc += 1;
         }
 
         rtenv::process::exec(
-            path,
+            rust_bytes(path),
             std::slice::from_raw_parts(argv, argc),
             std::slice::from_raw_parts(envp, envc),
         )?;
