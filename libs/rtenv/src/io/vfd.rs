@@ -1,6 +1,6 @@
 use crate::{ipc_client::with_client, util::ipc_fail};
-use mactux_ipc::{request::Request, response::Response};
 use std::ffi::c_int;
+use structures::mactux_ipc::{Request, Response};
 use structures::{
     error::LxError,
     io::{FcntlCmd, IoctlCmd, VfdAvailCtrl, Whence},

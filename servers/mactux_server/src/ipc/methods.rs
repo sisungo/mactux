@@ -5,11 +5,8 @@ use crate::{
     task::{process::Process, thread::Thread},
     util::Shared,
 };
-use mactux_ipc::{
-    response::{CtrlOutput, Response},
-    types::NetworkNames,
-};
 use std::{io::Write, sync::Arc};
+use structures::mactux_ipc::{CtrlOutput, NetworkNames, Response};
 use structures::{
     device::DeviceNumber,
     error::LxError,

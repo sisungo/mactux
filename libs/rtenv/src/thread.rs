@@ -4,7 +4,6 @@ use crate::{
     process,
     util::ipc_fail,
 };
-use mactux_ipc::{request::Request, response::Response};
 use rustc_hash::FxHashMap;
 use std::{
     cell::{Cell, OnceCell, RefCell, UnsafeCell},
@@ -15,6 +14,7 @@ use std::{
         atomic::{self, AtomicPtr, AtomicUsize},
     },
 };
+use structures::mactux_ipc::{Request, Response};
 use structures::{
     error::LxError,
     process::CloneArgs,

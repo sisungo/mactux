@@ -1,5 +1,5 @@
 use crate::{ipc_client::with_client, util::ipc_fail};
-use mactux_ipc::{request::Request, response::Response, types::NetworkNames};
+use structures::mactux_ipc::{NetworkNames, Request, Response};
 use structures::{
     error::LxError,
     misc::{LogLevel, SysInfo, UtsName, uname_str},

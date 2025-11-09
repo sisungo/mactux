@@ -5,6 +5,7 @@ pub mod error;
 pub mod files;
 pub mod fs;
 pub mod io;
+pub mod mactux_ipc;
 pub mod mapper;
 pub mod misc;
 pub mod mm;

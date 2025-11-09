@@ -11,7 +11,6 @@ use crate::{
     vfd::{Stream, Vfd, VfdContent},
 };
 use dashmap::DashMap;
-use mactux_ipc::response::CtrlOutput;
 use rustc_hash::FxBuildHasher;
 use std::{
     fmt::Debug,
@@ -21,6 +20,7 @@ use std::{
         atomic::{self, AtomicU16, AtomicU32, AtomicUsize},
     },
 };
+use structures::mactux_ipc::CtrlOutput;
 use structures::{
     device::DeviceNumber,
     error::LxError,

@@ -1,11 +1,6 @@
 //! Client implementation of the MacTux IPC protocol.
 
 use crate::{posix_bi, posix_num, process, thread};
-use mactux_ipc::{
-    handshake::{HandshakeRequest, HandshakeResponse},
-    request::{InterruptibleRequest, Request},
-    response::Response,
-};
 use std::{
     cell::RefCell,
     io::{Read, Write},
@@ -17,6 +12,9 @@ use std::{
     sync::Arc,
 };
 use structures::error::LxError;
+use structures::mactux_ipc::{
+    HandshakeRequest, HandshakeResponse, InterruptibleRequest, Request, Response,
+};
 
 /// A MacTux IPC client.
 #[derive(Debug)]

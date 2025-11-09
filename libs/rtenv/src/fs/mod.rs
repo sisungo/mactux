@@ -3,8 +3,8 @@ mod vfd;
 use crate::{ipc_client::with_client, posix_bi, posix_num, process, util::ipc_fail};
 use arc_swap::ArcSwap;
 use libc::c_int;
-use mactux_ipc::{request::Request, response::Response};
 use std::sync::Arc;
+use structures::mactux_ipc::{Request, Response};
 use structures::{
     ToApple,
     device::DeviceNumber,

@@ -6,11 +6,11 @@ pub mod session;
 pub use listener::Listener;
 
 use bincode::{Decode, Encode};
-use mactux_ipc::handshake::{HandshakeRequest, HandshakeResponse};
 use std::{
     io::{Read, Write},
     os::unix::net::UnixStream,
 };
+use structures::mactux_ipc::{HandshakeRequest, HandshakeResponse};
 
 #[derive(Debug)]
 pub struct RegChannel(UnixStream);

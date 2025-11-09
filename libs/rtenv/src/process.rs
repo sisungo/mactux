@@ -5,7 +5,6 @@ use crate::{
     thread::{ThreadPubCtxMap, may_fork},
 };
 use arc_swap::ArcSwap;
-use mactux_ipc::request::Request;
 use rustc_hash::FxBuildHasher;
 use std::{
     convert::Infallible,
@@ -15,6 +14,7 @@ use std::{
     path::PathBuf,
     sync::Arc,
 };
+use structures::mactux_ipc::Request;
 use structures::{
     ToApple,
     error::LxError,

@@ -8,7 +8,6 @@ arc-swap = "1.7"
 bincode = "2"
 libc = "0.2"
 log = "0.4"
-mactux_ipc = { path = "../mactux_ipc" }
 mach2 = "0.5"
 rustc-hash = "2"
 papaya = "0.2"

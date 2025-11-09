@@ -5,12 +5,12 @@ use crate::{
     multimedia::audio::AudioOutput,
     vfd::Stream,
 };
-use mactux_ipc::response::CtrlOutput;
 use rodio::cpal::SampleFormat;
 use std::{
     ffi::c_int,
     sync::{Arc, atomic},
 };
+use structures::mactux_ipc::CtrlOutput;
 use structures::{
     error::LxError,
     fs::OpenFlags,

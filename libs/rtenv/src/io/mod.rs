@@ -3,16 +3,13 @@ mod native_ioctl;
 mod vfd;
 
 use crate::{ipc_client::with_client, posix_bi, posix_num, util::ipc_fail};
-use mactux_ipc::{
-    request::{InterruptibleRequest, Request},
-    response::Response,
-};
 use rustc_hash::FxHashMap;
 use std::{
     ffi::c_int,
     os::fd::{AsRawFd, IntoRawFd},
     time::Duration,
 };
+use structures::mactux_ipc::{InterruptibleRequest, Request, Response};
 use structures::{
     FromApple, ToApple,
     error::LxError,

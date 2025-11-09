@@ -10,7 +10,6 @@ publish = false
 members = [
     "libs/loader",
     "libs/macros",
-    "libs/mactux_ipc",
     "libs/rtenv",
     "libs/structures",
     "libs/syscall",

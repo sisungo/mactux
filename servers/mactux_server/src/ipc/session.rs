@@ -1,8 +1,8 @@
 use super::methods::*;
 use crate::{ipc::RegChannel, task::process::Process};
 use anyhow::anyhow;
-use mactux_ipc::request::Request;
 use std::os::unix::net::UnixStream;
+use structures::mactux_ipc::Request;
 
 #[derive(Debug)]
 pub struct RegSession(RegChannel);
