@@ -140,11 +140,10 @@ fn ctrl<C>(
                 std::slice::from_raw_parts(arg as *const u8, avail_ctrl.in_size as usize).to_vec()
             },
             0 => Vec::new(),
-            ..0 => (arg as usize).to_le_bytes().to_vec(),
+            ..0 => arg.to_le_bytes().to_vec(),
         };
         let response = client.invoke(act(vfd, cmd, in_param)).unwrap();
         match response {
-            Response::Nothing => Ok(0),
             Response::CtrlOutput(out) => unsafe {
                 debug_assert_eq!(avail_ctrl.out_size, out.blob.len());
                 (arg as *mut u8).copy_from_nonoverlapping(out.blob.as_ptr(), out.blob.len());

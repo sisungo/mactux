@@ -89,7 +89,7 @@ impl Program {
     }
 
     /// Runs the program.
-    pub unsafe fn run<'a, 'b>(&self, args: &[&[u8]], envs: &[&[u8]]) {
+    pub unsafe fn run(&self, args: &[&[u8]], envs: &[&[u8]]) -> ! {
         let base = match &self.interpreter {
             Some(interp) => interp.base_map.addr() as usize,
             None => 0,
@@ -103,8 +103,8 @@ impl Program {
         let auxv = AuxiliaryInfo {
             exec_fd: self.exec_fd.as_raw_fd() as _,
             phdr_base: self.phdr as usize,
-            phdr_size: self.phent as usize,
-            phdr_count: self.phnum as usize,
+            phdr_size: self.phent,
+            phdr_count: self.phnum,
             entry: self.entry as usize,
             base,
             random: Box::into_raw(random),

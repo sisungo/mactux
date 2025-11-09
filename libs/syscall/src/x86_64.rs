@@ -66,7 +66,7 @@ fn thread_state_mut(x: &mut libc::ucontext_t) -> &mut libc::__darwin_x86_thread_
 unsafe fn perform(uctx: &mut libc::ucontext_t) {
     unsafe {
         let handler = SYSTEM_CALL_HANDLERS
-            .get(uctx.sysno() as usize)
+            .get(uctx.sysno())
             .copied()
             .unwrap_or(sys_invalid);
         handler(uctx);

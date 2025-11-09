@@ -43,7 +43,7 @@ impl Client {
 
     /// Forces a handshake message.
     pub fn force_handshake(&self) {
-        let mut buf = bincode::encode_to_vec(&HandshakeRequest::new(), bincode::config::standard())
+        let mut buf = bincode::encode_to_vec(HandshakeRequest::new(), bincode::config::standard())
             .expect("all handshakes should be valid bincode");
         self.send(&buf).unwrap();
         self.recv(&mut buf).unwrap();
@@ -63,7 +63,7 @@ impl Client {
     /// Sends a message.
     pub fn send(&self, buf: &[u8]) -> std::io::Result<()> {
         (&self.0).write_all(&(buf.len() as u64).to_le_bytes())?;
-        (&self.0).write_all(&buf)?;
+        (&self.0).write_all(buf)?;
 
         Ok(())
     }
@@ -168,7 +168,7 @@ pub fn make_client() -> Client {
 pub fn begin_interruptible(ireq: InterruptibleRequest) -> InterruptibleClient {
     let client = make_client();
     let buf = bincode::encode_to_vec(
-        &Request::CallInterruptible(ireq),
+        Request::CallInterruptible(ireq),
         bincode::config::standard(),
     )
     .expect("All requests should be valid bincode");

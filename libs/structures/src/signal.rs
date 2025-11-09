@@ -171,14 +171,6 @@ impl KernelSigSet {
         (self.0 & (1 << sig)) != 0
     }
 
-    pub fn from_iter(iter: impl Iterator<Item = SigNum>) -> Self {
-        let mut obj = Self::empty();
-        for signum in iter {
-            obj.add(signum);
-        }
-        obj
-    }
-
     pub const fn iter(self) -> KernelSigSetIter {
         KernelSigSetIter {
             sigset: self,
@@ -215,6 +207,15 @@ impl KernelSigSet {
         apple
     }
 }
+impl FromIterator<SigNum> for KernelSigSet {
+    fn from_iter<T: IntoIterator<Item = SigNum>>(iter: T) -> Self {
+        let mut obj = Self::empty();
+        for signum in iter {
+            obj.add(signum);
+        }
+        obj
+    }
+}
 
 unixvariants! {
     pub struct MaskHowto: u32 {
@@ -235,7 +236,7 @@ impl Iterator for KernelSigSetIter {
     type Item = SigNum;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while self.pos <= SigNum::_NSIG - 1 {
+        while self.pos < SigNum::_NSIG {
             if self.sigset.get(SigNum(self.pos + 1)) {
                 self.pos += 1;
                 return Some(SigNum(self.pos));

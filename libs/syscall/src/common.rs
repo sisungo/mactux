@@ -86,7 +86,7 @@ pub unsafe fn sys_stat(filename: *const c_char, statbuf: *mut Stat) -> Result<()
             OpenFlags::O_PATH,
             AtFlags::empty(),
             0,
-            |fd| rtenv::fs::stat(fd),
+            rtenv::fs::stat,
         )?;
         statbuf.write(stat.into());
         Ok(())
@@ -107,7 +107,7 @@ pub unsafe fn sys_newfstatat(
             OpenFlags::O_PATH,
             flags,
             0,
-            |fd| rtenv::fs::stat(fd),
+            rtenv::fs::stat,
         )?;
         statbuf.write(stat.into());
         Ok(())
@@ -131,7 +131,7 @@ pub unsafe fn sys_lstat(filename: *const c_char, statbuf: *mut Stat) -> Result<(
             OpenFlags::O_PATH,
             AtFlags::AT_SYMLINK_NOFOLLOW,
             0,
-            |fd| rtenv::fs::stat(fd),
+            rtenv::fs::stat,
         )?;
         statbuf.write(stat.into());
         Ok(())
@@ -153,7 +153,7 @@ pub unsafe fn sys_statx(
             OpenFlags::O_PATH,
             flags,
             0,
-            |fd| rtenv::fs::stat(fd),
+            rtenv::fs::stat,
         )?;
         buf.write(statx);
         Ok(())
@@ -1307,12 +1307,12 @@ pub unsafe fn sys_execve(
         let path = rust_bytes(path);
 
         let mut argc = 0;
-        while *argv.add(argc) != std::ptr::null() {
+        while !(*argv.add(argc)).is_null() {
             argc += 1;
         }
 
         let mut envc = 0;
-        while *envp.add(envc) != std::ptr::null() {
+        while !(*argv.add(envc)).is_null() {
             envc += 1;
         }
 

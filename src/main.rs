@@ -60,17 +60,17 @@ fn main() {
             rtenv::ipc_client::set_client_fd(fd);
         }
     }
-    if let Some(cwd) = &cmdline.cwd {
-        if let Err(err) = rtenv::fs::init_cwd(cwd.clone().into_encoded_bytes()) {
-            eprintln!("mactux: failed to initialize cwd: {err:?}",);
-            std::process::exit(1);
-        }
+    if let Some(cwd) = &cmdline.cwd
+        && let Err(err) = rtenv::fs::init_cwd(cwd.clone().into_encoded_bytes())
+    {
+        eprintln!("mactux: failed to initialize cwd: {err:?}",);
+        std::process::exit(1);
     }
-    if let Some(table) = &cmdline.init_vfd_table {
-        if let Err(err) = rtenv::vfd::fill_table(table) {
-            eprintln!("mactux: failed to initalize vfd table: {err:?}");
-            std::process::exit(1);
-        }
+    if let Some(table) = &cmdline.init_vfd_table
+        && let Err(err) = rtenv::vfd::fill_table(table)
+    {
+        eprintln!("mactux: failed to initalize vfd table: {err:?}");
+        std::process::exit(1);
     }
 
     let args = collect_args(&cmdline);

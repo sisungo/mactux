@@ -246,7 +246,7 @@ impl FdSet {
 
         unsafe {
             self.ptr
-                .write_bytes(0, self.nfd.div_ceil(8 * size_of::<u64>()));
+                .write_bytes(0, self.nfd.div_ceil(u64::BITS as usize));
         }
     }
 
@@ -255,11 +255,11 @@ impl FdSet {
     }
 
     fn element_major(fd: c_int) -> usize {
-        fd as usize / (8 * size_of::<u64>())
+        fd as usize / (u64::BITS as usize)
     }
 
     fn element_minor(fd: c_int) -> usize {
-        fd as usize % (8 * size_of::<u64>())
+        fd as usize % (u64::BITS as usize)
     }
 }
 
@@ -272,7 +272,7 @@ impl Iterator for FdSetIter<'_> {
     type Item = c_int;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while self.pos <= self.set.nfd - 1 {
+        while self.pos < self.set.nfd {
             unsafe {
                 if self.set.contains(self.pos as _) {
                     self.pos += 1;

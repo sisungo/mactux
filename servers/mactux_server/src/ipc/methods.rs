@@ -263,6 +263,17 @@ pub fn set_thread_name(name: Vec<u8>) {
     *Thread::current().comm.write().unwrap() = Some(name);
 }
 
+pub fn get_thread_name() -> Result<Response, LxError> {
+    Ok(Response::Bytes(
+        Thread::current()
+            .comm
+            .read()
+            .unwrap()
+            .clone()
+            .unwrap_or_default(),
+    ))
+}
+
 pub fn write_syslog(level: LogLevel, mut content: Vec<u8>) {
     let pid = Shared::id(&Process::current());
     _ = write!(&mut content, " {{ pid={pid} }}");
@@ -305,10 +316,7 @@ impl IntoResponse for NewlyOpen {
     fn into_response(self) -> Response {
         match self {
             Self::Native(npath) => Response::NativePath(npath),
-            Self::Virtual(vfd) => {
-                let id = Process::current().vfd.register(Arc::new(vfd));
-                Response::Vfd(id)
-            }
+            Self::Virtual(vfd) => vfd.into_response(),
         }
     }
 }

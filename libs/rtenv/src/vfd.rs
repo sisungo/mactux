@@ -26,7 +26,7 @@ pub fn create(vfd: u64, flags: OpenFlags) -> Result<c_int, LxError> {
         apple_flags |= libc::O_CLOEXEC;
     }
 
-    let fd = unsafe { posix_num!(libc::open(b"/dev/null\0".as_ptr().cast(), apple_flags))? };
+    let fd = unsafe { posix_num!(libc::open(c"/dev/null".as_ptr(), apple_flags))? };
     register(fd, vfd);
     Ok(fd)
 }

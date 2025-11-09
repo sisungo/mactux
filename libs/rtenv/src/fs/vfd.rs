@@ -21,7 +21,7 @@ pub fn stat(vfd: u64) -> Result<Statx, LxError> {
     with_client(|client| {
         let response = client.invoke(Request::VfdStat(vfd)).unwrap();
         match response {
-            Response::Stat(stat) => Ok(stat.into()),
+            Response::Stat(stat) => Ok(stat),
             Response::Error(err) => Err(err),
             _ => ipc_fail(),
         }

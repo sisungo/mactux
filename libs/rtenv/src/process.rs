@@ -43,7 +43,7 @@ pub unsafe fn install() -> std::io::Result<()> {
     let fs = FilesystemContext::new();
     let thread_pubctx_map = ThreadPubCtxMap::new();
     let sigactions = std::array::from_fn(|_| ArcSwap::from(Arc::new(SigAction::new())));
-    let vfd_table = papaya::HashMap::with_capacity_and_hasher(128, FxBuildHasher::default());
+    let vfd_table = papaya::HashMap::with_capacity_and_hasher(128, FxBuildHasher);
     let server_sock_path = ArcSwap::from(Arc::new(
         std::env::home_dir()
             .expect("cannot find home directory")
@@ -197,10 +197,7 @@ pub fn fork() -> Result<i32, LxError> {
 
 pub fn clone(args: CloneArgs) -> Result<i32, LxError> {
     let result = match args.flags().child_type() {
-        ChildType::Process => {
-            let status = fork();
-            status
-        }
+        ChildType::Process => fork(),
         ChildType::Thread => crate::thread::clone(args.clone()),
         ChildType::Unsupported => Err(LxError::EINVAL),
     };

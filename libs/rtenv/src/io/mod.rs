@@ -253,19 +253,19 @@ pub unsafe fn poll(fds: &mut [PollFd], timeout: Option<Duration>) -> Result<u32,
         match libc::poll(apple_fds.as_mut_ptr(), apple_fds.len() as _, millis) {
             -1 => Err(LxError::last_apple_error()),
             n => {
-                if let Some(mut client) = client {
-                    if (apple_fds.last().unwrap().revents | libc::POLLIN) != 0 {
-                        match client.wait() {
-                            Response::Nothing => (),
-                            Response::Poll(vfd, revent) => {
-                                fds[virtual_fd_map[&vfd]].revents =
-                                    PollEvents::from_bits_retain(revent);
-                            }
-                            Response::Error(err) => {
-                                return Err(err);
-                            }
-                            _ => ipc_fail(),
+                if let Some(mut client) = client
+                    && (apple_fds.last().unwrap().revents & libc::POLLIN) != 0
+                {
+                    match client.wait() {
+                        Response::Nothing => (),
+                        Response::Poll(vfd, revent) => {
+                            fds[virtual_fd_map[&vfd]].revents =
+                                PollEvents::from_bits_retain(revent);
                         }
+                        Response::Error(err) => {
+                            return Err(err);
+                        }
+                        _ => ipc_fail(),
                     }
                 }
                 for (n, apple_fd) in apple_fds.into_iter().enumerate() {

@@ -17,13 +17,11 @@ use structures::{
 
 #[derive(Debug)]
 pub struct FilesystemContext {
-    pub root: ArcSwap<Vec<u8>>,
     pub cwd: ArcSwap<Vec<u8>>,
 }
 impl FilesystemContext {
     pub fn new() -> Self {
         Self {
-            root: ArcSwap::from(Arc::new(vec![b'/'])),
             cwd: ArcSwap::from(Arc::new(vec![b'/'])),
         }
     }
@@ -46,8 +44,6 @@ pub fn openat(
         return crate::io::dup(dfd);
     }
 
-    let path = at_path(dfd, path)?;
-
     let mut resolve = OpenResolve::empty();
     if atflags.contains(AtFlags::AT_SYMLINK_NOFOLLOW) {
         resolve |= OpenResolve::RESOLVE_NO_SYMLINKS;
@@ -59,14 +55,17 @@ pub fn openat(
         resolve,
     };
 
-    with_client(
-        |client| match client.invoke(Request::Open(path, how)).unwrap() {
+    with_client(|client| {
+        match client
+            .invoke(Request::Open(at_path(dfd, path)?, how))
+            .unwrap()
+        {
             Response::NativePath(native) => open_native(native, oflags, atflags, mode.0 as _),
             Response::Vfd(vfd) => crate::vfd::create(vfd, oflags),
             Response::Error(err) => Err(err),
             _ => ipc_fail(),
-        },
-    )
+        }
+    })
 }
 
 #[inline]

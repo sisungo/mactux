@@ -76,9 +76,10 @@ impl RegSession {
                 Request::WriteSyslog(level, content) => {
                     write_syslog(level, content).into_response()
                 }
+                Request::GetThreadName => get_thread_name().into_response(),
                 Request::SetThreadName(name) => set_thread_name(name).into_response(),
                 Request::EventFd(count, flags) => eventfd(count, flags).into_response(),
-                other => todo!("{other:?}"),
+                Request::CallInterruptible(_) => todo!(),
             };
             self.0.send(&resp)?;
         }

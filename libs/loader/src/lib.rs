@@ -40,7 +40,7 @@ impl Program {
         )))
     }
 
-    pub unsafe fn run<'a, 'b>(&self, args: &[&[u8]], envs: &[&[u8]]) {
+    pub unsafe fn run(&self, args: &[&[u8]], envs: &[&[u8]]) -> ! {
         unsafe {
             match self {
                 Self::Elf(x) => x.run(args, envs),

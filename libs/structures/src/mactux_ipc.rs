@@ -25,6 +25,11 @@ impl HandshakeRequest {
         Self { magic: Self::MAGIC }
     }
 }
+impl Default for HandshakeRequest {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 /// A handshake response.
 #[derive(Debug, Clone, Encode, Decode, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -42,6 +47,11 @@ impl HandshakeResponse {
             magic: Self::MAGIC,
             version: PROTOCOL_VERSION.into(),
         }
+    }
+}
+impl Default for HandshakeResponse {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
