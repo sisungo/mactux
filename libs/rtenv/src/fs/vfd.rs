@@ -1,3 +1,4 @@
+use crate::ipc_client::call_server;
 use crate::{ipc_client::with_client, util::ipc_fail};
 use structures::mactux_ipc::{Request, Response};
 use structures::{
@@ -6,37 +7,15 @@ use structures::{
 };
 
 pub fn getdents64(vfd: u64) -> Result<Option<Dirent64>, LxError> {
-    with_client(|client| {
-        let response = client.invoke(Request::VfdGetdent(vfd)).unwrap();
-        match response {
-            Response::Nothing => Ok(None),
-            Response::Dirent64(dent) => Ok(Some(dent)),
-            Response::Error(err) => Err(err),
-            _ => ipc_fail(),
-        }
-    })
+    call_server(Request::VfdGetdent(vfd))
 }
 
 pub fn stat(vfd: u64) -> Result<Statx, LxError> {
-    with_client(|client| {
-        let response = client.invoke(Request::VfdStat(vfd)).unwrap();
-        match response {
-            Response::Stat(stat) => Ok(stat),
-            Response::Error(err) => Err(err),
-            _ => ipc_fail(),
-        }
-    })
+    call_server(Request::VfdStat(vfd))
 }
 
 pub fn chown(vfd: u64, uid: u32, gid: u32) -> Result<(), LxError> {
-    with_client(|client| {
-        let response = client.invoke(Request::VfdChown(vfd, uid, gid)).unwrap();
-        match response {
-            Response::Nothing => Ok(()),
-            Response::Error(err) => Err(err),
-            _ => ipc_fail(),
-        }
-    })
+    call_server(Request::VfdChown(vfd, uid, gid))
 }
 
 pub fn readlink(vfd: u64) -> Result<Vec<u8>, LxError> {

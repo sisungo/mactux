@@ -1,7 +1,7 @@
 mod local;
 mod sockopt;
 
-use crate::{posix_bi, posix_num};
+use crate::{posix_num, util::posix_result};
 use libc::c_int;
 use std::mem::offset_of;
 use structures::{
@@ -27,19 +27,19 @@ pub fn socket(domain: Domain, ty: SocketType, proto: Protocol) -> Result<c_int, 
 pub fn bind(sock: c_int, addr: SockAddr) -> Result<(), LxError> {
     unsafe {
         let (buf, len) = apple_sockaddr(addr, true)?;
-        posix_bi!(libc::bind(sock, (&raw const buf).cast(), len as _))
+        posix_result(libc::bind(sock, (&raw const buf).cast(), len as _))
     }
 }
 
 pub fn connect(sock: c_int, addr: SockAddr) -> Result<(), LxError> {
     unsafe {
         let (buf, len) = apple_sockaddr(addr, false)?;
-        posix_bi!(libc::connect(sock, (&raw const buf).cast(), len as _))
+        posix_result(libc::connect(sock, (&raw const buf).cast(), len as _))
     }
 }
 
 pub fn listen(sock: c_int, backlog: c_int) -> Result<(), LxError> {
-    unsafe { posix_bi!(libc::listen(sock, backlog)) }
+    unsafe { posix_result(libc::listen(sock, backlog)) }
 }
 
 pub fn accept(sock: c_int, flags: SocketFlags) -> Result<(SockAddr, c_int), LxError> {
@@ -58,7 +58,7 @@ pub fn getsockname(sock: c_int) -> Result<SockAddr, LxError> {
     unsafe {
         let mut buf = [0u8; size_of::<libc::sockaddr_storage>()];
         let mut size = size_of_val(&buf) as libc::socklen_t;
-        posix_bi!(libc::getsockname(sock, (&raw mut buf).cast(), &mut size))?;
+        posix_result(libc::getsockname(sock, (&raw mut buf).cast(), &mut size))?;
         linux_sockaddr(&buf[..(size as usize)])
     }
 }
@@ -67,7 +67,7 @@ pub fn getpeername(sock: c_int) -> Result<SockAddr, LxError> {
     unsafe {
         let mut buf = [0u8; size_of::<libc::sockaddr_storage>()];
         let mut size = size_of_val(&buf) as libc::socklen_t;
-        posix_bi!(libc::getpeername(sock, (&raw mut buf).cast(), &mut size))?;
+        posix_result(libc::getpeername(sock, (&raw mut buf).cast(), &mut size))?;
         linux_sockaddr(&buf[..(size as usize)])
     }
 }
@@ -110,7 +110,7 @@ fn prepare_new(sock: c_int, flags: SocketFlags) -> Result<(), LxError> {
     unsafe {
         if flags.contains(SocketFlags::SOCK_NONBLOCK) {
             let flags: c_int = posix_num!(libc::fcntl(sock, libc::F_GETFL))?;
-            posix_bi!(libc::fcntl(sock, libc::F_SETFL, flags | libc::O_NONBLOCK))?;
+            posix_result(libc::fcntl(sock, libc::F_SETFL, flags | libc::O_NONBLOCK))?;
         }
         if flags.contains(SocketFlags::SOCK_CLOEXEC) {
             crate::io::set_cloexec(sock)?;

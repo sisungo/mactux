@@ -42,7 +42,7 @@ macro_rules! sockopt_impl {
             buf.as_mut_ptr()
                 .cast::<$linux>()
                 .write(::structures::FromApple::from_apple(apple)?);
-            $crate::posix_bi!(result)
+            crate::util::posix_result(result)
         }
     };
     (@setter :: $linux:ty, $apple:ty) => {
@@ -52,7 +52,7 @@ macro_rules! sockopt_impl {
             }
             let linux = buf.as_ptr().cast::<$linux>().read();
             let apple: $apple = ::structures::ToApple::to_apple(linux)?;
-            $crate::posix_bi!(libc::setsockopt(
+            crate::util::posix_result(libc::setsockopt(
                 fd,
                 level,
                 sockopt,

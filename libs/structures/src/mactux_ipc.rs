@@ -128,10 +128,10 @@ pub enum Response {
     Offset(i64),
     CtrlOutput(CtrlOutput),
     VfdAvailCtrl(VfdAvailCtrl),
-    Stat(Statx),
+    Stat(Box<Statx>),
     Dirent64(Dirent64),
     NetworkNames(NetworkNames),
-    SysInfo(SysInfo),
+    SysInfo(Box<SysInfo>),
     Poll(u64, u16),
     Error(LxError),
 }

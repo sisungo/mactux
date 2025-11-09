@@ -1,26 +1,22 @@
-use crate::{ipc_client::with_client, util::ipc_fail};
-use structures::mactux_ipc::{NetworkNames, Request, Response};
+use crate::ipc_client::call_server;
+use structures::mactux_ipc::{NetworkNames, Request};
 use structures::{
     error::LxError,
     misc::{LogLevel, SysInfo, UtsName, uname_str},
 };
 
 pub fn sysinfo() -> Result<SysInfo, LxError> {
-    with_client(|client| match client.invoke(Request::SysInfo).unwrap() {
-        Response::SysInfo(sysinfo) => Ok(sysinfo),
-        Response::Error(err) => Err(err),
-        _ => ipc_fail(),
-    })
+    call_server(Request::SysInfo)
 }
 
 pub fn uname() -> Result<UtsName, LxError> {
-    let (mut rnodename, mut rdomainname) = get_network_names()?;
-    rnodename.truncate(64);
-    rdomainname.truncate(64);
+    let mut network_names = get_network_names()?;
+    network_names.nodename.truncate(64);
+    network_names.domainname.truncate(64);
     let mut nodename = [0; _];
     let mut domainname = [0; _];
-    nodename[..rnodename.len()].copy_from_slice(&rnodename);
-    domainname[..rdomainname.len()].copy_from_slice(&rdomainname);
+    nodename[..network_names.nodename.len()].copy_from_slice(&network_names.nodename);
+    domainname[..network_names.domainname.len()].copy_from_slice(&network_names.domainname);
 
     Ok(UtsName {
         sysname: uname_str(b"Linux").unwrap(),
@@ -32,38 +28,16 @@ pub fn uname() -> Result<UtsName, LxError> {
     })
 }
 
-pub fn get_network_names() -> Result<(Vec<u8>, Vec<u8>), LxError> {
-    let network_names =
-        with_client(
-            |client| match client.invoke(Request::GetNetworkNames).unwrap() {
-                Response::NetworkNames(names) => Ok(names),
-                Response::Error(err) => Err(err),
-                _ => ipc_fail(),
-            },
-        )?;
-    Ok((network_names.nodename, network_names.domainname))
+pub fn get_network_names() -> Result<NetworkNames, LxError> {
+    call_server(Request::GetNetworkNames)
 }
 
-pub fn set_network_names(nodename: Vec<u8>, domainname: Vec<u8>) -> Result<(), LxError> {
-    with_client(|client| {
-        match client
-            .invoke(Request::SetNetworkNames(NetworkNames {
-                nodename,
-                domainname,
-            }))
-            .unwrap()
-        {
-            Response::Nothing => Ok(()),
-            Response::Error(err) => Err(err),
-            _ => ipc_fail(),
-        }
-    })
+pub fn set_network_names(names: NetworkNames) -> Result<(), LxError> {
+    call_server(Request::SetNetworkNames(names))
 }
 
 pub fn write_syslog(level: LogLevel, content: Vec<u8>) {
-    with_client(|client| {
-        client.invoke(Request::WriteSyslog(level, content)).unwrap();
-    });
+    call_server(Request::WriteSyslog(level, content))
 }
 
 fn machine() -> [u8; 65] {

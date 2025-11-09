@@ -1,4 +1,4 @@
-use crate::posix_bi;
+use crate::util::posix_result;
 use libc::c_int;
 use structures::{
     ToApple,
@@ -69,7 +69,7 @@ pub unsafe fn remap(
 pub unsafe fn advise(start: *mut u8, len: usize, advice: Madvice) -> Result<(), LxError> {
     if let Ok(apple_advice) = advice.to_apple() {
         unsafe {
-            return posix_bi!(libc::madvise(start.cast(), len, apple_advice));
+            return posix_result(libc::madvise(start.cast(), len, apple_advice));
         }
     }
     match advice {

@@ -1,6 +1,9 @@
 //! Client implementation of the MacTux IPC protocol.
 
-use crate::{posix_bi, posix_num, process, thread};
+use crate::{
+    posix_num, process, thread,
+    util::{ipc_fail, posix_result},
+};
 use std::{
     cell::RefCell,
     io::{Read, Write},
@@ -11,10 +14,20 @@ use std::{
     path::PathBuf,
     sync::Arc,
 };
-use structures::error::LxError;
-use structures::mactux_ipc::{
-    HandshakeRequest, HandshakeResponse, InterruptibleRequest, Request, Response,
+use structures::{error::LxError, mactux_ipc::NetworkNames, misc::SysInfo};
+use structures::{
+    fs::{Dirent64, Statx},
+    mactux_ipc::{HandshakeRequest, HandshakeResponse, InterruptibleRequest, Request, Response},
 };
+
+pub fn call_server<T: FromResponse>(req: Request) -> T {
+    with_client(
+        |client| match T::from_response(client.invoke(req).unwrap()) {
+            Some(x) => x,
+            None => ipc_fail(),
+        },
+    )
+}
 
 /// A MacTux IPC client.
 #[derive(Debug)]
@@ -32,10 +45,10 @@ impl Client {
         let fd = self.0.as_raw_fd();
         let original: i32 = unsafe { posix_num!(libc::fcntl(fd, libc::F_GETFD)) }?;
         unsafe {
-            posix_bi!(libc::fcntl(
+            posix_result(libc::fcntl(
                 fd,
                 libc::F_SETFD,
-                (original & !libc::FD_CLOEXEC) as usize
+                (original & !libc::FD_CLOEXEC) as usize,
             ))
         }?;
         Ok(())
@@ -198,5 +211,76 @@ pub unsafe fn set_client_fd(fd: libc::c_int) {
             .pin()
             .insert(client.as_raw_fd());
         thread::with_context(|ctx| ctx.client.set(RefCell::new(client)).unwrap());
+    }
+}
+
+pub trait FromResponse
+where
+    Self: Sized,
+{
+    fn from_response(resp: Response) -> Option<Self>;
+}
+impl<T> FromResponse for Result<T, LxError>
+where
+    T: FromResponse,
+{
+    fn from_response(resp: Response) -> Option<Self> {
+        match resp {
+            Response::Error(err) => Some(Err(err)),
+            other => T::from_response(other).map(Ok),
+        }
+    }
+}
+impl FromResponse for () {
+    fn from_response(resp: Response) -> Option<Self> {
+        #[cfg(debug_assertions)]
+        if !matches!(resp, Response::Nothing) {
+            return None;
+        }
+
+        Some(())
+    }
+}
+impl<T> FromResponse for Option<T>
+where
+    T: FromResponse,
+{
+    fn from_response(resp: Response) -> Option<Self> {
+        match resp {
+            Response::Nothing => Some(None),
+            other => T::from_response(other).map(Some),
+        }
+    }
+}
+impl FromResponse for NetworkNames {
+    fn from_response(resp: Response) -> Option<Self> {
+        match resp {
+            Response::NetworkNames(x) => Some(x),
+            _ => None,
+        }
+    }
+}
+impl FromResponse for SysInfo {
+    fn from_response(resp: Response) -> Option<Self> {
+        match resp {
+            Response::SysInfo(x) => Some(*x),
+            _ => None,
+        }
+    }
+}
+impl FromResponse for Dirent64 {
+    fn from_response(resp: Response) -> Option<Self> {
+        match resp {
+            Response::Dirent64(x) => Some(x),
+            _ => None,
+        }
+    }
+}
+impl FromResponse for Statx {
+    fn from_response(resp: Response) -> Option<Self> {
+        match resp {
+            Response::Stat(x) => Some(*x),
+            _ => None,
+        }
     }
 }

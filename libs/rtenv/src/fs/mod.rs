@@ -1,6 +1,6 @@
 mod vfd;
 
-use crate::{ipc_client::with_client, posix_bi, posix_num, process, util::ipc_fail};
+use crate::{ipc_client::with_client, posix_num, process, util::ipc_fail, util::posix_result};
 use arc_swap::ArcSwap;
 use libc::c_int;
 use std::sync::Arc;
@@ -110,7 +110,7 @@ pub fn stat(fd: c_int) -> Result<Statx, LxError> {
         Some(vfd) => vfd::stat(vfd),
         None => unsafe {
             let mut stat = std::mem::zeroed();
-            posix_bi!(libc::fstat(fd, &mut stat))?;
+            posix_result(libc::fstat(fd, &mut stat))?;
             Ok(Statx::from_apple(stat))
         },
     }
@@ -122,7 +122,7 @@ pub unsafe fn chown(fd: c_int, uid: u32, gid: u32) -> Result<(), LxError> {
         vfd::chown(vfd, uid, gid)
     } else {
         unsafe {
-            posix_bi!(libc::fchown(fd, uid, gid))?;
+            posix_result(libc::fchown(fd, uid, gid))?;
             Ok(())
         }
     }

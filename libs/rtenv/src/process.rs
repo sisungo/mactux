@@ -1,8 +1,9 @@
 use crate::{
     fs::FilesystemContext,
     ipc_client::{Client, with_client},
-    posix_bi, process,
+    process,
     thread::{ThreadPubCtxMap, may_fork},
+    util::posix_result,
 };
 use arc_swap::ArcSwap;
 use rustc_hash::FxBuildHasher;
@@ -219,7 +220,7 @@ pub fn clone(args: CloneArgs) -> Result<i32, LxError> {
 
 pub fn kill(pid: i32, signum: SigNum) -> Result<(), LxError> {
     // TODO
-    unsafe { posix_bi!(libc::kill(pid, signum.to_apple()?)) }
+    unsafe { posix_result(libc::kill(pid, signum.to_apple()?)) }
 }
 
 /// Does preparation work for the newly-created process.

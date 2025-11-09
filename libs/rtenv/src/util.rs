@@ -1,4 +1,4 @@
-use std::panic::PanicHookInfo;
+use std::{ffi::c_int, panic::PanicHookInfo};
 use structures::{error::LxError, mapper::PidMapper, misc::LogLevel};
 
 /// Converts a POSIX function that returns something like what `read()`/`write()` returns to [`Result<Integer, LxError>`] in
@@ -13,15 +13,11 @@ macro_rules! posix_num {
     };
 }
 
-/// Converts a POSIX function that returns something like what `close()` returns to [`Result<(), LxError>`] in Rust.
-#[macro_export]
-macro_rules! posix_bi {
-    ($x:expr) => {
-        match $x {
-            -1 => Err(LxError::last_apple_error()),
-            _ => Ok(()),
-        }
-    };
+pub fn posix_result(x: c_int) -> Result<(), LxError> {
+    match x {
+        -1 => Err(LxError::last_apple_error()),
+        _ => Ok(()),
+    }
 }
 
 /// Converts from a Rust byte vector to a NUL-terminated C string.

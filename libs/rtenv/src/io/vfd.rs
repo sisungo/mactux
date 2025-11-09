@@ -1,3 +1,4 @@
+use crate::ipc_client::call_server;
 use crate::{ipc_client::with_client, util::ipc_fail};
 use std::ffi::c_int;
 use structures::mactux_ipc::{Request, Response};
@@ -102,29 +103,15 @@ pub fn fcntl(vfd: u64, cmd: FcntlCmd, arg: usize) -> Result<c_int, LxError> {
 }
 
 pub fn truncate(vfd: u64, len: u64) -> Result<(), LxError> {
-    with_client(
-        |client| match client.invoke(Request::VfdTruncate(vfd, len)).unwrap() {
-            Response::Nothing => Ok(()),
-            Response::Error(err) => Err(err),
-            _ => ipc_fail(),
-        },
-    )
+    call_server(Request::VfdTruncate(vfd, len))
 }
 
 pub fn sync(vfd: u64) -> Result<(), LxError> {
-    with_client(
-        |client| match client.invoke(Request::VfdSync(vfd)).unwrap() {
-            Response::Nothing => Ok(()),
-            Response::Error(err) => Err(err),
-            _ => ipc_fail(),
-        },
-    )
+    call_server(Request::VfdSync(vfd))
 }
 
 pub fn close(vfd: u64) {
-    with_client(|client| {
-        client.invoke(Request::VfdClose(vfd)).unwrap();
-    });
+    call_server(Request::VfdClose(vfd))
 }
 
 fn ctrl<C>(

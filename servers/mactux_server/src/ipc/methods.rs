@@ -327,7 +327,7 @@ impl IntoResponse for Dirent64 {
 }
 impl IntoResponse for Statx {
     fn into_response(self) -> Response {
-        Response::Stat(self)
+        Response::Stat(Box::new(self))
     }
 }
 impl IntoResponse for () {
@@ -352,7 +352,7 @@ impl IntoResponse for CtrlOutput {
 }
 impl IntoResponse for SysInfo {
     fn into_response(self) -> Response {
-        Response::SysInfo(self)
+        Response::SysInfo(Box::new(self))
     }
 }
 impl<T> IntoResponse for Option<T>

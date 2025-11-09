@@ -15,6 +15,7 @@ use structures::{
         CloseRangeFlags, EventFdFlags, FcntlCmd, FdSet, FlockOp, IoctlCmd, PSelectSigMask, PollFd,
         Whence,
     },
+    mactux_ipc::NetworkNames,
     misc::{GrndFlags, SysInfo, UtsName},
     mm::{Madvice, MmapFlags, MmapProt, MremapFlags, MsyncFlags},
     net::{
@@ -743,20 +744,26 @@ pub unsafe fn sys_sysinfo(buf: *mut SysInfo) -> Result<(), LxError> {
 
 #[syscall]
 pub unsafe fn sys_sethostname(name: *const c_char, len: usize) -> Result<(), LxError> {
-    let (_, domainname) = rtenv::misc::get_network_names()?;
+    let domainname = rtenv::misc::get_network_names()?.domainname;
     unsafe {
         let nodename = std::slice::from_raw_parts(name.cast::<u8>(), len).to_vec();
-        rtenv::misc::set_network_names(nodename, domainname)?;
+        rtenv::misc::set_network_names(NetworkNames {
+            nodename,
+            domainname,
+        })?;
         Ok(())
     }
 }
 
 #[syscall]
 pub unsafe fn sys_setdomainname(name: *const c_char, len: usize) -> Result<(), LxError> {
-    let (nodename, _) = rtenv::misc::get_network_names()?;
+    let nodename = rtenv::misc::get_network_names()?.nodename;
     unsafe {
         let domainname = std::slice::from_raw_parts(name.cast::<u8>(), len).to_vec();
-        rtenv::misc::set_network_names(nodename, domainname)?;
+        rtenv::misc::set_network_names(NetworkNames {
+            nodename,
+            domainname,
+        })?;
         Ok(())
     }
 }

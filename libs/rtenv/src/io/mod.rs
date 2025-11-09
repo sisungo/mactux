@@ -2,7 +2,7 @@ mod native_fcntl;
 mod native_ioctl;
 mod vfd;
 
-use crate::{ipc_client::with_client, posix_bi, posix_num, util::ipc_fail};
+use crate::{ipc_client::with_client, posix_num, util::ipc_fail, util::posix_result};
 use rustc_hash::FxHashMap;
 use std::{
     ffi::c_int,
@@ -76,7 +76,7 @@ pub unsafe fn fcntl(fd: c_int, cmd: FcntlCmd, arg: usize) -> Result<c_int, LxErr
 pub unsafe fn flock(fd: c_int, op: FlockOp) -> Result<(), LxError> {
     match crate::vfd::get(fd) {
         Some(_) => todo!(),
-        None => unsafe { posix_bi!(libc::flock(fd, op.to_apple()?)) },
+        None => unsafe { posix_result(libc::flock(fd, op.to_apple()?)) },
     }
 }
 
@@ -348,7 +348,7 @@ pub unsafe fn select(
 pub fn truncate(fd: c_int, len: u64) -> Result<(), LxError> {
     match crate::vfd::get(fd) {
         Some(vfd) => vfd::truncate(vfd, len),
-        None => unsafe { posix_bi!(libc::ftruncate(fd, len as _)) },
+        None => unsafe { posix_result(libc::ftruncate(fd, len as _)) },
     }
 }
 
@@ -356,7 +356,7 @@ pub fn truncate(fd: c_int, len: u64) -> Result<(), LxError> {
 pub fn fsync(fd: c_int) -> Result<(), LxError> {
     match crate::vfd::get(fd) {
         Some(vfd) => vfd::sync(vfd),
-        None => unsafe { posix_bi!(libc::fsync(fd)) },
+        None => unsafe { posix_result(libc::fsync(fd)) },
     }
 }
 
@@ -379,7 +379,7 @@ pub fn close(fd: c_int) -> Result<(), LxError> {
     if let Some(vfd) = crate::vfd::take(fd) {
         vfd::close(vfd);
     }
-    unsafe { posix_bi!(libc::close(fd)) }
+    unsafe { posix_result(libc::close(fd)) }
 }
 
 #[inline]
@@ -390,7 +390,7 @@ pub fn pipe(flags: OpenFlags) -> Result<[c_int; 2], LxError> {
 
     unsafe {
         let mut buf = [0; 2];
-        posix_bi!(libc::pipe((&raw mut buf).cast()))?;
+        posix_result(libc::pipe((&raw mut buf).cast()))?;
         let close_fds = |_: &LxError| {
             libc::close(buf[0]);
             libc::close(buf[1]);
@@ -399,20 +399,20 @@ pub fn pipe(flags: OpenFlags) -> Result<[c_int; 2], LxError> {
             if flags.contains(OpenFlags::O_CLOEXEC) {
                 let original: i32 =
                     posix_num!(libc::fcntl(fd, libc::F_GETFD)).inspect_err(close_fds)?;
-                posix_bi!(libc::fcntl(
+                posix_result(libc::fcntl(
                     fd,
                     libc::F_SETFD,
-                    (original | libc::FD_CLOEXEC) as c_int
+                    (original | libc::FD_CLOEXEC) as c_int,
                 ))
                 .inspect_err(close_fds)?;
             }
             if flags.contains(OpenFlags::O_NONBLOCK) {
                 let original: i32 =
                     posix_num!(libc::fcntl(fd, libc::F_GETFL)).inspect_err(close_fds)?;
-                posix_bi!(libc::fcntl(
+                posix_result(libc::fcntl(
                     fd,
                     libc::F_SETFL,
-                    (original | libc::O_NONBLOCK) as c_int
+                    (original | libc::O_NONBLOCK) as c_int,
                 ))
                 .inspect_err(close_fds)?;
             }
