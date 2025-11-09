@@ -169,12 +169,12 @@ fn main() {
         std::process::exit(1);
     }
 
+    syslog::install_rust().expect("syslog::install_rust is called twice");
+
     if let Err(err) = init_env() {
         eprintln!("mactux_server: cannot initialize Linux environment: {err}");
         std::process::exit(1);
     }
-
-    syslog::install_rust().expect("syslog::install_rust called twice");
 
     if let Err(err) = app().run() {
         log::error!("cannot run application: {err}");

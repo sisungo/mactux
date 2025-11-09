@@ -25,11 +25,13 @@ mod util;
 /// Setups the environment.
 pub unsafe fn install() -> std::io::Result<()> {
     unsafe {
+        std::panic::set_hook(Box::new(util::panic_hook));
         process::install()?;
         thread::install()?;
         signal::install()?;
         structures::mapper::set_pid_mapper(Box::new(util::RtenvPidMapper));
         log::set_logger(&util::RustLogger).expect("a rust logger is set");
+        log::set_max_level(log::LevelFilter::Trace);
 
         Ok(())
     }

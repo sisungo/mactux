@@ -1,0 +1,39 @@
+[package]
+name = "mactux_server"
+version = "0.0.1"
+edition = "2024"
+
+[features]
+default = ["audio", "gui"]
+audio = ["dep:rodio"]
+gui = ["dep:winit"]
+
+[dependencies]
+anyhow = "1"
+bincode = "2"
+clap = { version = "4", features = ["derive"] }
+dashmap = "5"
+libc = "0.2"
+structures = { path = "../../libs/structures" }
+mactux_ipc = { path = "../../libs/mactux_ipc" }
+libproc = "0.14"
+log = "0.4"
+rustc-hash = "2"
+crossbeam = "0.8.4"
+mach2 = "0.5"
+
+[dependencies.rodio]
+version = "0.21"
+default-features = false
+features = ["playback"]
+optional = true
+
+[dependencies.winit]
+version = "0.30"
+optional = true
+
+[dependencies.wgpu]
+version = "27"
+default-features = false
+features = ["std", "parking_lot", "wgsl", "spirv", "metal"]
+optional = true

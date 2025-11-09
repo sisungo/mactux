@@ -8,21 +8,21 @@ publish = false
 
 [workspace]
 members = [
-    "crates/loader",
-    "crates/macros",
-    "crates/mactux_ipc",
-    "crates/rtenv",
-    "crates/structures",
-    "crates/syscall",
-    "mactux_server",
+    "libs/loader",
+    "libs/macros",
+    "libs/mactux_ipc",
+    "libs/rtenv",
+    "libs/structures",
+    "libs/syscall",
+    "servers/mactux_server",
 ]
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }
-syscall = { path = "crates/syscall" }
-loader = { path = "crates/loader" }
-rtenv = { path = "crates/rtenv" }
-structures = { path = "crates/structures" }
+syscall = { path = "libs/syscall" }
+loader = { path = "libs/loader" }
+rtenv = { path = "libs/rtenv" }
+structures = { path = "libs/structures" }
 mimalloc = "0.1"
 
 [profile.dev]

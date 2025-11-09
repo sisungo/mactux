@@ -19,7 +19,7 @@ use structures::{error::LxError, fs::FileMode};
 
 pub fn new() -> Result<Arc<Tmpfs>, LxError> {
     let tmpfs = Tmpfs::new()?;
-    tmpfs.set_fs_type("procfs");
+    tmpfs.set_fs_type("proc");
 
     create_dynfile_ro(&tmpfs, "/meminfo", sysinfo::meminfo, 0o444)?;
     create_dynfile_ro(&tmpfs, "/cmdline", sysinfo::cmdline, 0o444)?;

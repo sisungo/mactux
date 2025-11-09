@@ -38,6 +38,7 @@ impl NativeFs {
         let dev = str::from_utf8(dev).map_err(|_| LxError::EINVAL)?;
         let path = dev.strip_prefix("native=").ok_or(LxError::EACCES)?;
         let base = NBase::new(Path::new(path))?;
+        log::debug!("mounted filesystem \"{dev}\" with dirfd={}.", base.dirfd);
         Ok(Arc::new(Self { base }))
     }
 }

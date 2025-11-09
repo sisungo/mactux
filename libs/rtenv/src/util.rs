@@ -1,3 +1,4 @@
+use std::panic::PanicHookInfo;
 use structures::{error::LxError, mapper::PidMapper, misc::LogLevel};
 
 /// Converts a POSIX function that returns something like what `read()`/`write()` returns to [`Result<Integer, LxError>`] in
@@ -71,4 +72,15 @@ impl log::Log for RustLogger {
         );
         crate::misc::write_syslog(level, content.into_bytes());
     }
+}
+
+pub fn panic_hook(info: &PanicHookInfo) {
+    eprintln!(
+        "mactux: process {} at module `{}` panicked: {}",
+        std::process::id(),
+        info.location()
+            .map(ToString::to_string)
+            .unwrap_or_else(|| "<unknown>".into()),
+        info.payload_as_str().unwrap_or("no information provided"),
+    );
 }

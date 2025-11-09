@@ -1066,6 +1066,7 @@ pub unsafe fn sys_pause() -> Result<(), LxError> {
 
 #[syscall]
 pub unsafe fn sys_alarm(secs: c_uint) -> c_uint {
+    // TODO: replace with setitimer if `alarm` is deprecated?
     unsafe { libc::alarm(secs) }
 }
 
@@ -1073,12 +1074,13 @@ pub unsafe fn sys_alarm(secs: c_uint) -> c_uint {
 pub unsafe fn sys_times(tms: *mut Tms) -> Result<i64, LxError> {
     unsafe {
         let mut apple = std::mem::zeroed();
-        let result = libc::times(&mut apple);
-        if result == (-1 as _) {
-            return Err(LxError::last_apple_error());
+        match libc::times(&mut apple) as i64 {
+            -1 => Err(LxError::last_apple_error()),
+            other => {
+                tms.write(Tms::from_apple(apple)?);
+                Ok(other)
+            }
         }
-        tms.write(Tms::from_apple(apple)?);
-        Ok(result as _)
     }
 }
 

@@ -41,6 +41,12 @@ impl Syslog {
     }
 }
 
+pub fn install_rust() -> Result<(), log::SetLoggerError> {
+    log::set_logger(&RustLogger)?;
+    log::set_max_level(log::LevelFilter::Trace);
+    Ok(())
+}
+
 /// Implementation of the system logging thread.
 #[derive(Debug)]
 struct SyslogImpl {
@@ -67,7 +73,7 @@ impl SyslogImpl {
 
     fn write_log(&mut self, req: WriteLogRequest) {
         let mut fmt = Vec::with_capacity(req.content.len() + 16);
-        _ = write!(&mut fmt, "[] ");
+        _ = write!(&mut fmt, "[{}] ", timestamp());
         _ = fmt.write_all(&req.content);
         _ = fmt.write_all(b"\n");
 
@@ -130,11 +136,11 @@ impl log::Log for RustLogger {
             log::Level::Warn => LogLevel::KERN_WARNING,
             log::Level::Error => LogLevel::KERN_ERR,
         };
-        let content = format!(
-            "{}: {}",
-            record.module_path().unwrap_or("mactux_server"),
-            record.args()
-        );
+        let mut module = record.metadata().target();
+        if module.is_empty() {
+            module = record.module_path().unwrap_or("mactux_server");
+        }
+        let content = format!("{}: {}", module, record.args());
         app().syslog.write(WriteLogRequest {
             level,
             content: content.into_bytes(),
@@ -142,6 +148,16 @@ impl log::Log for RustLogger {
     }
 }
 
-pub fn install_rust() -> Result<(), log::SetLoggerError> {
-    log::set_logger(&RustLogger)
+fn timestamp() -> String {
+    let mut timespec = libc::timespec {
+        tv_sec: 0,
+        tv_nsec: 0,
+    };
+    unsafe {
+        // No errors are allowed to return here, so we just keep the fields zero if it has errors.
+        _ = libc::clock_gettime(libc::CLOCK_MONOTONIC, &mut timespec);
+    }
+    let mut time_minor = timespec.tv_nsec.to_string();
+    time_minor.truncate(6);
+    format!("{:>6}.{:06}", timespec.tv_sec, time_minor)
 }
