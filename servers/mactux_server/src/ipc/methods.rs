@@ -10,7 +10,7 @@ use std::{io::Write, sync::Arc};
 use structures::{
     device::DeviceNumber,
     error::LxError,
-    fs::{AccessFlags, Dirent64, FileMode, OpenFlags, OpenHow, Statx, UmountFlags},
+    fs::{AccessFlags, Dirent64, FileMode, OpenFlags, OpenHow, Statx, StatxMask, UmountFlags},
     io::{FcntlCmd, IoctlCmd, VfdAvailCtrl, Whence},
     misc::{LogLevel, SysInfo},
 };
@@ -166,7 +166,7 @@ pub fn vfd_sync(vfd: u64) -> Result<(), LxError> {
         .sync()
 }
 
-pub fn vfd_stat(vfd: u64, mask: u32) -> Result<Statx, LxError> {
+pub fn vfd_stat(vfd: u64, mask: StatxMask) -> Result<Statx, LxError> {
     Process::current()
         .vfd
         .get(vfd)

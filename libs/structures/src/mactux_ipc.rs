@@ -1,7 +1,7 @@
 use crate::{
     device::DeviceNumber,
     error::LxError,
-    fs::{AccessFlags, Dirent64, FileMode, OpenFlags, OpenHow, Statx, UmountFlags},
+    fs::{AccessFlags, Dirent64, FileMode, OpenFlags, OpenHow, Statx, StatxMask, UmountFlags},
     io::{EventFdFlags, FcntlCmd, IoctlCmd, VfdAvailCtrl, Whence},
     misc::{LogLevel, SysInfo},
 };
@@ -84,7 +84,7 @@ pub enum Request {
     VfdIoctl(u64, IoctlCmd, Vec<u8>),
     VfdFcntl(u64, FcntlCmd, Vec<u8>),
     VfdGetdent(u64),
-    VfdStat(u64),
+    VfdStat(u64, StatxMask),
     VfdTruncate(u64, u64),
     VfdChown(u64, u32, u32),
     VfdDup(u64),

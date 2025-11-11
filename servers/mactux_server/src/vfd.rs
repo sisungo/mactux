@@ -13,7 +13,7 @@ use std::{
 };
 use structures::{
     error::LxError,
-    fs::{Dirent64, OpenFlags, Statx, XATTR_NAMESPACE_PREFIXES},
+    fs::{Dirent64, OpenFlags, Statx, StatxMask, XATTR_NAMESPACE_PREFIXES},
     io::{FcntlCmd, FdFlags, IoctlCmd, PollEvents, VfdAvailCtrl, Whence},
     mactux_ipc::CtrlOutput,
 };
@@ -62,8 +62,8 @@ impl Vfd {
         Ok(new_off)
     }
 
-    pub fn stat(&self, mask: u32) -> Result<Statx, LxError> {
-        self.content.stat()
+    pub fn stat(&self, mask: StatxMask) -> Result<Statx, LxError> {
+        self.content.stat(mask)
     }
 
     pub fn pread(&self, buf: &mut [u8], mut off: i64) -> Result<usize, LxError> {
@@ -226,7 +226,7 @@ pub trait Stream {
 }
 
 pub trait VfdContent: Stream + Send + Sync {
-    fn stat(&self) -> Result<Statx, LxError> {
+    fn stat(&self, mask: StatxMask) -> Result<Statx, LxError> {
         Err(LxError::EOPNOTSUPP)
     }
 

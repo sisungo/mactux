@@ -71,8 +71,6 @@ pub fn raise(
     };
     let action = sigaction(signum, None).unwrap();
     if action.handler == SigHandler::SIG_DFL {
-        use structures::ToApple;
-
         let Ok(apple_signum) = signum.to_apple() else {
             crate::error_report::fast_fail();
         };
@@ -294,11 +292,11 @@ unsafe extern "C" fn handle_signal(
     info: &libc::siginfo_t,
     ctx: &mut libc::ucontext_t,
 ) {
+    let in_emulated = reentrant_in_emulated(info);
     let Ok(signum) = SigNum::from_apple(signum) else {
         crate::error_report::fast_fail();
     };
 
-    let in_emulated = reentrant_in_emulated(info);
     unsafe {
         if in_emulated {
             crate::emuctx::leave_emulated();

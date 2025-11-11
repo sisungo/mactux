@@ -10,7 +10,7 @@ use structures::{
     FromApple, ToApple,
     device::DeviceNumber,
     error::LxError,
-    fs::{AccessFlags, AtFlags, FileMode, OpenFlags, Stat, Statx, UmountFlags},
+    fs::{AccessFlags, AtFlags, FileMode, OpenFlags, Stat, Statx, StatxMask, UmountFlags},
     io::{
         CloseRangeFlags, EventFdFlags, FcntlCmd, FdSet, FlockOp, IoctlCmd, PSelectSigMask, PollFd,
         Whence,
@@ -87,7 +87,7 @@ pub unsafe fn sys_stat(filename: *const c_char, statbuf: *mut Stat) -> Result<()
             OpenFlags::O_PATH,
             AtFlags::empty(),
             0,
-            rtenv::fs::stat,
+            |fd| rtenv::fs::stat(fd, StatxMask::all()),
         )?;
         statbuf.write(stat.into());
         Ok(())
@@ -108,7 +108,7 @@ pub unsafe fn sys_newfstatat(
             OpenFlags::O_PATH,
             flags,
             0,
-            rtenv::fs::stat,
+            |fd| rtenv::fs::stat(fd, StatxMask::all()),
         )?;
         statbuf.write(stat.into());
         Ok(())
@@ -118,7 +118,7 @@ pub unsafe fn sys_newfstatat(
 #[syscall]
 pub unsafe fn sys_fstat(fd: c_int, statbuf: *mut Stat) -> Result<(), LxError> {
     unsafe {
-        statbuf.write(rtenv::fs::stat(fd)?.into());
+        statbuf.write(rtenv::fs::stat(fd, StatxMask::all())?.into());
         Ok(())
     }
 }
@@ -132,7 +132,7 @@ pub unsafe fn sys_lstat(filename: *const c_char, statbuf: *mut Stat) -> Result<(
             OpenFlags::O_PATH,
             AtFlags::AT_SYMLINK_NOFOLLOW,
             0,
-            rtenv::fs::stat,
+            |fd| rtenv::fs::stat(fd, StatxMask::all()),
         )?;
         statbuf.write(stat.into());
         Ok(())
@@ -154,7 +154,7 @@ pub unsafe fn sys_statx(
             OpenFlags::O_PATH,
             flags,
             0,
-            rtenv::fs::stat,
+            |fd| rtenv::fs::stat(fd, StatxMask::all()),
         )?;
         buf.write(statx);
         Ok(())
@@ -1280,17 +1280,17 @@ pub unsafe fn sys_getpid() -> c_int {
 }
 
 #[syscall]
-pub unsafe fn sys_getpgid(pid: i32) -> c_int {
+pub unsafe fn sys_getpgid(pid: i32) -> Result<c_int, LxError> {
     rtenv::process::pgid(pid)
 }
 
 #[syscall]
-pub unsafe fn sys_getpgrp() -> c_int {
+pub unsafe fn sys_getpgrp() -> Result<c_int, LxError> {
     rtenv::process::pgid(rtenv::process::pid())
 }
 
 #[syscall]
-pub unsafe fn sys_setpgid(pid: i32, pgid: i32) -> Result<i32, LxError> {
+pub unsafe fn sys_setpgid(pid: i32, pgid: i32) -> Result<(), LxError> {
     rtenv::process::setpgid(pid, pgid)
 }
 
@@ -1534,6 +1534,16 @@ pub unsafe fn sys_sysfs() -> Result<(), LxError> {
     Err(LxError::ENOSYS)
 }
 
+#[syscall]
+pub unsafe fn sys_swapon(_dev: *const c_char, _flags: c_int) -> Result<(), LxError> {
+    Err(LxError::EPERM)
+}
+
+#[syscall]
+pub unsafe fn sys_swapoff(_dev: *const c_char) -> Result<(), LxError> {
+    Err(LxError::EPERM)
+}
+
 pub unsafe fn sys_invalid(uctx: &mut libc::ucontext_t) {
     unsafe {
         rtenv::emuctx::leave_emulated();
@@ -1547,6 +1557,10 @@ pub unsafe fn sys_invalid(uctx: &mut libc::ucontext_t) {
         _ = writeln!(
             ErrorReport,
             " [ ! ] MacTux: Unsupported syscall: {}, exiting!",
+            uctx.sysno()
+        );
+        log::error!(
+            "process crashed due to unsupported syscall {}",
             uctx.sysno()
         );
         rtenv::error_report::fast_fail();

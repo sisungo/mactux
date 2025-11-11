@@ -374,12 +374,11 @@ impl File for Dir {
                     Node::Dir(x) => x.open_vfd(OpenFlags::O_PATH),
                     Node::Symlink(x) => x.open_vfd(OpenFlags::O_PATH),
                 };
-                let stat = match vfd
-                    .and_then(|x| x.stat((StatxMask::STATX_INO | StatxMask::STATX_TYPE).bits()))
-                {
-                    Ok(x) => x,
-                    Err(_) => return None,
-                };
+                let stat =
+                    match vfd.and_then(|x| x.stat(StatxMask::STATX_INO | StatxMask::STATX_TYPE)) {
+                        Ok(x) => x,
+                        Err(_) => return None,
+                    };
                 Some(Dirent64::new(
                     Dirent64Hdr {
                         d_ino: stat.stx_ino,
@@ -433,8 +432,8 @@ impl VfdContent for DirFd {
         Ok(self.iter.lock().unwrap().pop())
     }
 
-    fn stat(&self) -> Result<Statx, LxError> {
-        let mut statx = self.metadata.stat_template(StatxMask::all());
+    fn stat(&self, mask: StatxMask) -> Result<Statx, LxError> {
+        let mut statx = self.metadata.stat_template(mask);
 
         statx.stx_mode.set_file_type(FileType::Directory);
 
@@ -494,8 +493,8 @@ impl Stream for Reg {
     }
 }
 impl VfdContent for Reg {
-    fn stat(&self) -> Result<Statx, LxError> {
-        let mut stat = self.metadata.stat_template(StatxMask::all());
+    fn stat(&self, mask: StatxMask) -> Result<Statx, LxError> {
+        let mut stat = self.metadata.stat_template(mask);
 
         stat.stx_size = self.buf.size();
         stat.stx_blocks = self.buf.blocks() * (BLOCK_SIZE as u64 / 512);
@@ -576,8 +575,8 @@ impl Stream for DevFd {
     }
 }
 impl VfdContent for DevFd {
-    fn stat(&self) -> Result<Statx, LxError> {
-        let mut statx = self.metadata.stat_template(StatxMask::all());
+    fn stat(&self, mask: StatxMask) -> Result<Statx, LxError> {
+        let mut statx = self.metadata.stat_template(mask);
 
         statx.stx_mode.set_file_type(self.file_type);
 
@@ -636,8 +635,8 @@ where
     R: DynFileReadFn,
     W: DynFileWriteFn,
 {
-    fn stat(&self) -> Result<Statx, LxError> {
-        let mut stat = self.metadata.stat_template(StatxMask::all());
+    fn stat(&self, mask: StatxMask) -> Result<Statx, LxError> {
+        let mut stat = self.metadata.stat_template(mask);
 
         stat.stx_mode.set_file_type(FileType::RegularFile);
 
@@ -694,8 +693,8 @@ impl VfdContent for Symlink {
         Ok((self.target)().into())
     }
 
-    fn stat(&self) -> Result<Statx, LxError> {
-        let mut stat = self.metadata.stat_template(StatxMask::all());
+    fn stat(&self, mask: StatxMask) -> Result<Statx, LxError> {
+        let mut stat = self.metadata.stat_template(mask);
 
         stat.stx_mode.set_file_type(FileType::Symlink);
 

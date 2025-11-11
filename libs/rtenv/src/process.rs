@@ -1,7 +1,7 @@
 use crate::{
     fs::FilesystemContext,
     ipc_client::{Client, with_client},
-    process,
+    posix_num, process,
     thread::{ThreadPubCtxMap, may_fork},
     util::posix_result,
 };
@@ -18,8 +18,11 @@ use std::{
 use structures::{
     ToApple,
     error::LxError,
+    fs::StatxMask,
+    mapper::with_pid_mapper,
     process::{ChildType, CloneArgs, CloneFlags},
     signal::{SigAction, SigNum},
+    thread::is_tid,
 };
 use structures::{
     fs::{FileMode, FileType, OpenFlags},
@@ -69,28 +72,24 @@ pub fn context() -> &'static ProcessCtx {
 }
 
 pub fn pid() -> i32 {
-    // TODO: support namespaces
-    unsafe { libc::getpid() }
+    let native_pid = unsafe { libc::getpid() };
+    with_pid_mapper(|x| x.apple_to_linux(native_pid)).unwrap_or(native_pid)
 }
 
 pub fn ppid() -> i32 {
-    // TODO: support namespaces
-    unsafe { libc::getppid() }
+    let native_ppid = unsafe { libc::getppid() };
+    with_pid_mapper(|x| x.apple_to_linux(native_ppid)).unwrap_or(native_ppid)
 }
 
-pub fn pgid(pid: i32) -> i32 {
-    // TODO: support namespaces
-    unsafe { libc::getpgid(pid) }
+pub fn pgid(pid: i32) -> Result<i32, LxError> {
+    let native_pid = with_pid_mapper(|x| x.linux_to_apple(pid))?;
+    let native_pgid = unsafe { posix_num!(libc::getpgid(native_pid))? };
+    with_pid_mapper(|x| x.apple_to_linux(native_pgid))
 }
 
-pub fn setpgid(pid: i32, pgid: i32) -> Result<i32, LxError> {
-    // TODO: support namespaces
-    unsafe {
-        match libc::setpgid(pid, pgid) {
-            -1 => Err(LxError::last_apple_error()),
-            n => Ok(n),
-        }
-    }
+pub fn setpgid(pid: i32, pgid: i32) -> Result<(), LxError> {
+    // TODO: support pid namespaces.
+    unsafe { posix_result(libc::setpgid(pid, pgid)) }
 }
 
 pub unsafe fn exec(
@@ -103,7 +102,8 @@ pub unsafe fn exec(
         OpenFlags::O_CLOEXEC | OpenFlags::O_PATH,
         FileMode(0),
     )?;
-    let stat = crate::fs::stat(fd).inspect_err(|_| _ = crate::io::close(fd))?;
+    let stat =
+        crate::fs::stat(fd, StatxMask::STATX_MODE).inspect_err(|_| _ = crate::io::close(fd))?;
     _ = crate::io::close(fd);
     match stat.stx_mode.file_type() {
         FileType::Directory => return Err(LxError::EISDIR),
@@ -219,7 +219,16 @@ pub fn clone(args: CloneArgs) -> Result<i32, LxError> {
 }
 
 pub fn kill(pid: i32, signum: SigNum) -> Result<(), LxError> {
-    // TODO
+    let pid = match pid {
+        0 => 0,
+        -1 => -1,
+        1.. => with_pid_mapper(|x| x.linux_to_apple(pid))?,
+        ..0 => -with_pid_mapper(|x| x.linux_to_apple(-pid))?,
+    };
+    if is_tid(pid.abs()) {
+        // TODO
+        return Err(LxError::EPERM);
+    }
     unsafe { posix_result(libc::kill(pid, signum.to_apple()?)) }
 }
 

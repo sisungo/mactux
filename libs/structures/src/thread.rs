@@ -3,3 +3,7 @@ pub const TID_MIN: i32 = 0x40000000;
 
 /// Maximum TID.
 pub const TID_MAX: i32 = 0x7fffffff;
+
+pub fn is_tid(pid: i32) -> bool {
+    (TID_MIN..=TID_MAX).contains(&pid)
+}

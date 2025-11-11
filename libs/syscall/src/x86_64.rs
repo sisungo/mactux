@@ -241,8 +241,8 @@ const SYSTEM_CALL_HANDLERS: &[SystemCallHandler] = &[
     sys_invalid,           // 164
     sys_umount2,           // 165
     sys_invalid,           // 166
-    sys_invalid,           // 167
-    sys_invalid,           // 168
+    sys_swapon,            // 167
+    sys_swapoff,           // 168
     sys_invalid,           // 169
     sys_sethostname,       // 170
     sys_setdomainname,     // 171

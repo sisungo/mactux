@@ -25,7 +25,7 @@ use structures::{
     error::LxError,
     fs::{
         AccessFlags, Dirent64, Dirent64Hdr, DirentType, FileMode, OpenFlags, OpenHow, OpenResolve,
-        Statx,
+        Statx, StatxMask,
     },
 };
 
@@ -403,7 +403,7 @@ impl VfdContent for DirFd {
         }
     }
 
-    fn stat(&self) -> Result<Statx, LxError> {
+    fn stat(&self, _: StatxMask) -> Result<Statx, LxError> {
         Ok(self.statx.clone())
     }
 }

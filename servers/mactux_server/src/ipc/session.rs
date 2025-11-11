@@ -52,7 +52,7 @@ impl RegSession {
                 Request::GetSockPath(path, create) => get_sock_path(path, create).into_response(),
                 Request::Umount(path, flags) => umount(&path, flags).into_response(),
                 Request::VfdDup(vfd) => vfd_dup(vfd).into_response(),
-                Request::VfdStat(vfd) => vfd_stat(vfd, 0xfffffff).into_response(),
+                Request::VfdStat(vfd, mask) => vfd_stat(vfd, mask).into_response(),
                 Request::VfdRead(vfd, bufsiz) => vfd_read(vfd, bufsiz).into_response(),
                 Request::VfdPread(vfd, off, bufsiz) => vfd_pread(vfd, bufsiz, off).into_response(),
                 Request::VfdWrite(vfd, buf) => vfd_write(vfd, &buf).into_response(),

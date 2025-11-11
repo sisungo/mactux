@@ -4,6 +4,7 @@ use crate::{ipc_client::with_client, posix_num, process, util::ipc_fail, util::p
 use arc_swap::ArcSwap;
 use libc::c_int;
 use std::sync::Arc;
+use structures::fs::StatxMask;
 use structures::mactux_ipc::{Request, Response};
 use structures::{
     ToApple,
@@ -105,9 +106,9 @@ pub fn getdents64(fd: c_int) -> Result<Option<Dirent64>, LxError> {
 }
 
 #[inline]
-pub fn stat(fd: c_int) -> Result<Statx, LxError> {
+pub fn stat(fd: c_int, mask: StatxMask) -> Result<Statx, LxError> {
     match crate::vfd::get(fd) {
-        Some(vfd) => vfd::stat(vfd),
+        Some(vfd) => vfd::stat(vfd, mask),
         None => unsafe {
             let mut stat = std::mem::zeroed();
             posix_result(libc::fstat(fd, &mut stat))?;

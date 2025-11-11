@@ -1,5 +1,6 @@
 use crate::ipc_client::call_server;
 use crate::{ipc_client::with_client, util::ipc_fail};
+use structures::fs::StatxMask;
 use structures::mactux_ipc::{Request, Response};
 use structures::{
     error::LxError,
@@ -10,8 +11,8 @@ pub fn getdents64(vfd: u64) -> Result<Option<Dirent64>, LxError> {
     call_server(Request::VfdGetdent(vfd))
 }
 
-pub fn stat(vfd: u64) -> Result<Statx, LxError> {
-    call_server(Request::VfdStat(vfd))
+pub fn stat(vfd: u64, mask: StatxMask) -> Result<Statx, LxError> {
+    call_server(Request::VfdStat(vfd, mask))
 }
 
 pub fn chown(vfd: u64, uid: u32, gid: u32) -> Result<(), LxError> {

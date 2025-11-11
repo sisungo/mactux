@@ -9,16 +9,18 @@ Only x86_64 is currently supported. Note that running MacTux on ARM Macs with Ro
 ## Compatibility
 Currently, we have tested:
 
- - musl-libc dynamic linker
- - glibc dynamic linker
- - gnu coreutils
+ - musl-libc
+ - glibc
+ - GNU Coreutils
  - busybox
  - toybox
- - opusdec
- - sqlite3
+ - Opus Tools
+ - SQLite 3
  - bash
- - python3
- - tinycc
+ - dash
+ - Python 3
+ - TinyCC
+ - OpenSSH Client
 
 We suggest you to run dynamically linked or static-pie binaries, due to macOS's ASLR policy have not yet been solved
 completely.
