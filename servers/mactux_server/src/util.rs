@@ -15,7 +15,7 @@ use std::{
         atomic::{self, AtomicU64},
     },
 };
-use structures::{error::LxError, fs::OpenHow};
+use structures::{error::LxError, fs::OpenHow, io::Whence};
 
 pub struct ReclaimRegistry<T: 'static> {
     table: DashMap<u64, Shared<T>, FxBuildHasher>,
@@ -73,6 +73,10 @@ impl<T> ReclaimRegistry<T> {
 
     pub fn unregister(&self, id: u64) -> Option<Shared<T>> {
         self.table.remove(&id).map(|(_, v)| v)
+    }
+
+    pub fn len(&self) -> usize {
+        self.table.len()
     }
 }
 
@@ -216,5 +220,13 @@ pub unsafe fn sysctl_read<T: Copy, const N: usize>(mut name: [c_int; N]) -> Resu
             -1 => Err(LxError::EINVAL),
             _ => Ok(data),
         }
+    }
+}
+
+pub fn plain_seek(orig_off: i64, whence: Whence, off: i64) -> Result<i64, LxError> {
+    match whence {
+        Whence::SEEK_CUR => Ok(orig_off + off),
+        Whence::SEEK_SET => Ok(off),
+        _ => Err(LxError::EOPNOTSUPP),
     }
 }

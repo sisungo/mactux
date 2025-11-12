@@ -7,7 +7,7 @@ use crate::{
         vfs::{Filesystem, LPath, NewlyOpen},
     },
     task::process::Process,
-    util::symlink_abs,
+    util::{plain_seek, symlink_abs},
     vfd::{Stream, Vfd, VfdContent},
 };
 use dashmap::DashMap;
@@ -559,11 +559,11 @@ impl Stream for DevFd {
         self.device.as_ref().ok_or(LxError::EBADF)?.write(buf, off)
     }
 
-    fn seek(&self, whence: Whence, off: i64) -> Result<i64, LxError> {
+    fn seek(&self, orig_off: i64, whence: Whence, off: i64) -> Result<i64, LxError> {
         self.device
             .as_ref()
             .ok_or(LxError::EBADF)?
-            .seek(whence, off)
+            .seek(orig_off, whence, off)
     }
 
     fn ioctl_query(&self, cmd: IoctlCmd) -> Result<VfdAvailCtrl, LxError> {
@@ -628,6 +628,10 @@ where
         buf[..bytes_read].copy_from_slice(&s[(*off as _)..(*off as usize + bytes_read)]);
         *off += bytes_read as i64;
         Ok(bytes_read)
+    }
+
+    fn seek(&self, orig_off: i64, whence: Whence, off: i64) -> Result<i64, LxError> {
+        plain_seek(orig_off, whence, off)
     }
 }
 impl<R, W> VfdContent for DynFile<R, W>

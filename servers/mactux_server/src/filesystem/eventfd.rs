@@ -62,7 +62,7 @@ impl Stream for EventFd {
         todo!()
     }
 
-    fn seek(&self, _: Whence, _: i64) -> Result<i64, LxError> {
+    fn seek(&self, _: i64, _: Whence, _: i64) -> Result<i64, LxError> {
         Ok(0)
     }
 }

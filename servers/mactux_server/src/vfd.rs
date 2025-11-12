@@ -57,7 +57,8 @@ impl Vfd {
     }
 
     pub fn seek(&self, whence: Whence, off: i64) -> Result<i64, LxError> {
-        let new_off = self.content.seek(whence, off)?;
+        let orig_off = self.offset.load(atomic::Ordering::Relaxed);
+        let new_off = self.content.seek(orig_off, whence, off)?;
         self.offset.store(new_off, atomic::Ordering::Relaxed);
         Ok(new_off)
     }
@@ -208,7 +209,7 @@ pub trait Stream {
         Err(LxError::EOPNOTSUPP)
     }
 
-    fn seek(&self, _whence: Whence, _off: i64) -> Result<i64, LxError> {
+    fn seek(&self, _orig_off: i64, _whence: Whence, _off: i64) -> Result<i64, LxError> {
         Err(LxError::EOPNOTSUPP)
     }
 

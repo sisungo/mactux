@@ -21,7 +21,14 @@ impl FcntlCmd {
     pub const F_SETLKW: Self = Self(7);
     pub const F_DUPFD_CLOEXEC: Self = Self(1030);
 
-    pub const fn in_size(self) -> isize {
+    pub const fn ctrl_query(self) -> VfdAvailCtrl {
+        VfdAvailCtrl {
+            in_size: self.in_size(),
+            out_size: self.out_size(),
+        }
+    }
+
+    const fn in_size(self) -> isize {
         match self {
             Self::F_DUPFD => -1,
             Self::F_GETFD => -1,
@@ -36,7 +43,7 @@ impl FcntlCmd {
         }
     }
 
-    pub const fn out_size(self) -> usize {
+    const fn out_size(self) -> usize {
         match self {
             Self::F_DUPFD => 0,
             Self::F_GETFD => 0,

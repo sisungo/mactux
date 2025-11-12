@@ -94,12 +94,7 @@ pub fn ioctl(vfd: u64, cmd: IoctlCmd, arg: *mut u8) -> Result<c_int, LxError> {
 }
 
 pub fn fcntl(vfd: u64, cmd: FcntlCmd, arg: usize) -> Result<c_int, LxError> {
-    let avail_ctrl = VfdAvailCtrl {
-        in_size: cmd.in_size(),
-        out_size: cmd.out_size(),
-    };
-
-    ctrl(vfd, cmd, arg, avail_ctrl, Request::VfdFcntl)
+    ctrl(vfd, cmd, arg, cmd.ctrl_query(), Request::VfdFcntl)
 }
 
 pub fn truncate(vfd: u64, len: u64) -> Result<(), LxError> {
