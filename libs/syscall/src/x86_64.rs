@@ -354,7 +354,7 @@ const SYSTEM_CALL_HANDLERS: &[SystemCallHandler] = &[
     sys_invalid,           // 277
     sys_invalid,           // 278
     sys_invalid,           // 279
-    sys_invalid,           // 280
+    sys_utimensat,         // 280
     sys_invalid,           // 281
     sys_invalid,           // 282
     sys_invalid,           // 283

@@ -103,7 +103,7 @@ pub unsafe fn exec(
         FileMode(0),
     )?;
     let stat =
-        crate::fs::stat(fd, StatxMask::STATX_MODE).inspect_err(|_| _ = crate::io::close(fd))?;
+        crate::fs::fstat(fd, StatxMask::STATX_MODE).inspect_err(|_| _ = crate::io::close(fd))?;
     _ = crate::io::close(fd);
     match stat.stx_mode.file_type() {
         FileType::Directory => return Err(LxError::EISDIR),

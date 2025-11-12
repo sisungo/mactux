@@ -5,7 +5,7 @@ mod arch;
 mod common;
 mod util;
 
-use std::ptr::NonNull;
+use std::{ffi::CStr, ptr::NonNull};
 use structures::{
     FromApple,
     device::DeviceNumber,
@@ -147,6 +147,15 @@ impl<T> FromSyscall for *mut T {
 impl<T> ToSysret for *mut T {
     fn to_sysret(self) -> usize {
         self as _
+    }
+}
+impl FromSyscall for &CStr {
+    fn from_syscall(value: usize) -> Self {
+        if value == 0 {
+            c""
+        } else {
+            unsafe { CStr::from_ptr(value as _) }
+        }
     }
 }
 impl<T> FromSyscall for Option<NonNull<T>> {

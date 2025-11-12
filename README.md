@@ -6,6 +6,9 @@ MacTux is a compatibility layer that enables you to run Linux binaries on macOS.
 ## Architecture Support
 Only x86_64 is currently supported. Note that running MacTux on ARM Macs with Rosetta 2 is supported, too.
 
+## Building & Installing
+See [INSTALL.md](INSTALL.md) for details.
+
 ## Compatibility
 Currently, we have tested:
 

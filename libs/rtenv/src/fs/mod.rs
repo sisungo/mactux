@@ -6,6 +6,7 @@ use libc::c_int;
 use std::sync::Arc;
 use structures::fs::StatxMask;
 use structures::mactux_ipc::{Request, Response};
+use structures::time::Timespec;
 use structures::{
     ToApple,
     device::DeviceNumber,
@@ -106,7 +107,7 @@ pub fn getdents64(fd: c_int) -> Result<Option<Dirent64>, LxError> {
 }
 
 #[inline]
-pub fn stat(fd: c_int, mask: StatxMask) -> Result<Statx, LxError> {
+pub fn fstat(fd: c_int, mask: StatxMask) -> Result<Statx, LxError> {
     match crate::vfd::get(fd) {
         Some(vfd) => vfd::stat(vfd, mask),
         None => unsafe {
@@ -118,7 +119,7 @@ pub fn stat(fd: c_int, mask: StatxMask) -> Result<Statx, LxError> {
 }
 
 #[inline]
-pub unsafe fn chown(fd: c_int, uid: u32, gid: u32) -> Result<(), LxError> {
+pub unsafe fn fchown(fd: c_int, uid: u32, gid: u32) -> Result<(), LxError> {
     if let Some(vfd) = crate::vfd::get(fd) {
         vfd::chown(vfd, uid, gid)
     } else {
@@ -252,7 +253,7 @@ pub fn getcwd() -> Vec<u8> {
 }
 
 #[inline]
-pub fn chdir(fd: c_int) -> Result<(), LxError> {
+pub fn fchdir(fd: c_int) -> Result<(), LxError> {
     let Some(vfd) = crate::vfd::get(fd) else {
         return Err(LxError::ENOTDIR);
     };
@@ -273,7 +274,7 @@ pub fn init_cwd(new: Vec<u8>) -> Result<(), LxError> {
 }
 
 #[inline]
-pub fn listxattr(fd: c_int) -> Result<Vec<u8>, LxError> {
+pub fn flistxattr(fd: c_int) -> Result<Vec<u8>, LxError> {
     Ok(Vec::new())
 }
 
@@ -292,7 +293,7 @@ pub fn umount(path: Vec<u8>, flags: UmountFlags) -> Result<(), LxError> {
 }
 
 #[inline]
-pub fn readlink(fd: c_int) -> Result<Vec<u8>, LxError> {
+pub fn freadlink(fd: c_int) -> Result<Vec<u8>, LxError> {
     match crate::vfd::get(fd) {
         Some(vfd) => vfd::readlink(vfd),
         None => unsafe {
@@ -301,6 +302,17 @@ pub fn readlink(fd: c_int) -> Result<Vec<u8>, LxError> {
                 posix_num!(libc::freadlink(fd, buf.as_mut_ptr().cast(), buf.len()))?;
             buf.truncate(nbytes);
             Ok(buf)
+        },
+    }
+}
+
+#[inline]
+pub fn futimens(fd: c_int, times: [Timespec; 2]) -> Result<(), LxError> {
+    match crate::vfd::get(fd) {
+        Some(vfd) => vfd::utimens(vfd, times),
+        None => unsafe {
+            let apple_times = [times[0].to_apple()?, times[1].to_apple()?];
+            posix_result(libc::futimens(fd, apple_times.as_ptr()))
         },
     }
 }

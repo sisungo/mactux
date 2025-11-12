@@ -1,11 +1,11 @@
 //! Implementations of cross-architecture system calls.
 
 use super::UcontextExt;
-use crate::util::{rust_bytes, with_openat};
+use crate::util::with_openat;
 use libc::{c_char, c_int, c_uint, c_void};
 use macros::syscall;
 use rtenv::{error_report::ErrorReport, posix_num};
-use std::{io::Write, num::NonZero, ptr::NonNull, time::Duration};
+use std::{ffi::CStr, io::Write, num::NonZero, ptr::NonNull, time::Duration};
 use structures::{
     FromApple, ToApple,
     device::DeviceNumber,
@@ -30,64 +30,60 @@ use structures::{
 // -== Filesystem Operations ==-
 
 #[syscall]
-pub unsafe fn sys_open(path: *const c_char, flags: OpenFlags, mode: u32) -> Result<c_int, LxError> {
-    unsafe { rtenv::fs::open(rust_bytes(path).to_vec(), flags, FileMode(mode as _)) }
+pub unsafe fn sys_open(path: &CStr, flags: OpenFlags, mode: u32) -> Result<c_int, LxError> {
+    rtenv::fs::open(path.to_bytes().to_vec(), flags, FileMode(mode as _))
 }
 
 #[syscall]
-pub unsafe fn sys_creat(path: *const c_char, mode: u32) -> Result<c_int, LxError> {
-    unsafe {
-        rtenv::fs::open(
-            rust_bytes(path).to_vec(),
-            OpenFlags::O_CREAT | OpenFlags::O_TRUNC | OpenFlags::O_WRONLY,
-            FileMode(mode as _),
-        )
-    }
+pub unsafe fn sys_creat(path: &CStr, mode: u32) -> Result<c_int, LxError> {
+    rtenv::fs::open(
+        path.to_bytes().to_vec(),
+        OpenFlags::O_CREAT | OpenFlags::O_TRUNC | OpenFlags::O_WRONLY,
+        FileMode(mode as _),
+    )
 }
 
 #[syscall]
 pub unsafe fn sys_openat(
     dfd: c_int,
-    filename: *const c_char,
+    filename: &CStr,
     flags: OpenFlags,
     mode: u32,
 ) -> Result<c_int, LxError> {
-    unsafe {
-        rtenv::fs::openat(
-            dfd,
-            rust_bytes(filename).to_vec(),
-            flags,
-            AtFlags::empty(),
-            FileMode(mode as _),
-        )
-    }
+    rtenv::fs::openat(
+        dfd,
+        filename.to_bytes().to_vec(),
+        flags,
+        AtFlags::empty(),
+        FileMode(mode as _),
+    )
 }
 
 #[syscall]
-pub unsafe fn sys_access(path: *const c_char, mode: AccessFlags) -> Result<(), LxError> {
-    unsafe { rtenv::fs::access(rust_bytes(path).to_vec(), mode) }
+pub unsafe fn sys_access(path: &CStr, mode: AccessFlags) -> Result<(), LxError> {
+    rtenv::fs::access(path.to_bytes().to_vec(), mode)
 }
 
 #[syscall]
 pub unsafe fn sys_faccessat2(
     dfd: c_int,
-    path: *const c_char,
+    path: &CStr,
     mode: AccessFlags,
     flags: AtFlags,
 ) -> Result<(), LxError> {
-    unsafe { rtenv::fs::faccessat2(dfd, rust_bytes(path).to_vec(), mode, flags) }
+    rtenv::fs::faccessat2(dfd, path.to_bytes().to_vec(), mode, flags)
 }
 
 #[syscall]
-pub unsafe fn sys_stat(filename: *const c_char, statbuf: *mut Stat) -> Result<(), LxError> {
+pub unsafe fn sys_stat(filename: &CStr, statbuf: *mut Stat) -> Result<(), LxError> {
     unsafe {
         let stat = with_openat(
             -100,
-            rust_bytes(filename).to_vec(),
+            filename.to_bytes().to_vec(),
             OpenFlags::O_PATH,
             AtFlags::empty(),
             0,
-            |fd| rtenv::fs::stat(fd, StatxMask::all()),
+            |fd| rtenv::fs::fstat(fd, StatxMask::all()),
         )?;
         statbuf.write(stat.into());
         Ok(())
@@ -97,18 +93,18 @@ pub unsafe fn sys_stat(filename: *const c_char, statbuf: *mut Stat) -> Result<()
 #[syscall]
 pub unsafe fn sys_newfstatat(
     dfd: c_int,
-    filename: *const c_char,
+    filename: &CStr,
     statbuf: *mut Stat,
     flags: AtFlags,
 ) -> Result<(), LxError> {
     unsafe {
         let stat = with_openat(
             dfd,
-            rust_bytes(filename).to_vec(),
+            filename.to_bytes().to_vec(),
             OpenFlags::O_PATH,
             flags,
             0,
-            |fd| rtenv::fs::stat(fd, StatxMask::all()),
+            |fd| rtenv::fs::fstat(fd, StatxMask::all()),
         )?;
         statbuf.write(stat.into());
         Ok(())
@@ -118,21 +114,21 @@ pub unsafe fn sys_newfstatat(
 #[syscall]
 pub unsafe fn sys_fstat(fd: c_int, statbuf: *mut Stat) -> Result<(), LxError> {
     unsafe {
-        statbuf.write(rtenv::fs::stat(fd, StatxMask::all())?.into());
+        statbuf.write(rtenv::fs::fstat(fd, StatxMask::all())?.into());
         Ok(())
     }
 }
 
 #[syscall]
-pub unsafe fn sys_lstat(filename: *const c_char, statbuf: *mut Stat) -> Result<(), LxError> {
+pub unsafe fn sys_lstat(filename: &CStr, statbuf: *mut Stat) -> Result<(), LxError> {
     unsafe {
         let stat = with_openat(
             -100,
-            rust_bytes(filename).to_vec(),
+            filename.to_bytes().to_vec(),
             OpenFlags::O_PATH,
             AtFlags::AT_SYMLINK_NOFOLLOW,
             0,
-            |fd| rtenv::fs::stat(fd, StatxMask::all()),
+            |fd| rtenv::fs::fstat(fd, StatxMask::all()),
         )?;
         statbuf.write(stat.into());
         Ok(())
@@ -142,7 +138,7 @@ pub unsafe fn sys_lstat(filename: *const c_char, statbuf: *mut Stat) -> Result<(
 #[syscall]
 pub unsafe fn sys_statx(
     dfd: c_int,
-    pathname: *const c_char,
+    filename: &CStr,
     flags: AtFlags,
     _mask: u32, // TODO
     buf: *mut Statx,
@@ -150,11 +146,11 @@ pub unsafe fn sys_statx(
     unsafe {
         let statx = with_openat(
             dfd,
-            rust_bytes(pathname).to_vec(),
+            filename.to_bytes().to_vec(),
             OpenFlags::O_PATH,
             flags,
             0,
-            |fd| rtenv::fs::stat(fd, StatxMask::all()),
+            |fd| rtenv::fs::fstat(fd, StatxMask::all()),
         )?;
         buf.write(statx);
         Ok(())
@@ -162,29 +158,23 @@ pub unsafe fn sys_statx(
 }
 
 #[syscall]
-pub unsafe fn sys_truncate(path: *const c_char, len: u64) -> Result<(), LxError> {
-    unsafe {
-        let fd = rtenv::fs::open(rust_bytes(path).to_vec(), OpenFlags::O_WRONLY, FileMode(0))?;
-        let result = rtenv::io::truncate(fd, len);
-        _ = rtenv::io::close(fd);
-        result
-    }
+pub unsafe fn sys_truncate(path: &CStr, len: u64) -> Result<(), LxError> {
+    let fd = rtenv::fs::open(path.to_bytes().to_vec(), OpenFlags::O_WRONLY, FileMode(0))?;
+    let result = rtenv::io::truncate(fd, len);
+    _ = rtenv::io::close(fd);
+    result
 }
 
 #[syscall]
-pub unsafe fn sys_readlink(
-    path: *const c_char,
-    buf: *mut c_char,
-    bufsiz: usize,
-) -> Result<usize, LxError> {
+pub unsafe fn sys_readlink(path: &CStr, buf: *mut c_char, bufsiz: usize) -> Result<usize, LxError> {
     unsafe {
         let result = with_openat(
             -100,
-            rust_bytes(path).to_vec(),
+            path.to_bytes().to_vec(),
             OpenFlags::empty(),
             AtFlags::AT_SYMLINK_NOFOLLOW,
             0,
-            rtenv::fs::readlink,
+            rtenv::fs::freadlink,
         )?;
         crate::util::ret_buf(&result, buf.cast(), bufsiz)
     }
@@ -193,18 +183,18 @@ pub unsafe fn sys_readlink(
 #[syscall]
 pub unsafe fn sys_readlinkat(
     dfd: c_int,
-    path: *const c_char,
+    filename: &CStr,
     buf: *mut c_char,
     bufsiz: usize,
 ) -> Result<usize, LxError> {
     unsafe {
         let result = with_openat(
             -dfd,
-            rust_bytes(path).to_vec(),
+            filename.to_bytes().to_vec(),
             OpenFlags::empty(),
             AtFlags::AT_SYMLINK_NOFOLLOW,
             0,
-            rtenv::fs::readlink,
+            rtenv::fs::freadlink,
         )?;
         crate::util::ret_buf(&result, buf.cast(), bufsiz)
     }
@@ -240,22 +230,20 @@ pub unsafe fn sys_getcwd(buf: *mut u8, bufsz: usize) -> Result<*mut u8, LxError>
 }
 
 #[syscall]
-pub unsafe fn sys_chdir(buf: *const c_char) -> Result<(), LxError> {
-    unsafe {
-        with_openat(
-            -100,
-            rust_bytes(buf).to_vec(),
-            OpenFlags::O_PATH | OpenFlags::O_DIRECTORY,
-            AtFlags::empty(),
-            0,
-            rtenv::fs::chdir,
-        )
-    }
+pub unsafe fn sys_chdir(path: &CStr) -> Result<(), LxError> {
+    with_openat(
+        -100,
+        path.to_bytes().to_vec(),
+        OpenFlags::O_PATH | OpenFlags::O_DIRECTORY,
+        AtFlags::empty(),
+        0,
+        rtenv::fs::fchdir,
+    )
 }
 
 #[syscall]
 pub unsafe fn sys_fchdir(fd: c_int) -> Result<(), LxError> {
-    rtenv::fs::chdir(fd)
+    rtenv::fs::fchdir(fd)
 }
 
 #[syscall]
@@ -271,145 +259,152 @@ pub unsafe fn sys_sync() {
 }
 
 #[syscall]
-pub unsafe fn sys_symlink(src: *const c_char, dst: *const c_char) -> Result<(), LxError> {
-    unsafe { rtenv::fs::symlinkat(rust_bytes(src).to_vec(), -100, rust_bytes(dst).to_vec()) }
+pub unsafe fn sys_symlink(src: &CStr, dst: &CStr) -> Result<(), LxError> {
+    rtenv::fs::symlinkat(src.to_bytes().to_vec(), -100, dst.to_bytes().to_vec())
 }
 
 #[syscall]
-pub unsafe fn sys_symlinkat(
-    src: *const c_char,
-    newdfd: c_int,
-    dst: *const c_char,
-) -> Result<(), LxError> {
-    unsafe { rtenv::fs::symlinkat(rust_bytes(src).to_vec(), newdfd, rust_bytes(dst).to_vec()) }
+pub unsafe fn sys_symlinkat(src: &CStr, newdfd: c_int, dst: &CStr) -> Result<(), LxError> {
+    rtenv::fs::symlinkat(src.to_bytes().to_vec(), newdfd, dst.to_bytes().to_vec())
 }
 
 #[syscall]
-pub unsafe fn sys_rename(src: *const c_char, dst: *const c_char) -> Result<(), LxError> {
-    unsafe { rtenv::fs::rename(rust_bytes(src).to_vec(), rust_bytes(dst).to_vec()) }
+pub unsafe fn sys_rename(src: &CStr, dst: &CStr) -> Result<(), LxError> {
+    rtenv::fs::rename(src.to_bytes().to_vec(), dst.to_bytes().to_vec())
 }
 
 #[syscall]
-pub unsafe fn sys_link(src: *const c_char, dst: *const c_char) -> Result<(), LxError> {
-    unsafe {
-        rtenv::fs::linkat(
-            -100,
-            rust_bytes(src).to_vec(),
-            -100,
-            rust_bytes(dst).to_vec(),
-            AtFlags::empty(),
-        )
-    }
+pub unsafe fn sys_link(src: &CStr, dst: &CStr) -> Result<(), LxError> {
+    rtenv::fs::linkat(
+        -100,
+        src.to_bytes().to_vec(),
+        -100,
+        dst.to_bytes().to_vec(),
+        AtFlags::empty(),
+    )
 }
 
 #[syscall]
 pub unsafe fn sys_linkat(
     sdfd: c_int,
-    src: *const c_char,
+    src: &CStr,
     ddfd: c_int,
-    dst: *const c_char,
+    dst: &CStr,
     flags: AtFlags,
 ) -> Result<(), LxError> {
-    unsafe {
-        rtenv::fs::linkat(
-            sdfd,
-            rust_bytes(src).to_vec(),
-            ddfd,
-            rust_bytes(dst).to_vec(),
-            flags,
-        )
-    }
+    rtenv::fs::linkat(
+        sdfd,
+        src.to_bytes().to_vec(),
+        ddfd,
+        dst.to_bytes().to_vec(),
+        flags,
+    )
 }
 
 #[syscall]
-pub unsafe fn sys_mkdir(path: *const c_char, mode: u32) -> Result<(), LxError> {
-    unsafe { rtenv::fs::mkdir(rust_bytes(path).to_vec(), FileMode(mode as _)) }
+pub unsafe fn sys_mkdir(path: &CStr, mode: u32) -> Result<(), LxError> {
+    rtenv::fs::mkdir(path.to_bytes().to_vec(), FileMode(mode as _))
 }
 
 #[syscall]
 pub unsafe fn sys_mknodat(
     dfd: c_int,
-    path: *const c_char,
+    path: &CStr,
     mode: u32,
     dev: DeviceNumber,
 ) -> Result<(), LxError> {
-    unsafe { rtenv::fs::mknodat(dfd, rust_bytes(path).to_vec(), FileMode(mode as _), dev) }
+    rtenv::fs::mknodat(dfd, path.to_bytes().to_vec(), FileMode(mode as _), dev)
 }
 
 #[syscall]
-pub unsafe fn sys_unlink(path: *const c_char) -> Result<(), LxError> {
-    unsafe { rtenv::fs::unlink(rust_bytes(path).to_vec()) }
+pub unsafe fn sys_unlink(path: &CStr) -> Result<(), LxError> {
+    rtenv::fs::unlink(path.to_bytes().to_vec())
 }
 
 #[syscall]
-pub unsafe fn sys_unlinkat(dfd: c_int, path: *const c_char, flags: AtFlags) -> Result<(), LxError> {
-    unsafe { rtenv::fs::unlinkat(dfd, rust_bytes(path).to_vec(), flags) }
+pub unsafe fn sys_unlinkat(dfd: c_int, path: &CStr, flags: AtFlags) -> Result<(), LxError> {
+    rtenv::fs::unlinkat(dfd, path.to_bytes().to_vec(), flags)
 }
 
 #[syscall]
-pub unsafe fn sys_rmdir(path: *const c_char) -> Result<(), LxError> {
-    unsafe { rtenv::fs::rmdir(rust_bytes(path).to_vec()) }
+pub unsafe fn sys_rmdir(path: &CStr) -> Result<(), LxError> {
+    rtenv::fs::rmdir(path.to_bytes().to_vec())
 }
 
 #[syscall]
-pub unsafe fn sys_chown(path: *const c_char, uid: u32, gid: u32) -> Result<(), LxError> {
-    unsafe {
-        let fd = rtenv::fs::open(rust_bytes(path).to_vec(), OpenFlags::O_PATH, FileMode(0))?;
-        let result = rtenv::fs::chown(fd, uid, gid);
-        _ = rtenv::io::close(fd);
-        result
-    }
-}
-
-#[syscall]
-pub unsafe fn sys_fchown(fd: c_int, uid: u32, gid: u32) -> Result<(), LxError> {
-    unsafe { rtenv::fs::chown(fd, uid, gid) }
-}
-
-#[syscall]
-pub unsafe fn sys_listxattr(
-    path: *const c_char,
-    list: *mut u8,
-    size: usize,
-) -> Result<usize, LxError> {
+pub unsafe fn sys_chown(path: &CStr, uid: u32, gid: u32) -> Result<(), LxError> {
     unsafe {
         with_openat(
             -100,
-            rust_bytes(path).to_vec(),
+            path.to_bytes().to_vec(),
             OpenFlags::O_PATH,
             AtFlags::empty(),
             0,
-            |fd| crate::util::ret_buf(&rtenv::fs::listxattr(fd)?, list, size),
+            |fd| rtenv::fs::fchown(fd, uid, gid),
         )
     }
 }
 
 #[syscall]
-pub unsafe fn sys_llistxattr(
-    path: *const c_char,
-    list: *mut u8,
-    size: usize,
-) -> Result<usize, LxError> {
+pub unsafe fn sys_fchown(fd: c_int, uid: u32, gid: u32) -> Result<(), LxError> {
+    unsafe { rtenv::fs::fchown(fd, uid, gid) }
+}
+
+#[syscall]
+pub unsafe fn sys_utimensat(
+    dfd: c_int,
+    path: &CStr,
+    times: *const [Timespec; 2],
+    flags: AtFlags,
+) -> Result<(), LxError> {
+    unsafe {
+        with_openat(
+            dfd,
+            path.to_bytes().to_vec(),
+            OpenFlags::O_PATH,
+            flags,
+            0,
+            |fd| rtenv::fs::futimens(fd, times.read()),
+        )
+    }
+}
+
+#[syscall]
+pub unsafe fn sys_listxattr(path: &CStr, list: *mut u8, size: usize) -> Result<usize, LxError> {
     unsafe {
         with_openat(
             -100,
-            rust_bytes(path).to_vec(),
+            path.to_bytes().to_vec(),
+            OpenFlags::O_PATH,
+            AtFlags::empty(),
+            0,
+            |fd| crate::util::ret_buf(&rtenv::fs::flistxattr(fd)?, list, size),
+        )
+    }
+}
+
+#[syscall]
+pub unsafe fn sys_llistxattr(path: &CStr, list: *mut u8, size: usize) -> Result<usize, LxError> {
+    unsafe {
+        with_openat(
+            -100,
+            path.to_bytes().to_vec(),
             OpenFlags::O_PATH,
             AtFlags::AT_SYMLINK_NOFOLLOW,
             0,
-            |fd| crate::util::ret_buf(&rtenv::fs::listxattr(fd)?, list, size),
+            |fd| crate::util::ret_buf(&rtenv::fs::flistxattr(fd)?, list, size),
         )
     }
 }
 
 #[syscall]
 pub unsafe fn sys_flistxattr(fd: c_int, list: *mut u8, size: usize) -> Result<usize, LxError> {
-    unsafe { crate::util::ret_buf(&rtenv::fs::listxattr(fd)?, list, size) }
+    unsafe { crate::util::ret_buf(&rtenv::fs::flistxattr(fd)?, list, size) }
 }
 
 #[syscall]
-pub unsafe fn sys_umount2(path: *const c_char, flags: UmountFlags) -> Result<(), LxError> {
-    unsafe { rtenv::fs::umount(rust_bytes(path).to_vec(), flags) }
+pub unsafe fn sys_umount2(path: &CStr, flags: UmountFlags) -> Result<(), LxError> {
+    rtenv::fs::umount(path.to_bytes().to_vec(), flags)
 }
 
 // -== Basic IO Operations ==-
@@ -1306,7 +1301,7 @@ pub unsafe fn sys_kill(pid: i32, signum: SigNum) -> Result<(), LxError> {
 
 #[syscall]
 pub unsafe fn sys_execve(
-    path: *const c_char,
+    path: &CStr,
     argv: *const *const u8,
     envp: *const *const u8,
 ) -> Result<(), LxError> {
@@ -1323,7 +1318,7 @@ pub unsafe fn sys_execve(
         }
 
         rtenv::process::exec(
-            rust_bytes(path),
+            path.to_bytes(),
             std::slice::from_raw_parts(argv, argc),
             std::slice::from_raw_parts(envp, envc),
         )?;

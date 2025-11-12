@@ -2,6 +2,7 @@ use crate::ipc_client::call_server;
 use crate::{ipc_client::with_client, util::ipc_fail};
 use structures::fs::StatxMask;
 use structures::mactux_ipc::{Request, Response};
+use structures::time::Timespec;
 use structures::{
     error::LxError,
     fs::{Dirent64, Statx},
@@ -17,6 +18,10 @@ pub fn stat(vfd: u64, mask: StatxMask) -> Result<Statx, LxError> {
 
 pub fn chown(vfd: u64, uid: u32, gid: u32) -> Result<(), LxError> {
     call_server(Request::VfdChown(vfd, uid, gid))
+}
+
+pub fn utimens(vfd: u64, times: [Timespec; 2]) -> Result<(), LxError> {
+    todo!()
 }
 
 pub fn readlink(vfd: u64) -> Result<Vec<u8>, LxError> {
