@@ -353,18 +353,30 @@ pub unsafe fn sys_fchown(fd: c_int, uid: u32, gid: u32) -> Result<(), LxError> {
 #[syscall]
 pub unsafe fn sys_utimensat(
     dfd: c_int,
-    path: &CStr,
-    times: *const [Timespec; 2],
+    path: Option<&CStr>,
+    times: Option<NonNull<[Timespec; 2]>>,
     flags: AtFlags,
 ) -> Result<(), LxError> {
     unsafe {
+        let mut flags = flags;
+        let path = match path {
+            Some(val) => val,
+            None => {
+                flags |= AtFlags::AT_EMPTY_PATH;
+                c""
+            }
+        };
+        let times = match times {
+            Some(x) => x.read(),
+            None => [Timespec::now(), Timespec::now()],
+        };
         with_openat(
             dfd,
             path.to_bytes().to_vec(),
             OpenFlags::O_PATH,
-            flags,
+            flags | AtFlags::AT_EMPTY_PATH,
             0,
-            |fd| rtenv::fs::futimens(fd, times.read()),
+            |fd| rtenv::fs::futimens(fd, times),
         )
     }
 }

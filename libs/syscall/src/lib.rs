@@ -151,10 +151,14 @@ impl<T> ToSysret for *mut T {
 }
 impl FromSyscall for &CStr {
     fn from_syscall(value: usize) -> Self {
-        if value == 0 {
-            c""
-        } else {
-            unsafe { CStr::from_ptr(value as _) }
+        unsafe { CStr::from_ptr(value as _) }
+    }
+}
+impl FromSyscall for Option<&CStr> {
+    fn from_syscall(value: usize) -> Self {
+        match value {
+            0 => None,
+            other => unsafe { Some(CStr::from_ptr(other as _)) },
         }
     }
 }
