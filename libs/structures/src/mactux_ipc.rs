@@ -101,6 +101,7 @@ pub enum Request {
     SysInfo,
 
     WriteSyslog(LogLevel, Vec<u8>),
+    ReadSyslogAll(usize),
 
     AfterFork(i32),
     AfterExec,

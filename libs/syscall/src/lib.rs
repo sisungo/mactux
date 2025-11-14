@@ -12,7 +12,7 @@ use structures::{
     error::LxError,
     fs::{AccessFlags, AtFlags, OpenFlags, UmountFlags},
     io::{CloseRangeFlags, EventFdFlags, FcntlCmd, FlockOp, IoctlCmd, Whence},
-    misc::GrndFlags,
+    misc::{GrndFlags, SyslogAction},
     mm::{Madvice, MmapFlags, MmapProt, MremapFlags, MsyncFlags},
     net::{Domain, Protocol, ShutdownHow, SockOpt, SockOptLevel, SocketFlags, SocketType},
     process::{PrctlOp, RLimitable, RUsageWho, WaitOptions},
@@ -127,7 +127,8 @@ impl_from_to_sys_bitflags!(
 );
 impl_from_to_sys_newtype!(
     Whence; FcntlCmd; IoctlCmd; FutexOp; ClockId; MaskHowto; SigNum; Domain; SocketType; Protocol;
-    ShutdownHow; FlockOp; Madvice; RLimitable; RUsageWho; PrctlOp; SockOptLevel; SockOpt; DeviceNumber
+    ShutdownHow; FlockOp; Madvice; RLimitable; RUsageWho; PrctlOp; SockOptLevel; SockOpt; DeviceNumber;
+    SyslogAction
 );
 impl<T> FromSyscall for *const T {
     fn from_syscall(value: usize) -> Self {

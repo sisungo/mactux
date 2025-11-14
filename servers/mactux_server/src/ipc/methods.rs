@@ -256,7 +256,7 @@ pub fn after_fork(native_pid: libc::pid_t) -> Result<(), LxError> {
 }
 
 pub fn after_exec() {
-    Process::current().exec();
+    Process::current().on_exec();
 }
 
 pub fn set_thread_name(name: Vec<u8>) {
@@ -272,6 +272,13 @@ pub fn get_thread_name() -> Result<Response, LxError> {
             .clone()
             .unwrap_or_default(),
     ))
+}
+
+pub fn read_syslog_all(bufsiz: usize) -> Result<Response, LxError> {
+    let mut buf = vec![0; bufsiz];
+    let len = app().syslog.read_all(&mut buf)?;
+    buf.truncate(len);
+    Ok(Response::Bytes(buf))
 }
 
 pub fn write_syslog(level: LogLevel, mut content: Vec<u8>) {

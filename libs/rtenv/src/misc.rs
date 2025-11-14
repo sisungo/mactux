@@ -1,7 +1,10 @@
-use crate::ipc_client::call_server;
-use structures::mactux_ipc::{NetworkNames, Request};
+use crate::{
+    ipc_client::{call_server, with_client},
+    util::ipc_fail,
+};
 use structures::{
     error::LxError,
+    mactux_ipc::{NetworkNames, Request, Response},
     misc::{LogLevel, SysInfo, UtsName, uname_str},
 };
 
@@ -38,6 +41,20 @@ pub fn set_network_names(names: NetworkNames) -> Result<(), LxError> {
 
 pub fn write_syslog(level: LogLevel, content: Vec<u8>) {
     call_server(Request::WriteSyslog(level, content))
+}
+
+pub fn read_syslog_all(buf: &mut [u8]) -> Result<usize, LxError> {
+    with_client(
+        |client| match client.invoke(Request::ReadSyslogAll(buf.len())).unwrap() {
+            Response::Bytes(blob) => {
+                debug_assert!(blob.len() <= buf.len());
+                buf[..blob.len()].copy_from_slice(&blob);
+                Ok(blob.len())
+            }
+            Response::Error(err) => Err(err),
+            _ => ipc_fail(),
+        },
+    )
 }
 
 fn machine() -> [u8; 65] {

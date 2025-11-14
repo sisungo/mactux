@@ -16,7 +16,7 @@ use structures::{
         Whence,
     },
     mactux_ipc::NetworkNames,
-    misc::{GrndFlags, SysInfo, UtsName},
+    misc::{GrndFlags, SysInfo, SyslogAction, UtsName},
     mm::{Madvice, MmapFlags, MmapProt, MremapFlags, MsyncFlags},
     net::{
         Domain, Protocol, ShutdownHow, SockAddr, SockOpt, SockOptLevel, SocketFlags, SocketType,
@@ -746,6 +746,21 @@ pub unsafe fn sys_sysinfo(buf: *mut SysInfo) -> Result<(), LxError> {
     unsafe {
         buf.write(rtenv::misc::sysinfo()?);
         Ok(())
+    }
+}
+
+#[syscall]
+pub unsafe fn sys_syslog(
+    action: SyslogAction,
+    buf: *mut u8,
+    bufsiz: c_int,
+) -> Result<usize, LxError> {
+    unsafe {
+        let buf = std::slice::from_raw_parts_mut(buf, bufsiz as _);
+        match action {
+            SyslogAction::SYSLOG_ACTION_READ_ALL => rtenv::misc::read_syslog_all(buf),
+            _ => Err(LxError::EINVAL),
+        }
     }
 }
 

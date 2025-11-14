@@ -73,6 +73,7 @@ impl RegSession {
                 Request::SysInfo => sysinfo().into_response(),
                 Request::AfterFork(npid) => after_fork(npid).into_response(),
                 Request::AfterExec => after_exec().into_response(),
+                Request::ReadSyslogAll(bufsiz) => read_syslog_all(bufsiz).into_response(),
                 Request::WriteSyslog(level, content) => {
                     write_syslog(level, content).into_response()
                 }

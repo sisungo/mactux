@@ -11,7 +11,7 @@ use std::{
     },
     thread::available_parallelism,
 };
-use structures::misc::LogLevel;
+use structures::{error::LxError, misc::LogLevel};
 
 /// The system logging module.
 #[derive(Debug)]
@@ -32,6 +32,16 @@ impl Syslog {
         };
         syslog_impl.start();
         Self { tx, config }
+    }
+
+    pub fn read_all(&self, buf: &mut [u8]) -> Result<usize, LxError> {
+        let (tx, rx) = mpsc::sync_channel(1);
+        self.tx
+            .send(Request::ReadAll(buf.len(), tx))
+            .map_err(|_| LxError::EIO)?;
+        let rbuf = rx.recv().map_err(|_| LxError::EIO)?;
+        buf[..rbuf.len()].clone_from_slice(&rbuf);
+        Ok(rbuf.len())
     }
 
     pub fn write(&self, req: WriteLogRequest) {
@@ -60,6 +70,7 @@ impl SyslogImpl {
         while let Ok(msg) = self.rx.recv() {
             match msg {
                 Request::WriteLog(req) => self.write_log(req),
+                Request::ReadAll(bufsiz, sender) => self.read_all(bufsiz, sender),
             }
         }
     }
@@ -69,6 +80,17 @@ impl SyslogImpl {
             .name(String::from("Syslog"))
             .spawn(move || self.run())
             .expect("failed to start syslog thread");
+    }
+
+    fn read_all(&self, bufsiz: usize, sender: mpsc::SyncSender<Vec<u8>>) {
+        let mut buf = Vec::with_capacity(bufsiz);
+        for i in self.buf.iter() {
+            if buf.len() + i.len() > bufsiz {
+                return;
+            }
+            buf.append(&mut i.clone());
+        }
+        _ = sender.send(buf);
     }
 
     fn write_log(&mut self, req: WriteLogRequest) {
@@ -117,6 +139,7 @@ impl SyslogConfig {
 #[derive(Debug)]
 enum Request {
     WriteLog(WriteLogRequest),
+    ReadAll(usize, mpsc::SyncSender<Vec<u8>>),
 }
 
 #[derive(Debug)]

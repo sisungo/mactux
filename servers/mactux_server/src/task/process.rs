@@ -31,8 +31,8 @@ impl Process {
         }
     }
 
-    pub fn exec(&self) {
-        self.vfd.exec();
+    pub fn on_exec(&self) {
+        self.vfd.on_exec();
     }
 }
 

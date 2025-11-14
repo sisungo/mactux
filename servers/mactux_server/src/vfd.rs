@@ -316,7 +316,7 @@ impl VfdTable {
         }
     }
 
-    pub fn exec(&self) {
+    pub fn on_exec(&self) {
         self.table
             .retain(|_, v| !v.open_flags.load().contains(OpenFlags::O_CLOEXEC));
     }

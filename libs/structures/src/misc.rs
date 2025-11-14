@@ -53,6 +53,13 @@ bitflags! {
 
 #[derive(Debug, Clone, Copy, Encode, Decode, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(transparent)]
+pub struct SyslogAction(pub u32);
+impl SyslogAction {
+    pub const SYSLOG_ACTION_READ_ALL: Self = Self(3);
+}
+
+#[derive(Debug, Clone, Copy, Encode, Decode, PartialEq, Eq, PartialOrd, Ord)]
+#[repr(transparent)]
 pub struct LogLevel(pub u32);
 impl LogLevel {
     pub const KERN_EMERG: Self = Self(0);
