@@ -14,9 +14,9 @@ use std::{
         atomic::{self, AtomicPtr, AtomicUsize},
     },
 };
-use structures::mactux_ipc::{Request, Response};
 use structures::{
     error::LxError,
+    mactux_ipc::{Request, Response},
     process::CloneArgs,
     signal::{SigAltStack, SigNum},
     sync::{FutexOpts, RobustListHead},

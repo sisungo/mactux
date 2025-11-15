@@ -2,7 +2,7 @@ use crate::{
     device::DeviceNumber,
     error::LxError,
     fs::{AccessFlags, Dirent64, FileMode, OpenFlags, OpenHow, Statx, StatxMask, UmountFlags},
-    io::{EventFdFlags, FcntlCmd, IoctlCmd, VfdAvailCtrl, Whence},
+    io::{EventFdFlags, FcntlCmd, IoctlCmd, PollEvents, VfdAvailCtrl, Whence},
     misc::{LogLevel, SysInfo},
 };
 use bincode::{Decode, Encode};
@@ -118,7 +118,7 @@ pub enum Request {
 /// An interruptible MacTux IPC request.
 #[derive(Debug, Clone, Encode, Decode)]
 pub enum InterruptibleRequest {
-    VirtualFdPoll(Vec<(u64, u16)>, Option<Duration>),
+    VfdPoll(Vec<(u64, PollEvents)>, Option<Duration>),
 }
 
 /// A response to a MacTux IPC request.
@@ -138,7 +138,7 @@ pub enum Response {
     Dirent64(Dirent64),
     NetworkNames(NetworkNames),
     SysInfo(Box<SysInfo>),
-    Poll(u64, u16),
+    Poll(u64, PollEvents),
     Error(LxError),
 }
 

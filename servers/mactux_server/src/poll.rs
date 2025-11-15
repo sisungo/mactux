@@ -53,9 +53,9 @@ impl PollSet {
 
 #[derive(Debug)]
 pub struct PollToken {
-    vfd: u64,
-    interest: PollEvents,
-    receiver: Receiver<PollEvents>,
+    pub vfd: u64,
+    pub interest: PollEvents,
+    pub receiver: Receiver<PollEvents>,
 }
 impl PollToken {
     pub fn ready(&self, latest: PollEvents) -> bool {

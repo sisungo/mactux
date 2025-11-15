@@ -154,6 +154,10 @@ impl Namespaces {
     fn init_uts(&self) -> Shared<Box<dyn UtsNamespace>> {
         self.init_uts.get().unwrap().clone()
     }
+
+    fn init_net(&self) -> Shared<NetNamespace> {
+        self.init_net.get().unwrap().clone()
+    }
 }
 
 #[derive(clap::Parser)]
@@ -211,8 +215,9 @@ fn init_app(cli: &Cli) -> anyhow::Result<()> {
         Process {
             mnt: app().namespaces.init_mnt(),
             uts: app().namespaces.init_uts(),
-            vfd: VfdTable::new(),
             pid: app().namespaces.init_pid(),
+            net: app().namespaces.init_net(),
+            vfd: VfdTable::new(),
         },
     );
     let server_thrd = Thread::builder().process(server_proc).is_main().build()?;

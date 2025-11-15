@@ -223,7 +223,7 @@ pub unsafe fn poll(fds: &mut [PollFd], timeout: Option<Duration>) -> Result<u32,
 
     for (n, poll_fd) in fds.iter_mut().enumerate() {
         if let Some(vfd) = crate::vfd::get(poll_fd.fd) {
-            virtual_fds.push((vfd, poll_fd.events.bits()));
+            virtual_fds.push((vfd, poll_fd.events));
             virtual_fd_map.insert(vfd, n);
             continue;
         }
@@ -235,7 +235,7 @@ pub unsafe fn poll(fds: &mut [PollFd], timeout: Option<Duration>) -> Result<u32,
     }
 
     let client = if !virtual_fds.is_empty() {
-        let client = crate::ipc_client::begin_interruptible(InterruptibleRequest::VirtualFdPoll(
+        let client = crate::ipc_client::begin_interruptible(InterruptibleRequest::VfdPoll(
             virtual_fds,
             timeout,
         ));
@@ -259,8 +259,7 @@ pub unsafe fn poll(fds: &mut [PollFd], timeout: Option<Duration>) -> Result<u32,
                     match client.wait() {
                         Response::Nothing => (),
                         Response::Poll(vfd, revent) => {
-                            fds[virtual_fd_map[&vfd]].revents =
-                                PollEvents::from_bits_retain(revent);
+                            fds[virtual_fd_map[&vfd]].revents = revent;
                         }
                         Response::Error(err) => {
                             return Err(err);

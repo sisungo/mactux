@@ -82,6 +82,17 @@ pub fn umount(path: &[u8], flags: UmountFlags) -> Result<(), LxError> {
 }
 
 pub fn get_sock_path(path: Vec<u8>, create: bool) -> Result<Response, LxError> {
+    if path.get(0).copied() == Some(0) {
+        let abs = &Process::current().net.abs;
+        let id = if create {
+            abs.sock_by_id(abs.create_named(&path[1..])?)
+        } else {
+            abs.sock_by_name(&path[1..])?
+        };
+        return Ok(Response::NativePath(
+            id.into_os_string().into_encoded_bytes(),
+        ));
+    }
     Process::current()
         .mnt
         .locate(&VPath::parse(&path))?

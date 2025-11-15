@@ -85,9 +85,8 @@ impl SyslogImpl {
     fn read_all(&self, bufsiz: usize, sender: mpsc::SyncSender<Vec<u8>>) {
         let mut buf = Vec::with_capacity(bufsiz);
         for i in self.buf.iter() {
-            if buf.len() + i.len() > bufsiz {
-                return;
-            }
+            let mut cur = i.clone();
+            cur.truncate(bufsiz - buf.len());
             buf.append(&mut i.clone());
         }
         _ = sender.send(buf);

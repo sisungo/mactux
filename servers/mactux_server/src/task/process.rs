@@ -1,5 +1,6 @@
 use crate::{
     filesystem::vfs::MountNamespace,
+    network::NetNamespace,
     sysinfo::UtsNamespace,
     task::{PidNamespace, thread::Thread},
     util::Shared,
@@ -10,8 +11,9 @@ use structures::error::LxError;
 pub struct Process {
     pub mnt: Shared<MountNamespace>,
     pub uts: Shared<Box<dyn UtsNamespace>>,
-    pub vfd: VfdTable,
     pub pid: Shared<Box<dyn PidNamespace>>,
+    pub net: Shared<NetNamespace>,
+    pub vfd: VfdTable,
 }
 impl Process {
     pub fn server() -> Shared<Self> {
@@ -26,8 +28,9 @@ impl Process {
         Self {
             mnt: self.mnt.clone(),
             uts: self.uts.clone(),
-            vfd: self.vfd.fork(),
             pid: self.pid.clone(),
+            net: self.net.clone(),
+            vfd: self.vfd.fork(),
         }
     }
 

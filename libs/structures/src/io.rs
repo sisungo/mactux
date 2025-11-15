@@ -200,6 +200,7 @@ bitflags! {
         const POLLRDHUP = 0x2000;
     }
 }
+crate::impl_bincode_for_bitflags!(PollEvents: u16);
 crate::bitflags_impl_from_to_apple!(
     PollEvents;
     type Apple = i16;
