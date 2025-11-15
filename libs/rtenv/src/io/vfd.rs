@@ -1,10 +1,12 @@
-use crate::ipc_client::call_server;
-use crate::{ipc_client::with_client, util::ipc_fail};
+use crate::{
+    ipc_client::{call_server, with_client},
+    util::ipc_fail,
+};
 use std::ffi::c_int;
-use structures::mactux_ipc::{Request, Response};
 use structures::{
     error::LxError,
     io::{FcntlCmd, IoctlCmd, VfdAvailCtrl, Whence},
+    mactux_ipc::{Request, Response},
 };
 
 pub fn read(vfd: u64, buf: &mut [u8]) -> Result<usize, LxError> {

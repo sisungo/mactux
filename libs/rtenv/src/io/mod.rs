@@ -9,12 +9,12 @@ use std::{
     os::fd::{AsRawFd, IntoRawFd},
     time::Duration,
 };
-use structures::mactux_ipc::{InterruptibleRequest, Request, Response};
 use structures::{
     FromApple, ToApple,
     error::LxError,
     fs::OpenFlags,
     io::{EventFdFlags, FcntlCmd, FdFlags, FdSet, FlockOp, IoctlCmd, PollEvents, PollFd, Whence},
+    mactux_ipc::{InterruptibleRequest, Request, Response},
 };
 
 #[inline]

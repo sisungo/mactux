@@ -4,17 +4,16 @@ use crate::{ipc_client::with_client, posix_num, process, util::ipc_fail, util::p
 use arc_swap::ArcSwap;
 use libc::c_int;
 use std::sync::Arc;
-use structures::fs::StatxMask;
-use structures::mactux_ipc::{Request, Response};
-use structures::time::Timespec;
 use structures::{
     ToApple,
     device::DeviceNumber,
     error::LxError,
     fs::{
         AccessFlags, AtFlags, Dirent64, FileMode, OpenFlags, OpenHow, OpenResolve, Statx,
-        UmountFlags,
+        StatxMask, UmountFlags,
     },
+    mactux_ipc::{Request, Response},
+    time::Timespec,
 };
 
 #[derive(Debug)]

@@ -88,18 +88,19 @@ impl SyslogImpl {
             let mut cur = i.clone();
             cur.truncate(bufsiz - buf.len());
             buf.append(&mut i.clone());
+            buf.push(b'\n');
         }
         _ = sender.send(buf);
     }
 
     fn write_log(&mut self, req: WriteLogRequest) {
         let mut fmt = Vec::with_capacity(req.content.len() + 16);
-        _ = write!(&mut fmt, "[{}] ", timestamp());
+        _ = write!(&mut fmt, "<{}>[{}] ", req.level.0, timestamp());
         _ = fmt.write_all(&req.content);
-        _ = fmt.write_all(b"\n");
 
         if self.config.console_loglevel.load() >= req.level {
             _ = std::io::stderr().write_all(&fmt);
+            _ = std::io::stderr().write_all(b"\n");
         }
 
         self.buf_used += fmt.len();
