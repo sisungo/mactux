@@ -1,138 +1,93 @@
+use crate::util::posix_result;
 use libc::c_int;
 use structures::{
-    ToApple,
+    FromApple, ToApple,
     error::LxError,
-    net::{Linger, SockOpt, SocketKind},
+    net::{
+        IP_TOS, Linger, SO_BROADCAST, SO_DEBUG, SO_DONTROUTE, SO_ERROR, SO_KEEPALIVE, SO_LINGER,
+        SO_OOBINLINE, SO_RCVBUF, SO_RCVLOWAT, SO_RCVTIMEO, SO_REUSEADDR, SO_REUSEPORT, SO_SNDBUF,
+        SO_SNDLOWAT, SO_SNDTIMEO, SO_TIMESTAMP, SO_TYPE, SockOptLevel, SocketKind,
+    },
     time::Timeval,
 };
 
-macro_rules! sockopt_impl {
-    (readonly $linux:ty, $apple:ty) => {
-        (
-            sockopt_impl!(@getter :: $linux, $apple),
-            |_, _, _, _| Err(LxError::EINVAL),
-        )
+macro_rules! auto {
+    ($apple:expr, $l:ty) => {
+        (auto!(@get $apple, $l), auto!(@set $apple, $l))
     };
-    ($linux:ty, $apple:ty) => {
-        (
-            sockopt_impl!(@getter :: $linux, $apple),
-            sockopt_impl!(@setter :: $linux, $apple),
-        )
-    };
-    (invalid) => {
-        (
-            |_, _, _, _| Err(LxError::EINVAL),
-            |_, _, _, _| Err(LxError::EINVAL),
-        )
-    };
-    (@getter :: $linux:ty, $apple:ty) => {
-        |fd, level, sockopt, buf| unsafe {
-            if buf.len() < size_of::<$linux>() {
+    (@get $apple:expr, $l:ty) => {
+        |fd, level, buf: &mut [u8]| unsafe {
+            if buf.len() != size_of::<$l>() {
                 return Err(LxError::EINVAL);
             }
-            let mut apple: $apple = std::mem::zeroed();
-            let mut apple_size = size_of::<$apple>() as _;
-            let result = libc::getsockopt(
-                fd,
-                level,
-                sockopt,
-                (&raw mut apple).cast(),
-                &mut apple_size,
-            );
-            buf.as_mut_ptr()
-                .cast::<$linux>()
-                .write(::structures::FromApple::from_apple(apple)?);
-            crate::util::posix_result(result)
+            let mut apple_buf: <$l as FromApple>::Apple = std::mem::zeroed();
+            let mut len = size_of::<<$l as FromApple>::Apple>() as u32;
+            posix_result(libc::getsockopt(fd, level, $apple, (&raw mut apple_buf).cast(), &mut len))?;
+            let linux = <$l>::from_apple(apple_buf)?;
+            (buf as *mut [u8] as *mut u8).copy_from(&linux as *const _ as *const u8, size_of::<$l>());
+            Ok(())
         }
     };
-    (@setter :: $linux:ty, $apple:ty) => {
-        |fd, level, sockopt, buf| unsafe {
-            if buf.len() < size_of::<$linux>() {
+    (@set $apple:expr, $l:ty) => {
+        |fd, level, buf| unsafe {
+            if buf.len() != size_of::<$l>() {
                 return Err(LxError::EINVAL);
             }
-            let linux = buf.as_ptr().cast::<$linux>().read();
-            let apple: $apple = ::structures::ToApple::to_apple(linux)?;
-            crate::util::posix_result(libc::setsockopt(
-                fd,
-                level,
-                sockopt,
-                (&raw const apple).cast(),
-                size_of::<$apple>() as _
-            ))
+            let mut linux: $l = std::mem::zeroed();
+            (&mut linux as *mut $l as *mut u8).copy_from(&linux as *const _ as *const u8, size_of::<$l>());
+            let apple = linux.to_apple()?;
+            let len = size_of::<<$l as ToApple>::Apple>() as u32;
+            posix_result(libc::setsockopt(fd, level, $apple, (&raw const apple).cast(), len))
         }
     };
 }
 
-type SockOptGetFn = unsafe fn(c_int, c_int, c_int, &mut [u8]) -> Result<(), LxError>;
-type SockOptSetFn = unsafe fn(c_int, c_int, c_int, &[u8]) -> Result<(), LxError>;
-
-pub trait SockOptLevel {
-    fn impls() -> &'static [(SockOptGetFn, SockOptSetFn)];
-    fn apple() -> c_int;
+pub fn get(fd: c_int, lv: SockOptLevel, sockopt: u32, buf: &mut [u8]) -> Result<(), LxError> {
+    level(lv)?(sockopt)?.0(fd, lv.to_apple()?, buf)
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct SocketLevel;
-impl SockOptLevel for SocketLevel {
-    fn impls() -> &'static [(SockOptGetFn, SockOptSetFn)] {
-        &[
-            sockopt_impl!(invalid),                    // 0
-            sockopt_impl!(c_int, c_int),               // 1
-            sockopt_impl!(c_int, c_int),               // 2
-            sockopt_impl!(readonly SocketKind, c_int), // 3
-            sockopt_impl!(readonly LxError, c_int),    // 4
-            sockopt_impl!(c_int, c_int),               // 5
-            sockopt_impl!(c_int, c_int),               // 6
-            sockopt_impl!(c_int, c_int),               // 7
-            sockopt_impl!(c_int, c_int),               // 8
-            sockopt_impl!(c_int, c_int),               // 9
-            sockopt_impl!(c_int, c_int),               // 10
-            sockopt_impl!(invalid),                    // 11
-            sockopt_impl!(invalid),                    // 12
-            sockopt_impl!(Linger, libc::linger),       // 13
-            sockopt_impl!(invalid),                    // 14
-            sockopt_impl!(c_int, c_int),               // 15
-            sockopt_impl!(invalid),                    // 16
-            sockopt_impl!(invalid),                    // 17
-            sockopt_impl!(c_int, c_int),               // 18
-            sockopt_impl!(c_int, c_int),               // 19
-            sockopt_impl!(Timeval, libc::timeval),     // 20
-            sockopt_impl!(Timeval, libc::timeval),     // 21
-            sockopt_impl!(invalid),                    // 22
-            sockopt_impl!(invalid),                    // 23
-            sockopt_impl!(invalid),                    // 24
-            sockopt_impl!(invalid),                    // 25
-            sockopt_impl!(invalid),                    // 26
-            sockopt_impl!(invalid),                    // 27
-            sockopt_impl!(invalid),                    // 28
-            sockopt_impl!(c_int, c_int),               // 29
-            sockopt_impl!(readonly c_int, c_int),      // 30
-        ]
-    }
+pub fn set(fd: c_int, lv: SockOptLevel, sockopt: u32, buf: &[u8]) -> Result<(), LxError> {
+    level(lv)?(sockopt)?.1(fd, lv.to_apple()?, buf)
+}
 
-    fn apple() -> c_int {
-        libc::SOL_SOCKET
+type FnGetSockOpt = fn(fd: c_int, level: c_int, buf: &mut [u8]) -> Result<(), LxError>;
+type FnSetSockOpt = fn(fd: c_int, level: c_int, buf: &[u8]) -> Result<(), LxError>;
+type FnSockOptLevel = fn(sockopt: u32) -> Result<(FnGetSockOpt, FnSetSockOpt), LxError>;
+
+fn level(level: SockOptLevel) -> Result<FnSockOptLevel, LxError> {
+    match level {
+        SockOptLevel::SOL_SOCKET => Ok(socket_level),
+        SockOptLevel::SOL_IP => Ok(ip_level),
+        _ => Err(LxError::EINVAL),
     }
 }
 
-pub fn get<L: SockOptLevel>(fd: c_int, sockopt: SockOpt, buf: &mut [u8]) -> Result<(), LxError> {
-    unsafe {
-        L::impls().get(sockopt.0 as usize).ok_or(LxError::EINVAL)?.0(
-            fd,
-            L::apple(),
-            sockopt.to_apple()?,
-            buf,
-        )
+fn ip_level(sockopt: u32) -> Result<(FnGetSockOpt, FnSetSockOpt), LxError> {
+    match sockopt {
+        IP_TOS => Ok(auto!(libc::IP_TOS, c_int)),
+        _ => Err(LxError::EINVAL),
     }
 }
 
-pub fn set<L: SockOptLevel>(fd: c_int, sockopt: SockOpt, buf: &[u8]) -> Result<(), LxError> {
-    unsafe {
-        L::impls().get(sockopt.0 as usize).ok_or(LxError::EINVAL)?.1(
-            fd,
-            L::apple(),
-            sockopt.to_apple()?,
-            buf,
-        )
+fn socket_level(sockopt: u32) -> Result<(FnGetSockOpt, FnSetSockOpt), LxError> {
+    match sockopt {
+        SO_DEBUG => Ok(auto!(libc::SO_DEBUG, c_int)),
+        SO_REUSEADDR => Ok(auto!(libc::SO_REUSEADDR, c_int)),
+        SO_TYPE => Ok(auto!(libc::SO_TYPE, SocketKind)),
+        SO_ERROR => Ok(auto!(libc::SO_ERROR, LxError)),
+        SO_DONTROUTE => Ok(auto!(libc::SO_DONTROUTE, c_int)),
+        SO_BROADCAST => Ok(auto!(libc::SO_BROADCAST, c_int)),
+        SO_SNDBUF => Ok(auto!(libc::SO_SNDBUF, c_int)),
+        SO_RCVBUF => Ok(auto!(libc::SO_RCVBUF, c_int)),
+        SO_KEEPALIVE => Ok(auto!(libc::SO_KEEPALIVE, c_int)),
+        SO_OOBINLINE => Ok(auto!(libc::SO_OOBINLINE, c_int)),
+        SO_LINGER => Ok(auto!(libc::SO_LINGER, Linger)),
+        SO_REUSEPORT => Ok(auto!(libc::SO_REUSEPORT, c_int)),
+        SO_RCVLOWAT => Ok(auto!(libc::SO_RCVLOWAT, c_int)),
+        SO_SNDLOWAT => Ok(auto!(libc::SO_SNDLOWAT, c_int)),
+        SO_RCVTIMEO => Ok(auto!(libc::SO_RCVTIMEO, Timeval)),
+        SO_SNDTIMEO => Ok(auto!(libc::SO_SNDTIMEO, Timeval)),
+        SO_TIMESTAMP => Ok(auto!(libc::SO_TIMESTAMP, c_int)),
+        _ => Err(LxError::EINVAL),
     }
 }

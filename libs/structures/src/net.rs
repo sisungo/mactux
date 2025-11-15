@@ -48,40 +48,36 @@ unixvariants! {
     }
 }
 
-unixvariants! {
-    pub struct SockOpt: u32 {
-        const SO_DEBUG = 1;
-        const SO_REUSEADDR = 2;
-        const SO_TYPE = 3;
-        const SO_ERROR = 4;
-        const SO_DONTROUTE = 5;
-        const SO_BROADCAST = 6;
-        const SO_SNDBUF = 7;
-        const SO_RCVBUF = 8;
-        const SO_KEEPALIVE = 9;
-        const SO_OOBINLINE = 10;
-        const SO_LINGER = 13;
-        const SO_REUSEPORT = 15;
-        const SO_RCVLOWAT = 18;
-        const SO_SNDLOWAT = 19;
-        const SO_RCVTIMEO = 20;
-        const SO_SNDTIMEO = 21;
-        const SO_TIMESTAMP = 29;
-        const SO_ACCEPTCONN = 30;
-        #[linux_only] const SO_NO_CHECK = 11;
-        #[linux_only] const SO_PRIORITY = 12;
-        #[linux_only] const SO_PASSCRED = 16;
-        #[linux_only] const SO_PEERSEC = 31;
-        #[linux_only] const SO_SNDBUFFORCE = 32;
-        #[linux_only] const SO_RCVBUFFORCE = 33;
-        #[linux_only] const SO_PROTOCOL = 38;
-        #[linux_only] const SO_DOMAIN = 39;
-        #[apple = LOCAL_PEERCRED] const SO_PEERCRED = 17;
-        #[apple = IP_BOUND_IF] const SO_BINDTODEVICE = 25;
-        fn from_apple(apple: c_int) -> Result<Self, LxError>;
-        fn to_apple(self) -> Result<c_int, LxError>;
-    }
-}
+pub const SO_DEBUG: u32 = 1;
+pub const SO_REUSEADDR: u32 = 2;
+pub const SO_TYPE: u32 = 3;
+pub const SO_ERROR: u32 = 4;
+pub const SO_DONTROUTE: u32 = 5;
+pub const SO_BROADCAST: u32 = 6;
+pub const SO_SNDBUF: u32 = 7;
+pub const SO_RCVBUF: u32 = 8;
+pub const SO_KEEPALIVE: u32 = 9;
+pub const SO_OOBINLINE: u32 = 10;
+pub const SO_NO_CHECK: u32 = 11;
+pub const SO_PRIORITY: u32 = 12;
+pub const SO_LINGER: u32 = 13;
+pub const SO_REUSEPORT: u32 = 15;
+pub const SO_PASSCRED: u32 = 16;
+pub const SO_PEERCRED: u32 = 17;
+pub const SO_RCVLOWAT: u32 = 18;
+pub const SO_SNDLOWAT: u32 = 19;
+pub const SO_RCVTIMEO: u32 = 20;
+pub const SO_SNDTIMEO: u32 = 21;
+pub const SO_BINDTODEVICE: u32 = 25;
+pub const SO_TIMESTAMP: u32 = 29;
+pub const SO_ACCEPTCONN: u32 = 30;
+pub const SO_PEERSEC: u32 = 31;
+pub const SO_SNDBUFFORCE: u32 = 32;
+pub const SO_RCVBUFFORCE: u32 = 33;
+pub const SO_PROTOCOL: u32 = 38;
+pub const SO_DOMAIN: u32 = 39;
+
+pub const IP_TOS: u32 = 1;
 
 unixvariants! {
     pub struct SockOptLevel: u32 {

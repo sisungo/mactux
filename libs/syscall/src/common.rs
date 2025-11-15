@@ -18,9 +18,7 @@ use structures::{
     mactux_ipc::NetworkNames,
     misc::{GrndFlags, SysInfo, SyslogAction, UtsName},
     mm::{Madvice, MmapFlags, MmapProt, MremapFlags, MsyncFlags},
-    net::{
-        Domain, Protocol, ShutdownHow, SockAddr, SockOpt, SockOptLevel, SocketFlags, SocketType,
-    },
+    net::{Domain, Protocol, ShutdownHow, SockAddr, SockOptLevel, SocketFlags, SocketType},
     process::{PrctlOp, RLimit64, RLimitable, RUsage, RUsageWho, WaitOptions, WaitStatus},
     signal::{KernelSigSet, MaskHowto, SigAction, SigAltStack, SigNum},
     sync::{FutexCmd, FutexOp, RSeq},
@@ -912,7 +910,7 @@ pub unsafe fn sys_connect(sock: c_int, addr: *const u8, len: c_int) -> Result<()
 pub unsafe fn sys_getsockopt(
     sock: c_int,
     level: SockOptLevel,
-    opt: SockOpt,
+    opt: u32,
     ptr: *mut u8,
     len: *mut c_int,
 ) -> Result<(), LxError> {
@@ -927,7 +925,7 @@ pub unsafe fn sys_getsockopt(
 pub unsafe fn sys_setsockopt(
     sock: c_int,
     level: SockOptLevel,
-    opt: SockOpt,
+    opt: u32,
     ptr: *const u8,
     len: c_int,
 ) -> Result<(), LxError> {

@@ -8,8 +8,7 @@ use structures::{
     ToApple,
     error::LxError,
     net::{
-        Domain, Protocol, ShutdownHow, SockAddr, SockAddrIn, SockOpt, SockOptLevel, SocketFlags,
-        SocketType,
+        Domain, Protocol, ShutdownHow, SockAddr, SockAddrIn, SockOptLevel, SocketFlags, SocketType,
     },
 };
 
@@ -84,25 +83,14 @@ pub fn shutdown(sock: c_int, how: ShutdownHow) -> Result<(), LxError> {
 pub fn getsockopt(
     sock: c_int,
     level: SockOptLevel,
-    opt: SockOpt,
+    opt: u32,
     buf: &mut [u8],
 ) -> Result<(), LxError> {
-    match level {
-        SockOptLevel::SOL_SOCKET => sockopt::get::<sockopt::SocketLevel>(sock, opt, buf),
-        _ => Err(LxError::EINVAL),
-    }
+    sockopt::get(sock, level, opt, buf)
 }
 
-pub fn setsockopt(
-    sock: c_int,
-    level: SockOptLevel,
-    opt: SockOpt,
-    buf: &[u8],
-) -> Result<(), LxError> {
-    match level {
-        SockOptLevel::SOL_SOCKET => sockopt::set::<sockopt::SocketLevel>(sock, opt, buf),
-        _ => Err(LxError::EINVAL),
-    }
+pub fn setsockopt(sock: c_int, level: SockOptLevel, opt: u32, buf: &[u8]) -> Result<(), LxError> {
+    sockopt::set(sock, level, opt, buf)
 }
 
 /// Prepares a socket with given Linux-specific socket flags.

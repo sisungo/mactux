@@ -14,7 +14,7 @@ use structures::{
     io::{CloseRangeFlags, EventFdFlags, FcntlCmd, FlockOp, IoctlCmd, Whence},
     misc::{GrndFlags, SyslogAction},
     mm::{Madvice, MmapFlags, MmapProt, MremapFlags, MsyncFlags},
-    net::{Domain, Protocol, ShutdownHow, SockOpt, SockOptLevel, SocketFlags, SocketType},
+    net::{Domain, Protocol, ShutdownHow, SockOptLevel, SocketFlags, SocketType},
     process::{PrctlOp, RLimitable, RUsageWho, WaitOptions},
     signal::{MaskHowto, SigNum},
     sync::FutexOp,
@@ -127,7 +127,7 @@ impl_from_to_sys_bitflags!(
 );
 impl_from_to_sys_newtype!(
     Whence; FcntlCmd; IoctlCmd; FutexOp; ClockId; MaskHowto; SigNum; Domain; SocketType; Protocol;
-    ShutdownHow; FlockOp; Madvice; RLimitable; RUsageWho; PrctlOp; SockOptLevel; SockOpt; DeviceNumber;
+    ShutdownHow; FlockOp; Madvice; RLimitable; RUsageWho; PrctlOp; SockOptLevel; DeviceNumber;
     SyslogAction
 );
 impl<T> FromSyscall for *const T {
