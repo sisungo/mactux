@@ -5,7 +5,7 @@ use std::{
 };
 use structures::{
     error::LxError,
-    fs::{FileMode, OpenFlags},
+    fs::{AtFlags, FileMode, OpenFlags},
 };
 
 #[derive(Debug)]
@@ -51,9 +51,11 @@ impl Program {
         }
 
         unsafe {
-            let interp_fd = rtenv::fs::open(
+            let interp_fd = rtenv::fs::openat(
+                -100,
                 self.prog.clone(),
                 OpenFlags::O_CLOEXEC | OpenFlags::O_RDONLY,
+                AtFlags::empty(),
                 FileMode(0),
             );
             let interp_fd = match interp_fd {

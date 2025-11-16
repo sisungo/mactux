@@ -29,14 +29,22 @@ use structures::{
 
 #[syscall]
 pub unsafe fn sys_open(path: &CStr, flags: OpenFlags, mode: u32) -> Result<c_int, LxError> {
-    rtenv::fs::open(path.to_bytes().to_vec(), flags, FileMode(mode as _))
+    rtenv::fs::openat(
+        -100,
+        path.to_bytes().to_vec(),
+        flags,
+        AtFlags::empty(),
+        FileMode(mode as _),
+    )
 }
 
 #[syscall]
 pub unsafe fn sys_creat(path: &CStr, mode: u32) -> Result<c_int, LxError> {
-    rtenv::fs::open(
+    rtenv::fs::openat(
+        -100,
         path.to_bytes().to_vec(),
         OpenFlags::O_CREAT | OpenFlags::O_TRUNC | OpenFlags::O_WRONLY,
+        AtFlags::empty(),
         FileMode(mode as _),
     )
 }
@@ -157,7 +165,13 @@ pub unsafe fn sys_statx(
 
 #[syscall]
 pub unsafe fn sys_truncate(path: &CStr, len: u64) -> Result<(), LxError> {
-    let fd = rtenv::fs::open(path.to_bytes().to_vec(), OpenFlags::O_WRONLY, FileMode(0))?;
+    let fd = rtenv::fs::openat(
+        -100,
+        path.to_bytes().to_vec(),
+        OpenFlags::O_WRONLY,
+        AtFlags::empty(),
+        FileMode(0),
+    )?;
     let result = rtenv::io::truncate(fd, len);
     _ = rtenv::io::close(fd);
     result
@@ -268,7 +282,30 @@ pub unsafe fn sys_symlinkat(src: &CStr, newdfd: c_int, dst: &CStr) -> Result<(),
 
 #[syscall]
 pub unsafe fn sys_rename(src: &CStr, dst: &CStr) -> Result<(), LxError> {
-    rtenv::fs::rename(src.to_bytes().to_vec(), dst.to_bytes().to_vec())
+    rtenv::fs::renameat2(
+        -100,
+        src.to_bytes().to_vec(),
+        -100,
+        dst.to_bytes().to_vec(),
+        0,
+    )
+}
+
+#[syscall]
+pub unsafe fn sys_renameat2(
+    srcdfd: c_int,
+    src: &CStr,
+    dstdfd: c_int,
+    dst: &CStr,
+    flags: u32,
+) -> Result<(), LxError> {
+    rtenv::fs::renameat2(
+        srcdfd,
+        src.to_bytes().to_vec(),
+        dstdfd,
+        dst.to_bytes().to_vec(),
+        flags,
+    )
 }
 
 #[syscall]
@@ -316,7 +353,7 @@ pub unsafe fn sys_mknodat(
 
 #[syscall]
 pub unsafe fn sys_unlink(path: &CStr) -> Result<(), LxError> {
-    rtenv::fs::unlink(path.to_bytes().to_vec())
+    rtenv::fs::unlinkat(-100, path.to_bytes().to_vec(), AtFlags::empty())
 }
 
 #[syscall]
@@ -754,9 +791,9 @@ pub unsafe fn sys_syslog(
     bufsiz: c_int,
 ) -> Result<usize, LxError> {
     unsafe {
-        let buf = std::slice::from_raw_parts_mut(buf, bufsiz as _);
+        let buf = || std::slice::from_raw_parts_mut(buf, bufsiz as _);
         match action {
-            SyslogAction::SYSLOG_ACTION_READ_ALL => rtenv::misc::read_syslog_all(buf),
+            SyslogAction::SYSLOG_ACTION_READ_ALL => rtenv::misc::read_syslog_all(buf()),
             _ => Err(LxError::EINVAL),
         }
     }

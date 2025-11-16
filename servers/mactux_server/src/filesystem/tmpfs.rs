@@ -4,7 +4,7 @@ use crate::{
     app,
     filesystem::{
         VPath,
-        vfs::{Filesystem, LPath, NewlyOpen},
+        vfs::{Filesystem, LPath, MakeFilesystem, NewlyOpen},
     },
     task::process::Process,
     util::{plain_seek, symlink_abs},
@@ -20,7 +20,6 @@ use std::{
         atomic::{self, AtomicU16, AtomicU32, AtomicUsize},
     },
 };
-use structures::mactux_ipc::CtrlOutput;
 use structures::{
     device::DeviceNumber,
     error::LxError,
@@ -31,6 +30,7 @@ use structures::{
     io::{IoctlCmd, VfdAvailCtrl, Whence},
     time::Timespec,
 };
+use structures::{fs::MountFlags, mactux_ipc::CtrlOutput};
 
 /// Size of a block.
 const BLOCK_SIZE: u32 = 4096;
@@ -154,24 +154,44 @@ impl Filesystem for Tmpfs {
     fn access(&self, path: LPath, mode: AccessFlags) -> Result<(), LxError> {
         match self.locate(path.clone())? {
             Location::Direct(_, Some(node)) => match node {
-                Node::Dir(dir) => Ok(()),
-                Node::File(file) => Ok(()),
+                Node::Dir(_) => Ok(()),
+                Node::File(_) => Ok(()),
                 Node::Symlink(symlink) => Process::current()
                     .mnt
                     .locate(&symlink.solve(path))?
                     .access(mode),
             },
-            Location::Direct(dir, None) => Err(LxError::ENOENT),
+            Location::Direct(_, None) => Err(LxError::ENOENT),
             Location::MidSymlink(vpath) => Process::current().mnt.locate(&vpath)?.access(mode),
         }
     }
 
-    fn get_sock_path(&self, path: LPath, create: bool) -> Result<PathBuf, LxError> {
+    fn get_sock_path(&self, _: LPath, _: bool) -> Result<PathBuf, LxError> {
         Err(LxError::EINVAL)
     }
 
     fn link(&self, src: LPath, dst: LPath) -> Result<(), LxError> {
-        todo!()
+        let vlocation = |x| Process::current().mnt.locate(x);
+        let src_location = self.locate(src.clone())?;
+        let dst_location = self.locate(dst.clone())?;
+        let src_node = match src_location {
+            Location::Direct(_, Some(node)) => node,
+            Location::Direct(_, None) => return Err(LxError::ENOENT),
+            Location::MidSymlink(vpath) => {
+                return vlocation(&vpath)?.link_to(vlocation(&dst.expand())?);
+            }
+        };
+        match dst_location {
+            Location::Direct(dir, None) => {
+                dir.children.insert(
+                    dst.relative.parts.last().ok_or(LxError::EEXIST)?.clone(),
+                    src_node,
+                );
+                Ok(())
+            }
+            Location::Direct(_, Some(_)) => Err(LxError::ENOENT),
+            Location::MidSymlink(vpath) => vlocation(&src.expand())?.link_to(vlocation(&vpath)?),
+        }
     }
 
     fn mkdir(&self, path: LPath, mode: FileMode) -> Result<(), LxError> {
@@ -197,7 +217,29 @@ impl Filesystem for Tmpfs {
     }
 
     fn rename(&self, src: LPath, dst: LPath) -> Result<(), LxError> {
-        todo!()
+        let vlocation = |x| Process::current().mnt.locate(x);
+        let src_location = self.locate(src.clone())?;
+        let dst_location = self.locate(dst.clone())?;
+        let src_filename = src.relative.parts.last().ok_or(LxError::EISDIR)?.clone();
+        let dst_filename = dst.relative.parts.last().ok_or(LxError::EEXIST)?.clone();
+        let src_node = match src_location {
+            Location::Direct(dir, Some(node)) => {
+                dir.children.remove(&src_filename);
+                node
+            }
+            Location::Direct(_, None) => return Err(LxError::ENOENT),
+            Location::MidSymlink(vpath) => {
+                return vlocation(&vpath)?.rename_to(vlocation(&dst.expand())?);
+            }
+        };
+        match dst_location {
+            Location::Direct(dir, None) => {
+                dir.children.insert(dst_filename, src_node);
+                Ok(())
+            }
+            Location::Direct(_, Some(_)) => Err(LxError::ENOENT),
+            Location::MidSymlink(vpath) => vlocation(&src.expand())?.rename_to(vlocation(&vpath)?),
+        }
     }
 
     fn rmdir(&self, path: LPath) -> Result<(), LxError> {
@@ -335,6 +377,22 @@ impl Tmpfs {
             Location::Direct(_, None) => Err(LxError::ENOENT),
             Location::MidSymlink(_) => Err(LxError::EXDEV),
         }
+    }
+}
+
+pub struct MakeTmpfs;
+impl MakeFilesystem for MakeTmpfs {
+    fn make_filesystem(
+        &self,
+        _: &[u8],
+        _: MountFlags,
+        _: &[u8],
+    ) -> Result<Arc<dyn Filesystem>, LxError> {
+        Tmpfs::new().map(|x| x as _)
+    }
+
+    fn is_nodev(&self) -> bool {
+        true
     }
 }
 
@@ -753,7 +811,7 @@ impl Metadata {
     /// inside a node on the heap.
     fn stat_template(&self, mask: StatxMask) -> Statx {
         Statx {
-            stx_mask: StatxMask::all(),
+            stx_mask: mask,
             stx_blksize: BLOCK_SIZE,
             stx_attributes: StatxAttrs::empty(),
             stx_nlink: 0,

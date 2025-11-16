@@ -29,11 +29,6 @@ impl FilesystemContext {
 }
 
 #[inline]
-pub fn open(path: Vec<u8>, flags: OpenFlags, mode: FileMode) -> Result<c_int, LxError> {
-    openat(-100, full_path(path)?, flags, AtFlags::empty(), mode)
-}
-
-#[inline]
 pub fn openat(
     dfd: c_int,
     path: Vec<u8>,
@@ -119,13 +114,9 @@ pub fn fstat(fd: c_int, mask: StatxMask) -> Result<Statx, LxError> {
 
 #[inline]
 pub unsafe fn fchown(fd: c_int, uid: u32, gid: u32) -> Result<(), LxError> {
-    if let Some(vfd) = crate::vfd::get(fd) {
-        vfd::chown(vfd, uid, gid)
-    } else {
-        unsafe {
-            posix_result(libc::fchown(fd, uid, gid))?;
-            Ok(())
-        }
+    match crate::vfd::get(fd) {
+        Some(vfd) => vfd::chown(vfd, uid, gid),
+        None => unsafe { posix_result(libc::fchown(fd, uid, gid)) },
     }
 }
 
@@ -144,10 +135,19 @@ pub fn symlinkat(src: Vec<u8>, newdfd: c_int, dst: Vec<u8>) -> Result<(), LxErro
 }
 
 #[inline]
-pub fn rename(src: Vec<u8>, dst: Vec<u8>) -> Result<(), LxError> {
+pub fn renameat2(
+    srcdfd: c_int,
+    src: Vec<u8>,
+    dstdfd: c_int,
+    dst: Vec<u8>,
+    flags: u32,
+) -> Result<(), LxError> {
     with_client(|client| {
         match client
-            .invoke(Request::Rename(full_path(src)?, full_path(dst)?))
+            .invoke(Request::Rename(
+                at_path(srcdfd, src)?,
+                at_path(dstdfd, dst)?,
+            ))
             .unwrap()
         {
             Response::Nothing => Ok(()),
@@ -177,17 +177,6 @@ pub fn linkat(
 }
 
 #[inline]
-pub fn unlink(path: Vec<u8>) -> Result<(), LxError> {
-    with_client(
-        |client| match client.invoke(Request::Unlink(full_path(path)?)).unwrap() {
-            Response::Nothing => Ok(()),
-            Response::Error(err) => Err(err),
-            _ => ipc_fail(),
-        },
-    )
-}
-
-#[inline]
 pub fn unlinkat(dfd: c_int, path: Vec<u8>, flags: AtFlags) -> Result<(), LxError> {
     let full_path = at_path(dfd, path)?;
     let method = if flags.contains(AtFlags::AT_REMOVEDIR) {
@@ -205,7 +194,7 @@ pub fn unlinkat(dfd: c_int, path: Vec<u8>, flags: AtFlags) -> Result<(), LxError
 #[inline]
 pub fn rmdir(path: Vec<u8>) -> Result<(), LxError> {
     with_client(
-        |client| match client.invoke(Request::Rmdir(full_path(path)?)).unwrap() {
+        |client| match client.invoke(Request::Rmdir(at_path(-100, path)?)).unwrap() {
             Response::Nothing => Ok(()),
             Response::Error(err) => Err(err),
             _ => ipc_fail(),
@@ -217,7 +206,7 @@ pub fn rmdir(path: Vec<u8>) -> Result<(), LxError> {
 pub fn mkdir(path: Vec<u8>, mode: FileMode) -> Result<(), LxError> {
     with_client(|client| {
         match client
-            .invoke(Request::Mkdir(full_path(path)?, mode))
+            .invoke(Request::Mkdir(at_path(-100, path)?, mode))
             .unwrap()
         {
             Response::Nothing => Ok(()),
@@ -281,7 +270,7 @@ pub fn flistxattr(fd: c_int) -> Result<Vec<u8>, LxError> {
 pub fn umount(path: Vec<u8>, flags: UmountFlags) -> Result<(), LxError> {
     with_client(|client| {
         match client
-            .invoke(Request::Umount(full_path(path)?, flags))
+            .invoke(Request::Umount(at_path(-100, path)?, flags))
             .unwrap()
         {
             Response::Nothing => Ok(()),
@@ -320,7 +309,7 @@ pub fn futimens(fd: c_int, times: [Timespec; 2]) -> Result<(), LxError> {
 pub fn get_sock_path(path: Vec<u8>, create: bool) -> Result<Vec<u8>, LxError> {
     with_client(|client| {
         match client
-            .invoke(Request::GetSockPath(full_path(path)?, create))
+            .invoke(Request::GetSockPath(at_path(-100, path)?, create))
             .unwrap()
         {
             Response::LxPath(path) => Ok(path),
@@ -373,9 +362,4 @@ fn at_base_path(fd: c_int) -> Result<Vec<u8>, LxError> {
     } else {
         Err(LxError::ENOTDIR)
     }
-}
-
-/// Returns a path that can be accepted by the MacTux server from a relative path.
-fn full_path(path: Vec<u8>) -> Result<Vec<u8>, LxError> {
-    at_path(-100, path)
 }

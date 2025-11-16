@@ -390,7 +390,7 @@ const SYSTEM_CALL_HANDLERS: &[SystemCallHandler] = &[
     sys_invalid,           // 313
     sys_invalid,           // 314
     sys_invalid,           // 315
-    sys_invalid,           // 316
+    sys_renameat2,         // 316
     sys_invalid,           // 317
     sys_getrandom,         // 318
     sys_invalid,           // 319

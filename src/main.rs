@@ -5,7 +5,7 @@ use std::{
     os::fd::{FromRawFd, OwnedFd},
     path::PathBuf,
 };
-use structures::fs::{FileMode, OpenFlags};
+use structures::fs::{AtFlags, FileMode, OpenFlags};
 
 /// Specifies [`MiMalloc`] as memory allocator.
 ///
@@ -96,9 +96,11 @@ fn setup_environment() {
 
 /// Loads a program at the given path.
 fn load_program(exec: &[u8]) -> Program {
-    let fd = rtenv::fs::open(
+    let fd = rtenv::fs::openat(
+        -100,
         exec.to_vec(),
         OpenFlags::O_CLOEXEC | OpenFlags::O_RDONLY,
+        AtFlags::empty(),
         FileMode(0),
     );
     let fd = match fd {

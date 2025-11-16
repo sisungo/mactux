@@ -9,11 +9,11 @@ pub fn gid() -> c_uint {
     unsafe { libc::getgid() }
 }
 
-pub fn setuid(uid: c_uint) -> Result<(), LxError> {
+pub fn setuid(_uid: c_uint) -> Result<(), LxError> {
     Err(LxError::EPERM)
 }
 
-pub fn setgid(gid: c_uint) -> Result<(), LxError> {
+pub fn setgid(_gid: c_uint) -> Result<(), LxError> {
     Err(LxError::EPERM)
 }
 

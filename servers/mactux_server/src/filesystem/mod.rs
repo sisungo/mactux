@@ -5,8 +5,7 @@ pub mod procfs;
 pub mod tmpfs;
 pub mod vfs;
 
-use crate::{filesystem::vfs::Filesystem, task::process::Process};
-use std::{fmt::Debug, sync::Arc};
+use std::fmt::Debug;
 use structures::error::LxError;
 
 #[derive(Clone, PartialEq, Eq)]
@@ -87,15 +86,5 @@ impl Debug for VPath {
             )
             .field("slash_suffix", &self.slash_suffix)
             .finish()
-    }
-}
-
-/// Finds a filesystem to mount.
-pub fn mount(fs: &str, dev: &[u8], flags: u64, data: u8) -> Result<Arc<dyn Filesystem>, LxError> {
-    match fs {
-        "nativefs" => Ok(nativefs::NativeFs::new(dev, flags)?),
-        "tmpfs" => Ok(tmpfs::Tmpfs::new()?),
-        "proc" => Process::current().pid.procfs(),
-        _ => Err(LxError::ENODEV),
     }
 }

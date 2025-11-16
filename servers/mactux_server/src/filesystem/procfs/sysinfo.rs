@@ -1,4 +1,4 @@
-use crate::sysinfo::page_size;
+use crate::{app, sysinfo::page_size};
 use std::io::Write;
 use structures::{error::LxError, files::Meminfo};
 
@@ -102,4 +102,8 @@ pub fn cmdline() -> Result<Vec<u8>, LxError> {
     }
     s.push(b'\n');
     Ok(s)
+}
+
+pub fn filesystems() -> Result<Vec<u8>, LxError> {
+    Ok(app().filesystems.list().into_bytes())
 }

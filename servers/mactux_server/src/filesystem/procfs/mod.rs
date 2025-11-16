@@ -9,13 +9,16 @@ use crate::{
     filesystem::{
         VPath,
         tmpfs::{DynFile, Tmpfs},
-        vfs::{Filesystem, LPath},
+        vfs::{Filesystem, LPath, MakeFilesystem},
     },
     task::process::Process,
     util::Shared,
 };
 use std::sync::Arc;
-use structures::{error::LxError, fs::FileMode};
+use structures::{
+    error::LxError,
+    fs::{FileMode, MountFlags},
+};
 
 pub fn new() -> Result<Arc<Tmpfs>, LxError> {
     let tmpfs = Tmpfs::new()?;
@@ -27,6 +30,7 @@ pub fn new() -> Result<Arc<Tmpfs>, LxError> {
     create_dynfile_ro(&tmpfs, "/loadavg", sysinfo::loadavg, 0o444)?;
     create_dynfile_ro(&tmpfs, "/stat", sysinfo::stat, 0o444)?;
     create_dynfile_ro(&tmpfs, "/uptime", sysinfo::uptime, 0o444)?;
+    create_dynfile_ro(&tmpfs, "/filesystems", sysinfo::filesystems, 0o444)?;
 
     tmpfs.create_dynlink(VPath::parse(b"/self"), || {
         Shared::id(&Process::current()).to_string().into_bytes()
@@ -74,6 +78,22 @@ pub fn add_proc(tmpfs: &Tmpfs, apple_pid: libc::pid_t, linux_pid: i32) -> Result
 
 pub fn del_proc(tmpfs: &Tmpfs, linux_pid: i32) -> Result<(), LxError> {
     tmpfs.rmdir_all(VPath::parse(format!("/{linux_pid}").as_bytes()))
+}
+
+pub struct MakeProcfs;
+impl MakeFilesystem for MakeProcfs {
+    fn make_filesystem(
+        &self,
+        _: &[u8],
+        _: MountFlags,
+        _: &[u8],
+    ) -> Result<Arc<dyn Filesystem>, LxError> {
+        Process::current().pid.procfs()
+    }
+
+    fn is_nodev(&self) -> bool {
+        true
+    }
 }
 
 fn create_dynfile_ro<R>(tmpfs: &Tmpfs, path: &str, rdf: R, permbits: u16) -> Result<(), LxError>

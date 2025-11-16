@@ -116,6 +116,13 @@ bitflags! {
 }
 impl_bincode_for_bitflags!(UmountFlags: u32);
 
+bitflags! {
+    #[derive(Debug, Clone, Copy)]
+    #[repr(transparent)]
+    pub struct MountFlags: u64 {}
+}
+impl_bincode_for_bitflags!(MountFlags: u64);
+
 #[derive(Debug, Clone, Copy, Encode, Decode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(C)]
 pub struct Dirent64Hdr {

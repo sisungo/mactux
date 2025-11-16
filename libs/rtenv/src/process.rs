@@ -18,7 +18,7 @@ use std::{
 use structures::{
     ToApple,
     error::LxError,
-    fs::StatxMask,
+    fs::{AtFlags, StatxMask},
     mapper::with_pid_mapper,
     process::{ChildType, CloneArgs, CloneFlags},
     signal::{SigAction, SigNum},
@@ -97,9 +97,11 @@ pub unsafe fn exec(
     argv: &[*const u8],
     envp: &[*const u8],
 ) -> Result<Infallible, LxError> {
-    let fd = crate::fs::open(
+    let fd = crate::fs::openat(
+        -100,
         path.to_vec(),
         OpenFlags::O_CLOEXEC | OpenFlags::O_PATH,
+        AtFlags::empty(),
         FileMode(0),
     )?;
     let stat =

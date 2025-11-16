@@ -16,7 +16,10 @@ mod vfd;
 use crate::{
     config::WorkDir,
     device::DeviceTable,
-    filesystem::{VPath, vfs::MountNamespace},
+    filesystem::{
+        VPath,
+        vfs::{FsRegistry, MountNamespace},
+    },
     network::NetNamespace,
     sysinfo::{InitUts, UtsNamespace},
     syslog::Syslog,
@@ -26,7 +29,7 @@ use crate::{
 };
 use anyhow::{Context, anyhow};
 use std::{path::PathBuf, sync::OnceLock};
-use structures::misc::LogLevel;
+use structures::{fs::MountFlags, misc::LogLevel};
 
 static APP: OnceLock<App> = OnceLock::new();
 
@@ -46,6 +49,9 @@ struct App {
 
     /// Namespaces.
     namespaces: Namespaces,
+
+    /// Filesystem registry.
+    filesystems: FsRegistry,
 
     /// The system logger.
     syslog: Syslog,
@@ -67,6 +73,7 @@ impl App {
             threads,
             devices: DeviceTable::new(),
             namespaces: Namespaces::new(),
+            filesystems: FsRegistry::new(),
             syslog: Syslog::new(),
             server_thread: OnceLock::new(),
         })
@@ -248,16 +255,16 @@ fn init_mounts() -> anyhow::Result<()> {
         rootfs_source.as_bytes(),
         &VPath::parse(b"/"),
         "nativefs",
-        0,
-        0,
+        MountFlags::empty(),
+        &[],
     )?;
     for entry in fstab.0 {
         init_mnt.mount(
             entry.device.as_bytes(),
             &VPath::parse(entry.mount_point.as_bytes()),
             &entry.fs_type,
-            0,
-            0,
+            MountFlags::empty(),
+            &[],
         )?;
         // TODO Support mount flags
     }

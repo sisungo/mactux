@@ -1,13 +1,58 @@
-use crate::{filesystem::VPath, vfd::Vfd};
+use crate::{app, filesystem::VPath, vfd::Vfd};
+use dashmap::DashMap;
+use rustc_hash::FxBuildHasher;
 use std::{
+    fmt::Write,
     path::PathBuf,
     sync::{Arc, RwLock},
 };
 use structures::{
     device::DeviceNumber,
     error::LxError,
-    fs::{AccessFlags, FileMode, OpenFlags, OpenHow, OpenResolve, UmountFlags},
+    fs::{AccessFlags, FileMode, MountFlags, OpenFlags, OpenHow, OpenResolve, UmountFlags},
 };
+
+/// Registry of all supported mountable filesystems in the kernel.
+pub struct FsRegistry(DashMap<&'static str, Box<dyn MakeFilesystem>, FxBuildHasher>);
+impl FsRegistry {
+    pub fn new() -> Self {
+        let this = Self(DashMap::default());
+        this.0
+            .insert("proc", Box::new(crate::filesystem::procfs::MakeProcfs));
+        this.0
+            .insert("tmpfs", Box::new(crate::filesystem::tmpfs::MakeTmpfs));
+        this.0.insert(
+            "nativefs",
+            Box::new(crate::filesystem::nativefs::MakeNativefs),
+        );
+        this
+    }
+
+    pub fn mount(
+        &self,
+        fs: &str,
+        dev: &[u8],
+        flags: MountFlags,
+        data: &[u8],
+    ) -> Result<Arc<dyn Filesystem>, LxError> {
+        self.0
+            .get(fs)
+            .ok_or(LxError::ENODEV)?
+            .make_filesystem(dev, flags, data)
+    }
+
+    pub fn list(&self) -> String {
+        let mut s = String::with_capacity(512);
+        for i in self.0.iter() {
+            let prefix = match i.value().is_nodev() {
+                true => "nodev ",
+                false => "      ",
+            };
+            writeln!(&mut s, "{prefix} {}", i.key()).unwrap();
+        }
+        s
+    }
+}
 
 /// A mount namespace.
 pub struct MountNamespace {
@@ -25,8 +70,8 @@ impl MountNamespace {
         source: &[u8],
         target: &VPath,
         fs: &str,
-        flags: u64,
-        data: u8,
+        flags: MountFlags,
+        data: &[u8],
     ) -> Result<(), LxError> {
         let target = target.clearize()?;
         let is_root = target.parts.is_empty();
@@ -43,7 +88,7 @@ impl MountNamespace {
             return Err(LxError::ENOENT);
         }
 
-        let filesystem = crate::filesystem::mount(fs, source, flags, data)?;
+        let filesystem = app().filesystems.mount(fs, source, flags, data)?;
 
         let mut mountpoint = target.clone();
         mountpoint.slash_suffix = false;
@@ -215,6 +260,19 @@ pub trait Filesystem: Send + Sync {
     fn link(&self, src: LPath, dst: LPath) -> Result<(), LxError>;
 
     fn fs_type(&self) -> &'static str;
+}
+
+pub trait MakeFilesystem: Send + Sync {
+    fn make_filesystem(
+        &self,
+        dev: &[u8],
+        flags: MountFlags,
+        data: &[u8],
+    ) -> Result<Arc<dyn Filesystem>, LxError>;
+
+    fn is_nodev(&self) -> bool {
+        false
+    }
 }
 
 pub enum NewlyOpen {

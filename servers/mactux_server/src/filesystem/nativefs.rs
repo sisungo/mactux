@@ -3,7 +3,7 @@
 use crate::{
     filesystem::{
         VPath,
-        vfs::{Filesystem, LPath, NewlyOpen},
+        vfs::{Filesystem, LPath, MakeFilesystem, NewlyOpen},
     },
     task::process::Process,
     util::symlink_abs,
@@ -24,8 +24,8 @@ use structures::{
     device::DeviceNumber,
     error::LxError,
     fs::{
-        AccessFlags, Dirent64, Dirent64Hdr, DirentType, FileMode, OpenFlags, OpenHow, OpenResolve,
-        Statx, StatxMask,
+        AccessFlags, Dirent64, Dirent64Hdr, DirentType, FileMode, MountFlags, OpenFlags, OpenHow,
+        OpenResolve, Statx, StatxMask,
     },
 };
 
@@ -34,7 +34,7 @@ pub struct NativeFs {
     base: NBase,
 }
 impl NativeFs {
-    pub fn new(dev: &[u8], flags: u64) -> Result<Arc<Self>, LxError> {
+    pub fn new(dev: &[u8], flags: MountFlags) -> Result<Arc<Self>, LxError> {
         let dev = str::from_utf8(dev).map_err(|_| LxError::EINVAL)?;
         let path = dev.strip_prefix("native=").ok_or(LxError::EACCES)?;
         let base = NBase::new(Path::new(path))?;
@@ -217,6 +217,18 @@ impl Filesystem for NativeFs {
 
     fn fs_type(&self) -> &'static str {
         "nativefs"
+    }
+}
+
+pub struct MakeNativefs;
+impl MakeFilesystem for MakeNativefs {
+    fn make_filesystem(
+        &self,
+        dev: &[u8],
+        flags: MountFlags,
+        _: &[u8],
+    ) -> Result<Arc<dyn Filesystem>, LxError> {
+        NativeFs::new(dev, flags).map(|x| x as _)
     }
 }
 

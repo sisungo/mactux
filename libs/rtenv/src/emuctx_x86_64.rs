@@ -9,12 +9,12 @@ unsafe extern "C" {
 /// Enters the emulated context. This must be called out of the emulated context.
 pub unsafe fn enter_emulated() {
     unsafe {
-        thread::with_context(|ctx| {
+        let emulated_gsbase = thread::with_context(|ctx| {
             (*ctx.thread_info_ptr.get().cast::<EmulatedThreadInfo>())
                 .in_emulated
-                .set(true)
+                .set(true);
+            ctx.emulated_gsbase.get()
         });
-        let emulated_gsbase = thread::with_context(|ctx| ctx.emulated_gsbase.get());
         _thread_set_tsd_base(emulated_gsbase);
     }
 }
