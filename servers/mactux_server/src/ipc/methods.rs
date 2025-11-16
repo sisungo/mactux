@@ -10,7 +10,9 @@ use std::{io::Write, sync::Arc};
 use structures::{
     device::DeviceNumber,
     error::LxError,
-    fs::{AccessFlags, Dirent64, FileMode, OpenFlags, OpenHow, Statx, StatxMask, UmountFlags},
+    fs::{
+        AccessFlags, Dirent64, FileMode, OpenFlags, OpenHow, StatFs, Statx, StatxMask, UmountFlags,
+    },
     io::{FcntlCmd, IoctlCmd, VfdAvailCtrl, Whence},
     misc::{LogLevel, SysInfo},
 };
@@ -404,5 +406,10 @@ impl IntoResponse for Vfd {
 impl IntoResponse for Arc<Vfd> {
     fn into_response(self) -> Response {
         Response::Vfd(Process::current().vfd.register(self))
+    }
+}
+impl IntoResponse for StatFs {
+    fn into_response(self) -> Response {
+        Response::StatFs(Box::new(self))
     }
 }

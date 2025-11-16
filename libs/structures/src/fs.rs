@@ -18,6 +18,8 @@ pub const XATTR_NAMESPACE_PREFIXES: &[&[u8]] = &[
     XATTR_NAMESPACE_MACTUX_INTERNAL_PREFIX,
 ];
 
+pub const AT_FDCWD: c_int = -100;
+
 bitflags! {
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     #[repr(transparent)]
@@ -493,3 +495,56 @@ bitflags! {
     }
 }
 impl_bincode_for_bitflags!(OpenResolve: u64);
+
+#[derive(Debug, Clone, Copy, Encode, Decode)]
+#[repr(C)]
+pub struct StatFs {
+    pub f_type: FsMagic,
+    pub f_bsize: u64,
+    pub f_blocks: u64,
+    pub f_bfree: u64,
+    pub f_bavail: u64,
+    pub f_files: u64,
+    pub f_ffree: u64,
+    pub f_fsid: [c_int; 2],
+    pub f_namelen: u64,
+    pub f_frsize: u64,
+    pub f_flags: StatFsFlags,
+    pub f_spare: [u64; 4],
+}
+impl FromApple for StatFs {
+    type Apple = Box<libc::statfs>;
+
+    fn from_apple(apple: Self::Apple) -> Result<Self, LxError> {
+        Ok(Self {
+            f_type: FsMagic::NATIVEFS_MAGIC,
+            f_bsize: apple.f_iosize as _,
+            f_blocks: apple.f_blocks,
+            f_bfree: apple.f_bfree,
+            f_bavail: apple.f_bavail,
+            f_files: apple.f_files,
+            f_ffree: apple.f_ffree,
+            f_fsid: [0, 0],
+            f_namelen: 255,
+            f_frsize: 4096,
+            f_flags: StatFsFlags::empty(),
+            f_spare: [0; _],
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, Encode, Decode, PartialEq, Eq)]
+#[repr(transparent)]
+pub struct FsMagic(u64);
+impl FsMagic {
+    pub const ANON_INODE_FS_MAGIC: Self = Self(0x09041934);
+    pub const TMPFS_MAGIC: Self = Self(0x01021994);
+    pub const NATIVEFS_MAGIC: Self = Self(0x07bee5f9);
+}
+
+bitflags! {
+    #[derive(Debug, Clone, Copy)]
+    #[repr(transparent)]
+    pub struct StatFsFlags: u64 {}
+}
+impl_bincode_for_bitflags!(StatFsFlags: u64);

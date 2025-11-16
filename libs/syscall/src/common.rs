@@ -10,7 +10,9 @@ use structures::{
     FromApple, ToApple,
     device::DeviceNumber,
     error::LxError,
-    fs::{AccessFlags, AtFlags, FileMode, OpenFlags, Stat, Statx, StatxMask, UmountFlags},
+    fs::{
+        AT_FDCWD, AccessFlags, AtFlags, FileMode, OpenFlags, Stat, Statx, StatxMask, UmountFlags,
+    },
     io::{
         CloseRangeFlags, EventFdFlags, FcntlCmd, FdSet, FlockOp, IoctlCmd, PSelectSigMask, PollFd,
         Whence,
@@ -30,7 +32,7 @@ use structures::{
 #[syscall]
 pub unsafe fn sys_open(path: &CStr, flags: OpenFlags, mode: u32) -> Result<c_int, LxError> {
     rtenv::fs::openat(
-        -100,
+        AT_FDCWD,
         path.to_bytes().to_vec(),
         flags,
         AtFlags::empty(),
@@ -41,7 +43,7 @@ pub unsafe fn sys_open(path: &CStr, flags: OpenFlags, mode: u32) -> Result<c_int
 #[syscall]
 pub unsafe fn sys_creat(path: &CStr, mode: u32) -> Result<c_int, LxError> {
     rtenv::fs::openat(
-        -100,
+        AT_FDCWD,
         path.to_bytes().to_vec(),
         OpenFlags::O_CREAT | OpenFlags::O_TRUNC | OpenFlags::O_WRONLY,
         AtFlags::empty(),
@@ -67,7 +69,7 @@ pub unsafe fn sys_openat(
 
 #[syscall]
 pub unsafe fn sys_access(path: &CStr, mode: AccessFlags) -> Result<(), LxError> {
-    rtenv::fs::access(path.to_bytes().to_vec(), mode)
+    rtenv::fs::faccessat2(AT_FDCWD, path.to_bytes().to_vec(), mode, AtFlags::empty())
 }
 
 #[syscall]
@@ -84,7 +86,7 @@ pub unsafe fn sys_faccessat2(
 pub unsafe fn sys_stat(filename: &CStr, statbuf: *mut Stat) -> Result<(), LxError> {
     unsafe {
         let stat = with_openat(
-            -100,
+            AT_FDCWD,
             filename.to_bytes().to_vec(),
             OpenFlags::O_PATH,
             AtFlags::empty(),
@@ -129,7 +131,7 @@ pub unsafe fn sys_fstat(fd: c_int, statbuf: *mut Stat) -> Result<(), LxError> {
 pub unsafe fn sys_lstat(filename: &CStr, statbuf: *mut Stat) -> Result<(), LxError> {
     unsafe {
         let stat = with_openat(
-            -100,
+            AT_FDCWD,
             filename.to_bytes().to_vec(),
             OpenFlags::O_PATH,
             AtFlags::AT_SYMLINK_NOFOLLOW,
@@ -166,7 +168,7 @@ pub unsafe fn sys_statx(
 #[syscall]
 pub unsafe fn sys_truncate(path: &CStr, len: u64) -> Result<(), LxError> {
     let fd = rtenv::fs::openat(
-        -100,
+        AT_FDCWD,
         path.to_bytes().to_vec(),
         OpenFlags::O_WRONLY,
         AtFlags::empty(),
@@ -181,7 +183,7 @@ pub unsafe fn sys_truncate(path: &CStr, len: u64) -> Result<(), LxError> {
 pub unsafe fn sys_readlink(path: &CStr, buf: *mut c_char, bufsiz: usize) -> Result<usize, LxError> {
     unsafe {
         let result = with_openat(
-            -100,
+            AT_FDCWD,
             path.to_bytes().to_vec(),
             OpenFlags::empty(),
             AtFlags::AT_SYMLINK_NOFOLLOW,
@@ -244,7 +246,7 @@ pub unsafe fn sys_getcwd(buf: *mut u8, bufsz: usize) -> Result<*mut u8, LxError>
 #[syscall]
 pub unsafe fn sys_chdir(path: &CStr) -> Result<(), LxError> {
     with_openat(
-        -100,
+        AT_FDCWD,
         path.to_bytes().to_vec(),
         OpenFlags::O_PATH | OpenFlags::O_DIRECTORY,
         AtFlags::empty(),
@@ -272,7 +274,7 @@ pub unsafe fn sys_sync() {
 
 #[syscall]
 pub unsafe fn sys_symlink(src: &CStr, dst: &CStr) -> Result<(), LxError> {
-    rtenv::fs::symlinkat(src.to_bytes().to_vec(), -100, dst.to_bytes().to_vec())
+    rtenv::fs::symlinkat(src.to_bytes().to_vec(), AT_FDCWD, dst.to_bytes().to_vec())
 }
 
 #[syscall]
@@ -283,9 +285,9 @@ pub unsafe fn sys_symlinkat(src: &CStr, newdfd: c_int, dst: &CStr) -> Result<(),
 #[syscall]
 pub unsafe fn sys_rename(src: &CStr, dst: &CStr) -> Result<(), LxError> {
     rtenv::fs::renameat2(
-        -100,
+        AT_FDCWD,
         src.to_bytes().to_vec(),
-        -100,
+        AT_FDCWD,
         dst.to_bytes().to_vec(),
         0,
     )
@@ -311,9 +313,9 @@ pub unsafe fn sys_renameat2(
 #[syscall]
 pub unsafe fn sys_link(src: &CStr, dst: &CStr) -> Result<(), LxError> {
     rtenv::fs::linkat(
-        -100,
+        AT_FDCWD,
         src.to_bytes().to_vec(),
-        -100,
+        AT_FDCWD,
         dst.to_bytes().to_vec(),
         AtFlags::empty(),
     )
@@ -338,7 +340,12 @@ pub unsafe fn sys_linkat(
 
 #[syscall]
 pub unsafe fn sys_mkdir(path: &CStr, mode: u32) -> Result<(), LxError> {
-    rtenv::fs::mkdir(path.to_bytes().to_vec(), FileMode(mode as _))
+    rtenv::fs::mkdirat(AT_FDCWD, path.to_bytes().to_vec(), FileMode(mode as _))
+}
+
+#[syscall]
+pub unsafe fn sys_mkdirat(dfd: c_int, path: &CStr, mode: u32) -> Result<(), LxError> {
+    rtenv::fs::mkdirat(dfd, path.to_bytes().to_vec(), FileMode(mode as _))
 }
 
 #[syscall]
@@ -353,7 +360,7 @@ pub unsafe fn sys_mknodat(
 
 #[syscall]
 pub unsafe fn sys_unlink(path: &CStr) -> Result<(), LxError> {
-    rtenv::fs::unlinkat(-100, path.to_bytes().to_vec(), AtFlags::empty())
+    rtenv::fs::unlinkat(AT_FDCWD, path.to_bytes().to_vec(), AtFlags::empty())
 }
 
 #[syscall]
@@ -363,14 +370,14 @@ pub unsafe fn sys_unlinkat(dfd: c_int, path: &CStr, flags: AtFlags) -> Result<()
 
 #[syscall]
 pub unsafe fn sys_rmdir(path: &CStr) -> Result<(), LxError> {
-    rtenv::fs::rmdir(path.to_bytes().to_vec())
+    rtenv::fs::unlinkat(AT_FDCWD, path.to_bytes().to_vec(), AtFlags::AT_REMOVEDIR)
 }
 
 #[syscall]
 pub unsafe fn sys_chown(path: &CStr, uid: u32, gid: u32) -> Result<(), LxError> {
     unsafe {
         with_openat(
-            -100,
+            AT_FDCWD,
             path.to_bytes().to_vec(),
             OpenFlags::O_PATH,
             AtFlags::empty(),
@@ -420,7 +427,7 @@ pub unsafe fn sys_utimensat(
 pub unsafe fn sys_listxattr(path: &CStr, list: *mut u8, size: usize) -> Result<usize, LxError> {
     unsafe {
         with_openat(
-            -100,
+            AT_FDCWD,
             path.to_bytes().to_vec(),
             OpenFlags::O_PATH,
             AtFlags::empty(),
@@ -434,7 +441,7 @@ pub unsafe fn sys_listxattr(path: &CStr, list: *mut u8, size: usize) -> Result<u
 pub unsafe fn sys_llistxattr(path: &CStr, list: *mut u8, size: usize) -> Result<usize, LxError> {
     unsafe {
         with_openat(
-            -100,
+            AT_FDCWD,
             path.to_bytes().to_vec(),
             OpenFlags::O_PATH,
             AtFlags::AT_SYMLINK_NOFOLLOW,

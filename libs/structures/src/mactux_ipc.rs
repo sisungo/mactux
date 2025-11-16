@@ -1,7 +1,9 @@
 use crate::{
     device::DeviceNumber,
     error::LxError,
-    fs::{AccessFlags, Dirent64, FileMode, OpenFlags, OpenHow, Statx, StatxMask, UmountFlags},
+    fs::{
+        AccessFlags, Dirent64, FileMode, OpenFlags, OpenHow, StatFs, Statx, StatxMask, UmountFlags,
+    },
     io::{EventFdFlags, FcntlCmd, IoctlCmd, PollEvents, VfdAvailCtrl, Whence},
     misc::{LogLevel, SysInfo},
 };
@@ -138,6 +140,7 @@ pub enum Response {
     Dirent64(Dirent64),
     NetworkNames(NetworkNames),
     SysInfo(Box<SysInfo>),
+    StatFs(Box<StatFs>),
     Poll(u64, PollEvents),
     Error(LxError),
 }

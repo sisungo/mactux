@@ -18,7 +18,7 @@ use std::{
 use structures::{
     ToApple,
     error::LxError,
-    fs::{AtFlags, StatxMask},
+    fs::{AT_FDCWD, AtFlags, StatxMask},
     mapper::with_pid_mapper,
     process::{ChildType, CloneArgs, CloneFlags},
     signal::{SigAction, SigNum},
@@ -98,7 +98,7 @@ pub unsafe fn exec(
     envp: &[*const u8],
 ) -> Result<Infallible, LxError> {
     let fd = crate::fs::openat(
-        -100,
+        AT_FDCWD,
         path.to_vec(),
         OpenFlags::O_CLOEXEC | OpenFlags::O_PATH,
         AtFlags::empty(),

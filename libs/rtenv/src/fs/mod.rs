@@ -9,7 +9,7 @@ use structures::{
     device::DeviceNumber,
     error::LxError,
     fs::{
-        AccessFlags, AtFlags, Dirent64, FileMode, OpenFlags, OpenHow, OpenResolve, Statx,
+        AT_FDCWD, AccessFlags, AtFlags, Dirent64, FileMode, OpenFlags, OpenHow, OpenResolve, Statx,
         StatxMask, UmountFlags,
     },
     mactux_ipc::{Request, Response},
@@ -62,11 +62,6 @@ pub fn openat(
             _ => ipc_fail(),
         }
     })
-}
-
-#[inline]
-pub fn access(path: Vec<u8>, mode: AccessFlags) -> Result<(), LxError> {
-    faccessat2(-100, path, mode, AtFlags::empty())
 }
 
 #[inline]
@@ -192,21 +187,10 @@ pub fn unlinkat(dfd: c_int, path: Vec<u8>, flags: AtFlags) -> Result<(), LxError
 }
 
 #[inline]
-pub fn rmdir(path: Vec<u8>) -> Result<(), LxError> {
-    with_client(
-        |client| match client.invoke(Request::Rmdir(at_path(-100, path)?)).unwrap() {
-            Response::Nothing => Ok(()),
-            Response::Error(err) => Err(err),
-            _ => ipc_fail(),
-        },
-    )
-}
-
-#[inline]
-pub fn mkdir(path: Vec<u8>, mode: FileMode) -> Result<(), LxError> {
+pub fn mkdirat(dfd: c_int, path: Vec<u8>, mode: FileMode) -> Result<(), LxError> {
     with_client(|client| {
         match client
-            .invoke(Request::Mkdir(at_path(-100, path)?, mode))
+            .invoke(Request::Mkdir(at_path(dfd, path)?, mode))
             .unwrap()
         {
             Response::Nothing => Ok(()),
@@ -270,7 +254,7 @@ pub fn flistxattr(fd: c_int) -> Result<Vec<u8>, LxError> {
 pub fn umount(path: Vec<u8>, flags: UmountFlags) -> Result<(), LxError> {
     with_client(|client| {
         match client
-            .invoke(Request::Umount(at_path(-100, path)?, flags))
+            .invoke(Request::Umount(at_path(AT_FDCWD, path)?, flags))
             .unwrap()
         {
             Response::Nothing => Ok(()),
@@ -357,7 +341,7 @@ fn at_path(fd: c_int, mut path: Vec<u8>) -> Result<Vec<u8>, LxError> {
 fn at_base_path(fd: c_int) -> Result<Vec<u8>, LxError> {
     if let Some(dvfd) = crate::vfd::get(fd) {
         vfd::orig_path(dvfd)
-    } else if fd == -100 {
+    } else if fd == AT_FDCWD {
         Ok(getcwd())
     } else {
         Err(LxError::ENOTDIR)

@@ -332,7 +332,7 @@ const SYSTEM_CALL_HANDLERS: &[SystemCallHandler] = &[
     sys_invalid,           // 255
     sys_invalid,           // 256
     sys_openat,            // 257
-    sys_invalid,           // 258
+    sys_mkdirat,           // 258
     sys_mknodat,           // 259
     sys_invalid,           // 260
     sys_invalid,           // 261
