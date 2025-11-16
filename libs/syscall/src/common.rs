@@ -388,8 +388,41 @@ pub unsafe fn sys_chown(path: &CStr, uid: u32, gid: u32) -> Result<(), LxError> 
 }
 
 #[syscall]
+pub unsafe fn sys_lchown(path: &CStr, uid: u32, gid: u32) -> Result<(), LxError> {
+    unsafe {
+        with_openat(
+            AT_FDCWD,
+            path.to_bytes().to_vec(),
+            OpenFlags::O_PATH,
+            AtFlags::AT_SYMLINK_NOFOLLOW,
+            0,
+            |fd| rtenv::fs::fchown(fd, uid, gid),
+        )
+    }
+}
+
+#[syscall]
 pub unsafe fn sys_fchown(fd: c_int, uid: u32, gid: u32) -> Result<(), LxError> {
     unsafe { rtenv::fs::fchown(fd, uid, gid) }
+}
+
+#[syscall]
+pub unsafe fn sys_chmod(path: &CStr, mode: u16) -> Result<(), LxError> {
+    unsafe {
+        with_openat(
+            AT_FDCWD,
+            path.to_bytes().to_vec(),
+            OpenFlags::O_PATH,
+            AtFlags::empty(),
+            0,
+            |fd| rtenv::fs::fchmod(fd, mode),
+        )
+    }
+}
+
+#[syscall]
+pub unsafe fn sys_fchmod(fd: c_int, mode: u16) -> Result<(), LxError> {
+    unsafe { rtenv::fs::fchmod(fd, mode) }
 }
 
 #[syscall]

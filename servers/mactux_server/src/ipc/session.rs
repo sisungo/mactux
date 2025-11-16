@@ -65,6 +65,7 @@ impl RegSession {
                 Request::VfdReadlink(vfd) => vfd_readlink(vfd).into_response(),
                 Request::VfdTruncate(vfd, len) => vfd_truncate(vfd, len).into_response(),
                 Request::VfdChown(vfd, uid, gid) => vfd_chown(vfd, uid, gid).into_response(),
+                Request::VfdChmod(vfd, mode) => vfd_chmod(vfd, mode).into_response(),
                 Request::VfdClose(vfd) => vfd_close(vfd).into_response(),
                 Request::VfdSync(vfd) => vfd_sync(vfd).into_response(),
                 Request::VfdOrigPath(vfd) => vfd_orig_path(vfd).into_response(),

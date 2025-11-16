@@ -35,11 +35,13 @@ use structures::{fs::MountFlags, mactux_ipc::CtrlOutput};
 /// Size of a block.
 const BLOCK_SIZE: u32 = 4096;
 
+/// A tmpfs tree.
 pub struct Tmpfs {
     root: Arc<Dir>,
     fs_type: OnceLock<&'static str>,
 }
 impl Tmpfs {
+    /// Creates a new [`Tmpfs`] instance.
     pub fn new() -> Result<Arc<Self>, LxError> {
         Ok(Arc::new(Self {
             root: Arc::new(Dir {

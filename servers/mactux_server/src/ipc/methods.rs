@@ -171,6 +171,14 @@ pub fn vfd_chown(vfd: u64, uid: u32, gid: u32) -> Result<(), LxError> {
         .chown(uid, gid)
 }
 
+pub fn vfd_chmod(vfd: u64, mode: u16) -> Result<(), LxError> {
+    Process::current()
+        .vfd
+        .get(vfd)
+        .ok_or(LxError::EBADF)?
+        .chmod(mode)
+}
+
 pub fn vfd_sync(vfd: u64) -> Result<(), LxError> {
     Process::current()
         .vfd

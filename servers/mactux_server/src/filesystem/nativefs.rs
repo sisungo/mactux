@@ -34,6 +34,7 @@ pub struct NativeFs {
     base: NBase,
 }
 impl NativeFs {
+    /// Creates a new [`NativeFs`] mount.
     pub fn new(dev: &[u8], flags: MountFlags) -> Result<Arc<Self>, LxError> {
         let dev = str::from_utf8(dev).map_err(|_| LxError::EINVAL)?;
         let path = dev.strip_prefix("native=").ok_or(LxError::EACCES)?;

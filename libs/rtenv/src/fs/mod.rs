@@ -116,6 +116,14 @@ pub unsafe fn fchown(fd: c_int, uid: u32, gid: u32) -> Result<(), LxError> {
 }
 
 #[inline]
+pub unsafe fn fchmod(fd: c_int, mode: u16) -> Result<(), LxError> {
+    match crate::vfd::get(fd) {
+        Some(vfd) => vfd::chmod(vfd, mode),
+        None => unsafe { posix_result(libc::fchmod(fd, mode)) },
+    }
+}
+
+#[inline]
 pub fn symlinkat(src: Vec<u8>, newdfd: c_int, dst: Vec<u8>) -> Result<(), LxError> {
     with_client(|client| {
         match client

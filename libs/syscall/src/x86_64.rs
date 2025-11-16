@@ -164,11 +164,11 @@ const SYSTEM_CALL_HANDLERS: &[SystemCallHandler] = &[
     sys_unlink,            // 87
     sys_symlink,           // 88
     sys_readlink,          // 89
-    sys_invalid,           // 90
-    sys_invalid,           // 91
+    sys_chmod,             // 90
+    sys_fchmod,            // 91
     sys_chown,             // 92
     sys_fchown,            // 93
-    sys_invalid,           // 94
+    sys_lchown,            // 94
     sys_umask,             // 95
     sys_gettimeofday,      // 96
     sys_invalid,           // 97

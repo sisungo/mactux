@@ -1,6 +1,7 @@
+//! The VFS abstraction layer.
+
 use crate::{app, filesystem::VPath, vfd::Vfd};
-use dashmap::DashMap;
-use rustc_hash::FxBuildHasher;
+use rustc_hash::FxHashMap;
 use std::{
     fmt::Write,
     path::PathBuf,
@@ -13,10 +14,14 @@ use structures::{
 };
 
 /// Registry of all supported mountable filesystems in the kernel.
-pub struct FsRegistry(DashMap<&'static str, Box<dyn MakeFilesystem>, FxBuildHasher>);
+pub struct FsRegistry(FxHashMap<&'static str, Box<dyn MakeFilesystem>>);
 impl FsRegistry {
+    /// Creates a new filesystem registry.
+    ///
+    /// The newly-created filesystem registry is not empty. Instead, it contains all supported filesystems in the server
+    /// registered. This means, the registry is basically read-only, because we have no plans to support plugins.
     pub fn new() -> Self {
-        let this = Self(DashMap::default());
+        let mut this = Self(FxHashMap::default());
         this.0
             .insert("proc", Box::new(crate::filesystem::procfs::MakeProcfs));
         this.0
@@ -43,12 +48,12 @@ impl FsRegistry {
 
     pub fn list(&self) -> String {
         let mut s = String::with_capacity(512);
-        for i in self.0.iter() {
-            let prefix = match i.value().is_nodev() {
+        for (&k, v) in self.0.iter() {
+            let prefix = match v.is_nodev() {
                 true => "nodev ",
                 false => "      ",
             };
-            writeln!(&mut s, "{prefix} {}", i.key()).unwrap();
+            writeln!(&mut s, "{prefix}{k}").unwrap();
         }
         s
     }
@@ -59,12 +64,14 @@ pub struct MountNamespace {
     mounts: RwLock<Vec<Mount>>,
 }
 impl MountNamespace {
+    /// Creates a new, empty mount namespace.
     pub fn new() -> Self {
         Self {
             mounts: RwLock::new(Vec::with_capacity(16)),
         }
     }
 
+    /// Mounts a new filesystem in the mount namespace.
     pub fn mount(
         &self,
         source: &[u8],
@@ -97,12 +104,14 @@ impl MountNamespace {
             source: source.to_vec(),
             mountpoint,
             filesystem,
+            flags,
         };
         self.mounts.write().unwrap().push(mount);
 
         Ok(())
     }
 
+    /// Unmounts a filesystem.
     pub fn umount(&self, path: &VPath, flags: UmountFlags) -> Result<(), LxError> {
         let has_submount = |p: &VPath, m: &Mount| {
             (p.parts.len() > m.mountpoint.parts.len())
@@ -133,6 +142,7 @@ impl MountNamespace {
         }
     }
 
+    /// Locates a file in the VFS tree.
     pub fn locate(&self, full_path: &VPath) -> Result<Location, LxError> {
         let full_path = full_path.clearize()?;
         let mounts = self.mounts.read().unwrap();
@@ -155,12 +165,14 @@ impl MountNamespace {
                 return Ok(Location {
                     filesystem: mount.filesystem.clone(),
                     path: lpath,
+                    mount_flags: mount.flags,
                 });
             }
         }
         Err(LxError::ENOENT)
     }
 
+    /// Lists all mounts in the VFS tree.
     pub fn mounts(&self) -> Vec<Mount> {
         self.mounts.read().unwrap().clone()
     }
@@ -172,6 +184,7 @@ pub struct Mount {
     pub source: Vec<u8>,
     pub mountpoint: VPath,
     pub filesystem: Arc<dyn Filesystem>,
+    pub flags: MountFlags,
 }
 
 /// A path containing both the located mountpoint [`VPath`] and the relative [`VPath`].
@@ -183,6 +196,7 @@ pub struct LPath {
     pub relative: VPath,
 }
 impl LPath {
+    /// Expands the located path to a full [`VPath`] including the mountpoint and the relative path.
     pub fn expand(mut self) -> VPath {
         self.mountpoint.slash_suffix = self.relative.slash_suffix;
         self.mountpoint.parts.append(&mut self.relative.parts);
@@ -190,12 +204,18 @@ impl LPath {
     }
 }
 
+/// Location of a file in the VFS tree.
 pub struct Location {
     filesystem: Arc<dyn Filesystem>,
     path: LPath,
+    mount_flags: MountFlags,
 }
 impl Location {
     pub fn open(self, how: OpenHow) -> Result<NewlyOpen, LxError> {
+        if how.flags().is_writable() {
+            self.will_write()?;
+        }
+
         self.filesystem.open(self.path.clone(), how).inspect(|x| {
             if let NewlyOpen::Virtual(vfd) = x {
                 // We allow the filesystem driver to set the original path ahead of this.
@@ -205,34 +225,47 @@ impl Location {
     }
 
     pub fn access(self, mode: AccessFlags) -> Result<(), LxError> {
+        if mode.contains(AccessFlags::W_OK) {
+            self.will_write()?;
+        }
+
         self.filesystem.access(self.path, mode)
     }
 
     pub fn unlink(self) -> Result<(), LxError> {
+        self.will_write()?;
         self.filesystem.unlink(self.path)
     }
 
     pub fn rmdir(self) -> Result<(), LxError> {
+        self.will_write()?;
         self.filesystem.rmdir(self.path)
     }
 
     pub fn symlink(self, content: &[u8]) -> Result<(), LxError> {
+        self.will_write()?;
         self.filesystem.symlink(self.path, content)
     }
 
     pub fn mkdir(self, mode: FileMode) -> Result<(), LxError> {
+        self.will_write()?;
         self.filesystem.mkdir(self.path, mode)
     }
 
     pub fn mknod(self, mode: FileMode, dev: DeviceNumber) -> Result<(), LxError> {
+        self.will_write()?;
         self.filesystem.mknod(self.path, mode, dev)
     }
 
     pub fn get_sock_path(self, create: bool) -> Result<PathBuf, LxError> {
+        if create {
+            self.will_write()?;
+        }
         self.filesystem.get_sock_path(self.path, create)
     }
 
     pub fn rename_to(self, new: Self) -> Result<(), LxError> {
+        self.will_write()?;
         if !Arc::ptr_eq(&self.filesystem, &new.filesystem) {
             return Err(LxError::EXDEV);
         }
@@ -240,13 +273,23 @@ impl Location {
     }
 
     pub fn link_to(self, new: Self) -> Result<(), LxError> {
+        self.will_write()?;
         if !Arc::ptr_eq(&self.filesystem, &new.filesystem) {
             return Err(LxError::EXDEV);
         }
         self.filesystem.link(new.path, self.path)
     }
+
+    fn will_write(&self) -> Result<(), LxError> {
+        if self.mount_flags.contains(MountFlags::MS_RDONLY) {
+            Err(LxError::EROFS)
+        } else {
+            Ok(())
+        }
+    }
 }
 
+/// Content of a filesystem.
 pub trait Filesystem: Send + Sync {
     fn open(self: Arc<Self>, path: LPath, how: OpenHow) -> Result<NewlyOpen, LxError>;
     fn access(&self, path: LPath, mode: AccessFlags) -> Result<(), LxError>;
@@ -262,7 +305,9 @@ pub trait Filesystem: Send + Sync {
     fn fs_type(&self) -> &'static str;
 }
 
+/// A factory of (mounted) filesystems.
 pub trait MakeFilesystem: Send + Sync {
+    /// Creates a mounted filesystem.
     fn make_filesystem(
         &self,
         dev: &[u8],
@@ -275,6 +320,7 @@ pub trait MakeFilesystem: Send + Sync {
     }
 }
 
+/// A newly-open file.
 pub enum NewlyOpen {
     Native(Vec<u8>),
     Virtual(Vfd),

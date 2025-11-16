@@ -121,7 +121,14 @@ impl_bincode_for_bitflags!(UmountFlags: u32);
 bitflags! {
     #[derive(Debug, Clone, Copy)]
     #[repr(transparent)]
-    pub struct MountFlags: u64 {}
+    pub struct MountFlags: u64 {
+        const MS_RDONLY = 1;
+        const MS_NOSUID = 2;
+        const MS_NODEV = 4;
+        const MS_NOEXEC = 8;
+        const MS_REMOUNT = 32;
+        const MS_SILENT = 32768;
+    }
 }
 impl_bincode_for_bitflags!(MountFlags: u64);
 

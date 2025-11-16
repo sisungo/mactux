@@ -20,6 +20,10 @@ pub fn chown(vfd: u64, uid: u32, gid: u32) -> Result<(), LxError> {
     call_server(Request::VfdChown(vfd, uid, gid))
 }
 
+pub fn chmod(vfd: u64, mode: u16) -> Result<(), LxError> {
+    call_server(Request::VfdChmod(vfd, mode))
+}
+
 pub fn utimens(vfd: u64, times: [Timespec; 2]) -> Result<(), LxError> {
     todo!()
 }

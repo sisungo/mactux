@@ -158,6 +158,10 @@ impl Vfd {
         self.content.chown(uid, gid)
     }
 
+    pub fn chmod(&self, mode: u16) -> Result<(), LxError> {
+        self.content.chmod(mode)
+    }
+
     pub fn sync(&self) -> Result<(), LxError> {
         self.content.sync()
     }
@@ -247,6 +251,10 @@ pub trait VfdContent: Stream + Send + Sync {
     }
 
     fn chown(&self, _uid: u32, _gid: u32) -> Result<(), LxError> {
+        Err(LxError::EOPNOTSUPP)
+    }
+
+    fn chmod(&self, _mode: u16) -> Result<(), LxError> {
         Err(LxError::EOPNOTSUPP)
     }
 

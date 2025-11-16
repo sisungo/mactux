@@ -1,3 +1,5 @@
+//! Filesystem implementations and abstractions.
+
 pub mod eventfd;
 pub mod invalidfd;
 pub mod nativefs;
@@ -15,6 +17,7 @@ pub struct VPath {
     pub slash_suffix: bool,
 }
 impl VPath {
+    /// Parses a path in bytes into a [`VPath`].
     pub fn parse(bytes: &[u8]) -> Self {
         let slash_prefix = bytes.first() == Some(&b'/');
         let slash_suffix = bytes.last() == Some(&b'/');

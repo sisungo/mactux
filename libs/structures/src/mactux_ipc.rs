@@ -89,6 +89,7 @@ pub enum Request {
     VfdStat(u64, StatxMask),
     VfdTruncate(u64, u64),
     VfdChown(u64, u32, u32),
+    VfdChmod(u64, u16),
     VfdDup(u64),
     VfdClose(u64),
     VfdOrigPath(u64),
