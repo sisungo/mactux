@@ -1,4 +1,5 @@
 #![feature(peer_credentials_unix_socket)]
+#![feature(debug_closure_helpers)]
 
 mod config;
 mod device;
@@ -28,6 +29,7 @@ use crate::{
     vfd::VfdTable,
 };
 use anyhow::{Context, anyhow};
+use dashmap::DashSet;
 use std::{path::PathBuf, sync::OnceLock};
 use structures::{fs::MountFlags, misc::LogLevel};
 
@@ -225,6 +227,7 @@ fn init_app(cli: &Cli) -> anyhow::Result<()> {
             pid: app().namespaces.init_pid(),
             net: app().namespaces.init_net(),
             vfd: VfdTable::new(),
+            threads: DashSet::default(),
         },
     );
     let server_thrd = Thread::builder().process(server_proc).is_main().build()?;

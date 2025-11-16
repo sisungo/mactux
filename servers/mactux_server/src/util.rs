@@ -11,7 +11,7 @@ use std::{
     os::unix::ffi::OsStringExt,
     path::PathBuf,
     sync::{
-        Arc, Condvar, Mutex, Weak,
+        Arc, Condvar, Mutex,
         atomic::{self, AtomicU64},
     },
 };
@@ -117,34 +117,6 @@ impl<T> Drop for Shared<T> {
     fn drop(&mut self) {
         if Arc::strong_count(&self.value) <= 2 {
             self.registry.unregister(self.id);
-        }
-    }
-}
-
-pub struct WeakShared<T: 'static> {
-    registry: &'static ReclaimRegistry<T>,
-    id: u64,
-    value: Weak<T>,
-}
-impl<T> WeakShared<T> {
-    pub fn id(this: &Self) -> u64 {
-        this.id
-    }
-
-    pub fn upgrade(&self) -> Option<Shared<T>> {
-        self.value.upgrade().map(|v| Shared {
-            registry: self.registry,
-            id: self.id,
-            value: v,
-        })
-    }
-}
-impl<T> Clone for WeakShared<T> {
-    fn clone(&self) -> Self {
-        Self {
-            registry: self.registry,
-            id: self.id,
-            value: self.value.clone(),
         }
     }
 }

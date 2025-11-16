@@ -264,7 +264,7 @@ pub trait VfdContent: Stream + Send + Sync {
     }
 
     fn readlink(&self) -> Result<Vec<u8>, LxError> {
-        Err(LxError::EOPNOTSUPP)
+        Err(LxError::EINVAL)
     }
 
     fn get_socket(&self, _create: bool) -> Result<PathBuf, LxError> {

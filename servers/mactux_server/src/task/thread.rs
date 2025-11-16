@@ -46,7 +46,11 @@ impl Drop for Thread {
         if self.tid >= TID_MIN {
             tid_dealloc(self.tid);
         }
-        _ = self.process.pid.unregister(self.tid);
+        _ = self
+            .process
+            .pid
+            .unregister(Shared::id(&self.process) as _, self.tid);
+        self.process.threads.remove(&self.tid);
     }
 }
 
@@ -78,6 +82,7 @@ impl Builder {
             true => Shared::id(&process) as i32,
             false => tid_alloc()?,
         };
+        process.threads.insert(tid);
         Ok(app().threads.intervene(
             tid as _,
             Thread {

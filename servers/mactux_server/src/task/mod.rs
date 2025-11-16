@@ -34,7 +34,7 @@ pub trait PidNamespace: Send + Sync {
     /// Unregisters a process from this namespace by its native PID.
     ///
     /// This would return an error [`LxError::ENOENT`] if the native PID is not registered in this namespace.
-    fn unregister(&self, native: i32) -> Result<(), LxError>;
+    fn unregister(&self, native_pid: i32, native_tid: i32) -> Result<(), LxError>;
 
     /// Returns parent of this PID namespace.
     ///
@@ -76,12 +76,15 @@ impl PidNamespace for InitPid {
         if native < TID_MIN {
             procfs::add_proc(&self.procfs, native, native)?;
         }
+        procfs::add_thread(self, &self.procfs, native)?;
         Ok(native)
     }
 
-    fn unregister(&self, native: i32) -> Result<(), LxError> {
-        if native < TID_MIN {
-            procfs::del_proc(&self.procfs, native)?;
+    fn unregister(&self, native_pid: i32, native_tid: i32) -> Result<(), LxError> {
+        if native_tid < TID_MIN {
+            procfs::del_proc(&self.procfs, native_tid)?;
+        } else {
+            procfs::del_thread(&self.procfs, native_pid, native_tid)?;
         }
         Ok(())
     }

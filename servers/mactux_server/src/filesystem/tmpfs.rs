@@ -36,6 +36,7 @@ use structures::{fs::MountFlags, mactux_ipc::CtrlOutput};
 const BLOCK_SIZE: u32 = 4096;
 
 /// A tmpfs tree.
+#[derive(Debug)]
 pub struct Tmpfs {
     root: Arc<Dir>,
     fs_type: OnceLock<&'static str>,
@@ -73,7 +74,7 @@ impl Tmpfs {
         let mut dir_name = path.relative.parts.clone();
         let file_name = dir_name.pop().expect("empty parts should return early");
         let mut dir = self.root.clone();
-        for (n, dir_part) in dir_name.into_iter().rev().enumerate() {
+        for (n, dir_part) in dir_name.into_iter().enumerate() {
             let node = dir.children.get(&dir_part).ok_or(LxError::ENOENT)?.clone();
             dir = match node {
                 Node::Dir(x) => x.clone(),
@@ -418,7 +419,6 @@ trait File: Debug + Send + Sync {
     }
 }
 
-#[derive(Debug)]
 struct Dir {
     metadata: Arc<Metadata>,
     children: DashMap<Vec<u8>, Node>,
@@ -478,6 +478,20 @@ impl File for Dir {
             }),
             flags,
         ))
+    }
+}
+impl Debug for Dir {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Dir")
+            .field("metadata", &self.metadata)
+            .field_with("children", |f| {
+                let mut debug_map = f.debug_map();
+                for child in self.children.iter() {
+                    debug_map.entry(&String::from_utf8_lossy(child.key()), child.value());
+                }
+                debug_map.finish()
+            })
+            .finish()
     }
 }
 

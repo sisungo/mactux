@@ -33,6 +33,7 @@ impl FsRegistry {
         this
     }
 
+    /// Attempts to mount a filesystem, searching filesystems from the registry.
     pub fn mount(
         &self,
         fs: &str,
@@ -46,6 +47,7 @@ impl FsRegistry {
             .make_filesystem(dev, flags, data)
     }
 
+    /// Lists all filesystems in the registry, as is represented in `/proc/filesystems`.
     pub fn list(&self) -> String {
         let mut s = String::with_capacity(512);
         for (&k, v) in self.0.iter() {

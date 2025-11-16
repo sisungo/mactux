@@ -6,6 +6,8 @@ use crate::{
     util::Shared,
     vfd::VfdTable,
 };
+use dashmap::DashSet;
+use rustc_hash::FxBuildHasher;
 use structures::error::LxError;
 
 pub struct Process {
@@ -14,6 +16,7 @@ pub struct Process {
     pub pid: Shared<Box<dyn PidNamespace>>,
     pub net: Shared<NetNamespace>,
     pub vfd: VfdTable,
+    pub threads: DashSet<i32, FxBuildHasher>,
 }
 impl Process {
     pub fn server() -> Shared<Self> {
@@ -31,6 +34,7 @@ impl Process {
             pid: self.pid.clone(),
             net: self.net.clone(),
             vfd: self.vfd.fork(),
+            threads: DashSet::default(),
         }
     }
 

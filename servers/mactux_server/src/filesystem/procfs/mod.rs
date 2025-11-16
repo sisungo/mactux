@@ -6,12 +6,13 @@ mod pid;
 mod sysinfo;
 
 use crate::{
+    app,
     filesystem::{
         VPath,
         tmpfs::{DynFile, Tmpfs},
         vfs::{Filesystem, LPath, MakeFilesystem},
     },
-    task::process::Process,
+    task::{PidNamespace, process::Process},
     util::Shared,
 };
 use std::sync::Arc;
@@ -42,11 +43,7 @@ pub fn new() -> Result<Arc<Tmpfs>, LxError> {
 }
 
 pub fn add_proc(tmpfs: &Tmpfs, apple_pid: libc::pid_t, linux_pid: i32) -> Result<(), LxError> {
-    let lpath = LPath {
-        mountpoint: VPath::parse(b"/"),
-        relative: VPath::parse(format!("/{linux_pid}").as_bytes()),
-    };
-    tmpfs.mkdir(lpath, FileMode(0o777))?;
+    create_dir(tmpfs, &format!("/{linux_pid}"), 0o777)?;
 
     create_dynfile_ro(
         tmpfs,
@@ -73,11 +70,29 @@ pub fn add_proc(tmpfs: &Tmpfs, apple_pid: libc::pid_t, linux_pid: i32) -> Result
         0o444,
     )?;
 
+    create_dir(tmpfs, &format!("/{linux_pid}/task"), 0o777)?;
+
     Ok(())
 }
 
 pub fn del_proc(tmpfs: &Tmpfs, linux_pid: i32) -> Result<(), LxError> {
     tmpfs.rmdir_all(VPath::parse(format!("/{linux_pid}").as_bytes()))
+}
+
+pub fn add_thread(
+    ns: &dyn PidNamespace,
+    tmpfs: &Tmpfs,
+    native_tid: libc::pid_t,
+) -> Result<(), LxError> {
+    let (linux_pid, linux_tid) = thread_linux_ids(ns, native_tid)?;
+    create_dir(tmpfs, &format!("/{linux_pid}/task/{linux_tid}"), 0o777)?;
+    Ok(())
+}
+
+pub fn del_thread(tmpfs: &Tmpfs, linux_pid: i32, linux_tid: i32) -> Result<(), LxError> {
+    tmpfs.rmdir_all(VPath::parse(
+        format!("/{linux_pid}/task/{linux_tid}").as_bytes(),
+    ))
 }
 
 pub struct MakeProcfs;
@@ -104,4 +119,20 @@ where
         VPath::parse(path.as_bytes()),
         DynFile::new(rdf, |_| Err(LxError::EIO), permbits),
     )
+}
+
+fn create_dir(tmpfs: &Tmpfs, path: &str, permbits: u16) -> Result<(), LxError> {
+    let lpath = LPath {
+        mountpoint: VPath::parse(b"/"),
+        relative: VPath::parse(path.as_bytes()),
+    };
+    tmpfs.mkdir(lpath, FileMode(permbits))
+}
+
+fn thread_linux_ids(ns: &dyn PidNamespace, native_tid: i32) -> Result<(i32, i32), LxError> {
+    let thread = app().threads.get(native_tid as _).ok_or(LxError::ESRCH)?;
+    let native_pid = Shared::id(&thread.process) as libc::pid_t;
+    let linux_tid = ns.ntol(native_tid)?;
+    let linux_pid = ns.ntol(native_pid)?;
+    Ok((linux_pid, linux_tid))
 }
