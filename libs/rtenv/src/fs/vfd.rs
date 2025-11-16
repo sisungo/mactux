@@ -25,7 +25,7 @@ pub fn chmod(vfd: u64, mode: u16) -> Result<(), LxError> {
 }
 
 pub fn utimens(vfd: u64, times: [Timespec; 2]) -> Result<(), LxError> {
-    todo!()
+    call_server(Request::VfdUtimeNs(vfd, times))
 }
 
 pub fn readlink(vfd: u64) -> Result<Vec<u8>, LxError> {

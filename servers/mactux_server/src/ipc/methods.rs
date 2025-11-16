@@ -15,6 +15,7 @@ use structures::{
     },
     io::{FcntlCmd, IoctlCmd, VfdAvailCtrl, Whence},
     misc::{LogLevel, SysInfo},
+    time::Timespec,
 };
 use structures::{
     io::EventFdFlags,
@@ -270,6 +271,14 @@ pub fn vfd_fcntl(vfd: u64, cmd: FcntlCmd, data: &[u8]) -> Result<CtrlOutput, LxE
         .get(vfd)
         .ok_or(LxError::EBADF)?
         .fcntl(cmd, data)
+}
+
+pub fn vfd_utimens(vfd: u64, times: [Timespec; 2]) -> Result<(), LxError> {
+    Process::current()
+        .vfd
+        .get(vfd)
+        .ok_or(LxError::EBADF)?
+        .utimens(times)
 }
 
 pub fn after_fork(native_pid: libc::pid_t) -> Result<(), LxError> {

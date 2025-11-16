@@ -351,7 +351,7 @@ const SYSTEM_CALL_HANDLERS: &[SystemCallHandler] = &[
     sys_invalid,           // 274
     sys_invalid,           // 275
     sys_invalid,           // 276
-    sys_invalid,           // 277
+    sys_sync_file_range,   // 277
     sys_invalid,           // 278
     sys_invalid,           // 279
     sys_utimensat,         // 280
@@ -566,7 +566,10 @@ unsafe fn sys_arch_prctl(op: usize, arg: usize) -> Result<(), LxError> {
             rtenv::emuctx::x86_64_set_emulated_gsbase(arg as _);
             Ok(())
         }
-        ARCH_SET_GS => Err(LxError::EOPNOTSUPP),
+        ARCH_SET_GS => {
+            log::warn!("process failed to set the GSBASE register to 0x{arg:x}");
+            Err(LxError::EOPNOTSUPP)
+        }
         _ => Err(LxError::EINVAL),
     }
 }

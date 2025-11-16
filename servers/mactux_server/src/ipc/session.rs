@@ -72,6 +72,7 @@ impl RegSession {
                 Request::VfdIoctlQuery(vfd, cmd) => vfd_ioctl_query(vfd, cmd).into_response(),
                 Request::VfdIoctl(vfd, cmd, data) => vfd_ioctl(vfd, cmd, &data).into_response(),
                 Request::VfdFcntl(vfd, cmd, data) => vfd_fcntl(vfd, cmd, &data).into_response(),
+                Request::VfdUtimeNs(vfd, times) => vfd_utimens(vfd, times).into_response(),
                 Request::GetNetworkNames => get_network_names().into_response(),
                 Request::SetNetworkNames(set) => set_network_names(set).into_response(),
                 Request::SysInfo => sysinfo().into_response(),

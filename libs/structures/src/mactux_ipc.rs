@@ -6,6 +6,7 @@ use crate::{
     },
     io::{EventFdFlags, FcntlCmd, IoctlCmd, PollEvents, VfdAvailCtrl, Whence},
     misc::{LogLevel, SysInfo},
+    time::Timespec,
 };
 use bincode::{Decode, Encode};
 use libc::c_int;
@@ -95,6 +96,7 @@ pub enum Request {
     VfdOrigPath(u64),
     VfdSync(u64),
     VfdReadlink(u64),
+    VfdUtimeNs(u64, [Timespec; 2]),
 
     EventFd(u64, EventFdFlags),
     InvalidFd(OpenFlags),

@@ -16,6 +16,7 @@ use structures::{
     fs::{Dirent64, OpenFlags, Statx, StatxMask, XATTR_NAMESPACE_PREFIXES},
     io::{FcntlCmd, FdFlags, IoctlCmd, PollEvents, VfdAvailCtrl, Whence},
     mactux_ipc::CtrlOutput,
+    time::Timespec,
 };
 
 pub struct Vfd {
@@ -191,6 +192,10 @@ impl Vfd {
         self.content.readlink()
     }
 
+    pub fn utimens(&self, times: [Timespec; 2]) -> Result<(), LxError> {
+        self.content.utimens(times)
+    }
+
     /// Returns the original path of this VFD, if any.
     pub fn orig_path(&self) -> Option<&[u8]> {
         self.orig_path.get().map(|x| &**x)
@@ -283,6 +288,10 @@ pub trait VfdContent: Stream + Send + Sync {
     }
 
     fn removexattr(&self, _name: &[u8]) -> Result<(), LxError> {
+        Err(LxError::EOPNOTSUPP)
+    }
+
+    fn utimens(&self, _times: [Timespec; 2]) -> Result<(), LxError> {
         Err(LxError::EOPNOTSUPP)
     }
 }

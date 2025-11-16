@@ -4,8 +4,8 @@ use super::UcontextExt;
 use crate::util::with_openat;
 use libc::{c_char, c_int, c_uint, c_void};
 use macros::syscall;
-use rtenv::{error_report::ErrorReport, posix_num};
-use std::{ffi::CStr, io::Write, num::NonZero, ptr::NonNull, time::Duration};
+use rtenv::posix_num;
+use std::{ffi::CStr, num::NonZero, ptr::NonNull, time::Duration};
 use structures::{
     FromApple, ToApple,
     device::DeviceNumber,
@@ -582,6 +582,16 @@ pub unsafe fn sys_dup3(old: c_int, new: c_int, flags: OpenFlags) -> Result<c_int
 
 #[syscall]
 pub unsafe fn sys_fsync(fd: c_int) -> Result<(), LxError> {
+    rtenv::io::fsync(fd)
+}
+
+#[syscall]
+pub unsafe fn sys_sync_file_range(
+    fd: c_int,
+    _off: i64,
+    _nbytes: u64,
+    _flags: u32,
+) -> Result<(), LxError> {
     rtenv::io::fsync(fd)
 }
 
@@ -1651,11 +1661,7 @@ pub unsafe fn sys_invalid(uctx: &mut libc::ucontext_t) {
             return;
         }
 
-        _ = writeln!(
-            ErrorReport,
-            " [ ! ] MacTux: Unsupported syscall: {}, exiting!",
-            uctx.sysno()
-        );
+        eprintln!("Bad system call");
         log::error!(
             "process crashed due to unsupported syscall {}",
             uctx.sysno()
