@@ -31,6 +31,7 @@ bitflags! {
         const O_EXCL = 0o200;
         const O_NOCTTY = 0o400;
         const O_TRUNC = 0o1000;
+        const O_APPEND = 0o2000;
         const O_NONBLOCK = 0o4000;
         const O_DSYNC = 0o10000;
         const O_ASYNC = 0o20000;
@@ -69,6 +70,7 @@ OpenFlags;
     O_EXCL,
     O_NOCTTY,
     O_TRUNC,
+    O_APPEND,
     O_NONBLOCK,
     O_DSYNC,
     O_ASYNC,

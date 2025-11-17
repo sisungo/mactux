@@ -13,11 +13,11 @@ use structures::{
     fs::{
         AT_FDCWD, AccessFlags, AtFlags, FileMode, OpenFlags, Stat, Statx, StatxMask, UmountFlags,
     },
+    internal::mactux_ipc::NetworkNames,
     io::{
         CloseRangeFlags, EventFdFlags, FcntlCmd, FdSet, FlockOp, IoctlCmd, PSelectSigMask, PollFd,
         Whence,
     },
-    mactux_ipc::NetworkNames,
     misc::{GrndFlags, SysInfo, SyslogAction, UtsName},
     mm::{Madvice, MmapFlags, MmapProt, MremapFlags, MsyncFlags},
     net::{Domain, Protocol, ShutdownHow, SockAddr, SockOptLevel, SocketFlags, SocketType},

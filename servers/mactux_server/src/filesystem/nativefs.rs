@@ -35,7 +35,7 @@ pub struct NativeFs {
 }
 impl NativeFs {
     /// Creates a new [`NativeFs`] mount.
-    pub fn new(dev: &[u8], flags: MountFlags) -> Result<Arc<Self>, LxError> {
+    pub fn new(dev: &[u8]) -> Result<Arc<Self>, LxError> {
         let dev = str::from_utf8(dev).map_err(|_| LxError::EINVAL)?;
         let path = dev.strip_prefix("native=").ok_or(LxError::EACCES)?;
         let base = NBase::new(Path::new(path))?;
@@ -226,10 +226,10 @@ impl MakeFilesystem for MakeNativefs {
     fn make_filesystem(
         &self,
         dev: &[u8],
-        flags: MountFlags,
+        _: MountFlags,
         _: &[u8],
     ) -> Result<Arc<dyn Filesystem>, LxError> {
-        NativeFs::new(dev, flags).map(|x| x as _)
+        NativeFs::new(dev).map(|x| x as _)
     }
 }
 

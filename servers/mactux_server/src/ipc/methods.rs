@@ -18,8 +18,8 @@ use structures::{
     time::Timespec,
 };
 use structures::{
+    internal::mactux_ipc::{CtrlOutput, NetworkNames, Response},
     io::EventFdFlags,
-    mactux_ipc::{CtrlOutput, NetworkNames, Response},
 };
 
 pub fn open(path: Vec<u8>, how: OpenHow) -> Result<NewlyOpen, LxError> {

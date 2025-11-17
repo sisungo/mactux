@@ -4,7 +4,7 @@ use crate::{
 };
 use structures::{
     error::LxError,
-    mactux_ipc::{NetworkNames, Request, Response},
+    internal::mactux_ipc::{NetworkNames, Request, Response},
     misc::{LogLevel, SysInfo, UtsName, uname_str},
 };
 

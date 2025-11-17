@@ -610,7 +610,7 @@ macro_rules! impl_syscall_indirect {
                 rtenv::emuctx::leave_emulated();
                 let original_ctx = Box::new(*uctx.uc_mcontext);
                 (*uctx.uc_mcontext).__ss.__rdi = Box::into_raw(original_ctx) as usize as u64;
-                (*uctx.uc_mcontext).__ss.__rip = __impl as usize as u64;
+                (*uctx.uc_mcontext).__ss.__rip = __impl as *const () as u64;
                 rtenv::emuctx::enter_emulated();
             }
         }

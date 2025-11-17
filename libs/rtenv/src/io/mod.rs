@@ -13,8 +13,8 @@ use structures::{
     FromApple, ToApple,
     error::LxError,
     fs::OpenFlags,
+    internal::mactux_ipc::{InterruptibleRequest, Request, Response},
     io::{EventFdFlags, FcntlCmd, FdFlags, FdSet, FlockOp, IoctlCmd, PollEvents, PollFd, Whence},
-    mactux_ipc::{InterruptibleRequest, Request, Response},
 };
 
 #[inline]

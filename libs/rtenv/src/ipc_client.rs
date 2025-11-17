@@ -14,10 +14,11 @@ use std::{
     path::PathBuf,
     sync::Arc,
 };
-use structures::{error::LxError, mactux_ipc::NetworkNames, misc::SysInfo};
 use structures::{
+    error::LxError,
     fs::{Dirent64, Statx},
-    mactux_ipc::{HandshakeRequest, HandshakeResponse, InterruptibleRequest, Request, Response},
+    internal::mactux_ipc::*,
+    misc::SysInfo,
 };
 
 pub fn call_server<T: FromResponse>(req: Request) -> T {

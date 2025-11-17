@@ -25,7 +25,7 @@ use structures::{
 pub fn install() -> std::io::Result<()> {
     let mut old_sigaction = unsafe { std::mem::zeroed() };
     let sigaction = libc::sigaction {
-        sa_sigaction: arch::handle_sigsys as _,
+        sa_sigaction: arch::handle_sigsys as *const () as _,
         sa_mask: 0,
         sa_flags: libc::SA_SIGINFO | libc::SA_NODEFER,
     };

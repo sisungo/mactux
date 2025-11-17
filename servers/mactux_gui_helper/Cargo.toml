@@ -1,0 +1,11 @@
+[package]
+name = "mactux_gui_helper"
+version = "0.0.1"
+edition = "2024"
+
+[dependencies]
+anyhow = "1"
+log = "0.4"
+wgpu = "27"
+rustc-hash = "2"
+structures = { path = "../../libs/structures" }

@@ -87,7 +87,7 @@ pub fn raise(
     let ret_addr = if action.flags.contains(SigActionFlags::SA_RESTORER) {
         action.restorer
     } else {
-        linux_restore as usize
+        linux_restore as *const () as usize
     };
 
     unsafe {
@@ -210,7 +210,7 @@ pub fn sigaction(signum: SigNum, new: Option<SigAction>) -> Result<SigAction, Lx
             )?;
             return Ok(old);
         }
-        _ => handle_signal as usize,
+        _ => handle_signal as *const () as usize,
     };
     apple_sigaction.sa_flags = new.flags.to_apple();
     apple_sigaction.sa_mask = new.mask.to_apple();

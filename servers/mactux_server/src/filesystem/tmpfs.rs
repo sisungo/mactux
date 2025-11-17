@@ -30,7 +30,7 @@ use structures::{
     io::{IoctlCmd, VfdAvailCtrl, Whence},
     time::Timespec,
 };
-use structures::{fs::MountFlags, mactux_ipc::CtrlOutput};
+use structures::{fs::MountFlags, internal::mactux_ipc::CtrlOutput};
 
 /// Size of a block.
 const BLOCK_SIZE: u32 = 4096;
@@ -685,6 +685,10 @@ where
     W: DynFileWriteFn,
 {
     fn open_vfd(self: Arc<Self>, flags: OpenFlags) -> Result<Vfd, LxError> {
+        if flags.contains(OpenFlags::O_APPEND) {
+            return Err(LxError::EINVAL);
+        }
+
         Ok(Vfd::new(self, flags))
     }
 }
@@ -702,6 +706,10 @@ where
         buf[..bytes_read].copy_from_slice(&s[(*off as _)..(*off as usize + bytes_read)]);
         *off += bytes_read as i64;
         Ok(bytes_read)
+    }
+
+    fn write(&self, buf: &[u8], _: &mut i64) -> Result<usize, LxError> {
+        (self.wrf)(buf.to_vec())
     }
 
     fn seek(&self, orig_off: i64, whence: Whence, off: i64) -> Result<i64, LxError> {

@@ -10,7 +10,7 @@ use std::{
     io::{Read, Write},
     os::unix::net::UnixStream,
 };
-use structures::mactux_ipc::{HandshakeRequest, HandshakeResponse};
+use structures::internal::mactux_ipc::{HandshakeRequest, HandshakeResponse};
 
 #[derive(Debug)]
 pub struct RegChannel(UnixStream);

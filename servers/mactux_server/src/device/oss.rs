@@ -10,10 +10,10 @@ use std::{
     ffi::c_int,
     sync::{Arc, atomic},
 };
-use structures::mactux_ipc::CtrlOutput;
 use structures::{
     error::LxError,
     fs::OpenFlags,
+    internal::mactux_ipc::CtrlOutput,
     io::{IoctlCmd, VfdAvailCtrl},
 };
 

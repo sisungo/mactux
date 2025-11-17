@@ -2,7 +2,7 @@ use crate::ipc_client::with_client;
 use std::{ffi::c_int, panic::PanicHookInfo};
 use structures::{
     error::LxError,
-    mactux_ipc::{Request, Response},
+    internal::mactux_ipc::{Request, Response},
     mapper::PidMapper,
     misc::LogLevel,
 };

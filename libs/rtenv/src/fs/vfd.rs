@@ -1,11 +1,12 @@
-use crate::ipc_client::call_server;
-use crate::{ipc_client::with_client, util::ipc_fail};
-use structures::fs::StatxMask;
-use structures::mactux_ipc::{Request, Response};
-use structures::time::Timespec;
+use crate::{
+    ipc_client::{call_server, with_client},
+    util::ipc_fail,
+};
 use structures::{
     error::LxError,
-    fs::{Dirent64, Statx},
+    fs::{Dirent64, Statx, StatxMask},
+    internal::mactux_ipc::{Request, Response},
+    time::Timespec,
 };
 
 pub fn getdents64(vfd: u64) -> Result<Option<Dirent64>, LxError> {

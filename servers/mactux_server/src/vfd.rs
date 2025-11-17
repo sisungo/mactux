@@ -14,8 +14,8 @@ use std::{
 use structures::{
     error::LxError,
     fs::{Dirent64, OpenFlags, Statx, StatxMask, XATTR_NAMESPACE_PREFIXES},
+    internal::mactux_ipc::CtrlOutput,
     io::{FcntlCmd, FdFlags, IoctlCmd, PollEvents, VfdAvailCtrl, Whence},
-    mactux_ipc::CtrlOutput,
     time::Timespec,
 };
 

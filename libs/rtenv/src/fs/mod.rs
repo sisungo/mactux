@@ -12,7 +12,7 @@ use structures::{
         AT_FDCWD, AccessFlags, AtFlags, Dirent64, FileMode, OpenFlags, OpenHow, OpenResolve, Statx,
         StatxMask, UmountFlags,
     },
-    mactux_ipc::{Request, Response},
+    internal::mactux_ipc::{Request, Response},
     time::Timespec,
 };
 

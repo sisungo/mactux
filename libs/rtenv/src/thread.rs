@@ -16,7 +16,7 @@ use std::{
 };
 use structures::{
     error::LxError,
-    mactux_ipc::{Request, Response},
+    internal::mactux_ipc::{Request, Response},
     process::CloneArgs,
     signal::{SigAltStack, SigNum},
     sync::{FutexOpts, RobustListHead},

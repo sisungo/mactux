@@ -5,8 +5,8 @@ use crate::{
 use std::ffi::c_int;
 use structures::{
     error::LxError,
+    internal::mactux_ipc::{Request, Response},
     io::{FcntlCmd, IoctlCmd, VfdAvailCtrl, Whence},
-    mactux_ipc::{Request, Response},
 };
 
 pub fn read(vfd: u64, buf: &mut [u8]) -> Result<usize, LxError> {

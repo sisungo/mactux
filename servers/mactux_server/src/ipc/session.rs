@@ -5,7 +5,7 @@ use crate::{
 };
 use anyhow::anyhow;
 use std::os::unix::net::UnixStream;
-use structures::mactux_ipc::Request;
+use structures::internal::mactux_ipc::Request;
 
 #[derive(Debug)]
 pub struct RegSession(RegChannel);

@@ -13,6 +13,7 @@ members = [
     "libs/rtenv",
     "libs/structures",
     "libs/syscall",
+    "servers/mactux_gui_helper",
     "servers/mactux_server",
 ]
 

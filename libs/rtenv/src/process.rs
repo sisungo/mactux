@@ -18,15 +18,12 @@ use std::{
 use structures::{
     ToApple,
     error::LxError,
-    fs::{AT_FDCWD, AtFlags, StatxMask},
+    fs::{AT_FDCWD, AtFlags, FileMode, FileType, OpenFlags, StatxMask},
+    internal::mactux_ipc::Request,
     mapper::with_pid_mapper,
     process::{ChildType, CloneArgs, CloneFlags},
     signal::{SigAction, SigNum},
     thread::is_tid,
-};
-use structures::{
-    fs::{FileMode, FileType, OpenFlags},
-    mactux_ipc::Request,
 };
 
 static mut PROCESS_CTX: MaybeUninit<ProcessCtx> = MaybeUninit::uninit();

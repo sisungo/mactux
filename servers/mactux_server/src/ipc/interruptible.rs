@@ -4,8 +4,8 @@ use crate::{poll::PollToken, task::process::Process, util::Shared};
 use std::{io::Read, os::unix::net::UnixStream, time::Duration};
 use structures::{
     error::LxError,
+    internal::mactux_ipc::{InterruptibleRequest, Response},
     io::PollEvents,
-    mactux_ipc::{InterruptibleRequest, Response},
 };
 
 #[derive(Debug)]
