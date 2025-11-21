@@ -317,15 +317,15 @@ pub fn write_syslog(level: LogLevel, mut content: Vec<u8>) {
     app().syslog.write(WriteLogRequest { level, content });
 }
 
-pub fn set_mnt_namespace(ns: u64) -> Result<(), LxError> {
+pub fn set_mnt_namespace(_ns: u64) -> Result<(), LxError> {
     todo!()
 }
 
-pub fn set_pid_namespace(ns: u64) -> Result<(), LxError> {
+pub fn set_pid_namespace(_ns: u64) -> Result<(), LxError> {
     todo!()
 }
 
-pub fn set_uts_namespace(ns: u64) -> Result<(), LxError> {
+pub fn set_uts_namespace(_ns: u64) -> Result<(), LxError> {
     todo!()
 }
 

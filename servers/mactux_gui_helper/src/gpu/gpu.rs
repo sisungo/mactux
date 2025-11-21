@@ -18,6 +18,10 @@ impl GPU {
 }
 
 pub fn ipc_methods() -> Box<MethodIndexBox<FnIpc>> {
-    let this = Box::new([const { None }; _]);
+    let mut this = Box::new([const { None }; _]);
+    this[0] = Some(Box::new(gpu_new) as _);
     this
 }
+
+#[macros::gui_helper_method]
+fn gpu_new() {}

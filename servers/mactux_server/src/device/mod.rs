@@ -39,7 +39,7 @@ impl DeviceTable {
             .or_insert_with(f);
     }
 
-    pub fn add_blk_fixed<F: FnOnce() -> Arc<dyn Device>>(&self, major: u32, minor: u32, f: F) {
+    pub fn _add_blk_fixed<F: FnOnce() -> Arc<dyn Device>>(&self, major: u32, minor: u32, f: F) {
         self.blk
             .entry(DeviceNumber::new(major, minor))
             .or_insert_with(f);

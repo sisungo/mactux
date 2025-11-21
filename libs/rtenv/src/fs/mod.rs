@@ -1,6 +1,10 @@
 mod vfd;
 
-use crate::{ipc_client::with_client, posix_num, process, util::ipc_fail, util::posix_result};
+use crate::{
+    ipc_client::with_client,
+    posix_num, process,
+    util::{ipc_fail, posix_result},
+};
 use arc_swap::ArcSwap;
 use libc::c_int;
 use std::sync::Arc;

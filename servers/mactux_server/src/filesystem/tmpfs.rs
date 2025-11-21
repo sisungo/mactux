@@ -10,13 +10,14 @@ use crate::{
     util::{plain_seek, symlink_abs},
     vfd::{Stream, Vfd, VfdContent},
 };
+use crossbeam::atomic::AtomicCell;
 use dashmap::DashMap;
 use rustc_hash::FxBuildHasher;
 use std::{
     fmt::Debug,
     path::PathBuf,
     sync::{
-        Arc, Mutex, OnceLock, RwLock,
+        Arc, Mutex, RwLock,
         atomic::{self, AtomicU16, AtomicU32, AtomicUsize},
     },
 };
@@ -24,8 +25,8 @@ use structures::{
     device::DeviceNumber,
     error::LxError,
     fs::{
-        AccessFlags, Dirent64, Dirent64Hdr, FileMode, FileType, OpenFlags, OpenHow, OpenResolve,
-        Statx, StatxAttrs, StatxMask,
+        AccessFlags, Dirent64, Dirent64Hdr, FileMode, FileType, FsMagic, OpenFlags, OpenHow,
+        OpenResolve, StatFs, StatFsFlags, Statx, StatxAttrs, StatxMask,
     },
     io::{IoctlCmd, VfdAvailCtrl, Whence},
     time::Timespec,
@@ -39,7 +40,7 @@ const BLOCK_SIZE: u32 = 4096;
 #[derive(Debug)]
 pub struct Tmpfs {
     root: Arc<Dir>,
-    fs_type: OnceLock<&'static str>,
+    fs_magic: AtomicCell<FsMagic>,
 }
 impl Tmpfs {
     /// Creates a new [`Tmpfs`] instance.
@@ -49,18 +50,12 @@ impl Tmpfs {
                 metadata: Arc::new(Metadata::new()),
                 children: DashMap::default(),
             }),
-            fs_type: OnceLock::new(),
+            fs_magic: AtomicCell::new(FsMagic::TMPFS_MAGIC),
         }))
     }
 
-    /// Sets filesystem type.
-    ///
-    /// # Panics
-    /// Panics if this function is called twice.
-    pub fn set_fs_type(&self, new: &'static str) {
-        self.fs_type
-            .set(new)
-            .expect("Tmpfs::set_fs_type is called twice");
+    pub fn set_fs_magic(&self, new: FsMagic) {
+        self.fs_magic.store(new);
     }
 
     fn locate(&self, path: LPath) -> Result<Location, LxError> {
@@ -316,8 +311,21 @@ impl Filesystem for Tmpfs {
         }
     }
 
-    fn fs_type(&self) -> &'static str {
-        *self.fs_type.get_or_init(|| "tmpfs")
+    fn statfs(&self) -> Result<StatFs, LxError> {
+        Ok(StatFs {
+            f_type: self.fs_magic.load(),
+            f_bsize: BLOCK_SIZE as _,
+            f_blocks: 0,
+            f_bfree: 0,
+            f_bavail: 0,
+            f_files: 0,
+            f_ffree: 0,
+            f_fsid: [0; _],
+            f_namelen: 0,
+            f_frsize: 0,
+            f_flags: StatFsFlags::empty(),
+            f_spare: [0; _],
+        })
     }
 }
 impl Tmpfs {

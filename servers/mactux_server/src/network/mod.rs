@@ -10,14 +10,14 @@ use crate::app;
 /// A network namespace.
 #[derive(Debug)]
 pub struct NetNamespace {
-    salt: String,
+    _salt: String,
     pub abs: AbstractNamespace,
 }
 impl NetNamespace {
     pub fn new() -> anyhow::Result<Self> {
-        let salt = salt();
-        let abs = AbstractNamespace::new(app().work_dir.net().join(&salt))?;
-        Ok(Self { salt, abs })
+        let _salt = salt();
+        let abs = AbstractNamespace::new(app().work_dir.net().join(&_salt))?;
+        Ok(Self { _salt, abs })
     }
 }
 

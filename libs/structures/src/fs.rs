@@ -549,6 +549,15 @@ impl FsMagic {
     pub const ANON_INODE_FS_MAGIC: Self = Self(0x09041934);
     pub const TMPFS_MAGIC: Self = Self(0x01021994);
     pub const NATIVEFS_MAGIC: Self = Self(0x07bee5f9);
+    pub const PROC_SUPER_MAGIC: Self = Self(0x9fa0);
+
+    pub const fn name(self) -> Option<&'static str> {
+        match self {
+            Self::TMPFS_MAGIC => Some("tmpfs"),
+            Self::NATIVEFS_MAGIC => Some("nativefs"),
+            _ => None,
+        }
+    }
 }
 
 bitflags! {

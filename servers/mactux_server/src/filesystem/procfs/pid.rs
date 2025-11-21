@@ -17,10 +17,17 @@ pub fn mounts(apple_pid: libc::pid_t) -> impl Fn() -> Result<Vec<u8>, LxError> +
         let mut fstab = Fstab(Vec::with_capacity(mounts.len()));
 
         for mount in mounts {
+            let fs_type = mount
+                .filesystem
+                .statfs()
+                .ok()
+                .and_then(|x| x.f_type.name())
+                .unwrap_or("unknown")
+                .to_string();
             fstab.0.push(FstabEntry {
                 device: String::from_utf8_lossy(&mount.source).to_string(),
                 mount_point: String::from_utf8_lossy(&mount.mountpoint.express()).to_string(),
-                fs_type: mount.filesystem.fs_type().into(),
+                fs_type,
                 options: "defaults".into(),
                 dump: 0,
                 pass: 0,

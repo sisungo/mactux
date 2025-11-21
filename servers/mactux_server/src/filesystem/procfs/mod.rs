@@ -12,18 +12,18 @@ use crate::{
         tmpfs::{DynFile, Tmpfs},
         vfs::{Filesystem, LPath, MakeFilesystem},
     },
-    task::{PidNamespace, process::Process},
+    task::{PidNamespace, process::Process, thread::Thread},
     util::Shared,
 };
 use std::sync::Arc;
 use structures::{
     error::LxError,
-    fs::{FileMode, MountFlags},
+    fs::{FileMode, FsMagic, MountFlags},
 };
 
 pub fn new() -> Result<Arc<Tmpfs>, LxError> {
     let tmpfs = Tmpfs::new()?;
-    tmpfs.set_fs_type("proc");
+    tmpfs.set_fs_magic(FsMagic::PROC_SUPER_MAGIC);
 
     create_dynfile_ro(&tmpfs, "/meminfo", sysinfo::meminfo, 0o444)?;
     create_dynfile_ro(&tmpfs, "/cmdline", sysinfo::cmdline, 0o444)?;
@@ -34,7 +34,11 @@ pub fn new() -> Result<Arc<Tmpfs>, LxError> {
     create_dynfile_ro(&tmpfs, "/filesystems", sysinfo::filesystems, 0o444)?;
 
     tmpfs.create_dynlink(VPath::parse(b"/self"), || {
-        Shared::id(&Process::current()).to_string().into_bytes()
+        current_linux_ids().0.to_string().into_bytes()
+    })?;
+    tmpfs.create_dynlink(VPath::parse(b"/thread-self"), || {
+        let (linux_pid, linux_tid) = current_linux_ids();
+        format!("{linux_pid}/task/{linux_tid}").into_bytes()
     })?;
 
     tmpfs.create_dynlink(VPath::parse(b"/mounts"), || b"self/mounts".into())?;
@@ -135,4 +139,13 @@ fn thread_linux_ids(ns: &dyn PidNamespace, native_tid: i32) -> Result<(i32, i32)
     let linux_tid = ns.ntol(native_tid)?;
     let linux_pid = ns.ntol(native_pid)?;
     Ok((linux_pid, linux_tid))
+}
+
+fn current_linux_ids() -> (i32, i32) {
+    let current = Thread::current();
+    let native_pid = Shared::id(&current.process) as i32;
+    let linux_pid = current.process.pid.ntol(native_pid).unwrap_or(native_pid);
+    let native_tid = Shared::id(&current) as i32;
+    let linux_tid = current.process.pid.ntol(native_tid).unwrap_or(native_tid);
+    (linux_pid, linux_tid)
 }

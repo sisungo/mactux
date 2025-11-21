@@ -20,12 +20,12 @@ use std::{
     sync::{Arc, Mutex},
 };
 use structures::{
-    ToApple,
+    FromApple, ToApple,
     device::DeviceNumber,
     error::LxError,
     fs::{
         AccessFlags, Dirent64, Dirent64Hdr, DirentType, FileMode, MountFlags, OpenFlags, OpenHow,
-        OpenResolve, Statx, StatxMask,
+        OpenResolve, StatFs, Statx, StatxMask,
     },
 };
 
@@ -116,7 +116,7 @@ impl Filesystem for NativeFs {
         }
     }
 
-    fn get_sock_path(&self, path: LPath, create: bool) -> Result<std::path::PathBuf, LxError> {
+    fn get_sock_path(&self, _path: LPath, _create: bool) -> Result<std::path::PathBuf, LxError> {
         Err(LxError::EOPNOTSUPP)
     }
 
@@ -216,8 +216,12 @@ impl Filesystem for NativeFs {
         }
     }
 
-    fn fs_type(&self) -> &'static str {
-        "nativefs"
+    fn statfs(&self) -> Result<StatFs, LxError> {
+        unsafe {
+            let mut apple = Box::new(std::mem::zeroed());
+            posix_result(libc::fstatfs(self.base.dirfd, &mut *apple))?;
+            StatFs::from_apple(apple)
+        }
     }
 }
 

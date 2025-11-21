@@ -43,7 +43,5 @@ Currently, we have a working \(but naive\) implementation of OSS audio output.
 We currently prioritizes to implement:
 
  - Multi-thread support
- - Networking support
  - Epoll support
- - Full procfs support
  - sysfs support

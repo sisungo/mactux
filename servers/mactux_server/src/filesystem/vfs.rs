@@ -10,7 +10,7 @@ use std::{
 use structures::{
     device::DeviceNumber,
     error::LxError,
-    fs::{AccessFlags, FileMode, MountFlags, OpenFlags, OpenHow, OpenResolve, UmountFlags},
+    fs::{AccessFlags, FileMode, MountFlags, OpenFlags, OpenHow, OpenResolve, StatFs, UmountFlags},
 };
 
 /// Registry of all supported mountable filesystems in the kernel.
@@ -114,7 +114,7 @@ impl MountNamespace {
     }
 
     /// Unmounts a filesystem.
-    pub fn umount(&self, path: &VPath, flags: UmountFlags) -> Result<(), LxError> {
+    pub fn umount(&self, path: &VPath, _flags: UmountFlags) -> Result<(), LxError> {
         let has_submount = |p: &VPath, m: &Mount| {
             (p.parts.len() > m.mountpoint.parts.len())
                 && (p.parts[..m.mountpoint.parts.len()] == m.mountpoint.parts)
@@ -221,6 +221,9 @@ impl Location {
         self.filesystem.open(self.path.clone(), how).inspect(|x| {
             if let NewlyOpen::Virtual(vfd) = x {
                 // We allow the filesystem driver to set the original path ahead of this.
+                //
+                // And for symlinks, we just make the `orig_path` be the finally solved one, matching the Linux behavior
+                // better.
                 _ = vfd.set_orig_path(self.path.expand().express());
             }
         })
@@ -304,7 +307,7 @@ pub trait Filesystem: Send + Sync {
     fn rename(&self, src: LPath, dst: LPath) -> Result<(), LxError>;
     fn link(&self, src: LPath, dst: LPath) -> Result<(), LxError>;
 
-    fn fs_type(&self) -> &'static str;
+    fn statfs(&self) -> Result<StatFs, LxError>;
 }
 
 /// A factory of (mounted) filesystems.

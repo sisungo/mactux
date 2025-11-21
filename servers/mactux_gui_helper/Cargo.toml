@@ -5,7 +5,9 @@ edition = "2024"
 
 [dependencies]
 anyhow = "1"
+bincode = "2"
 log = "0.4"
 wgpu = "27"
 rustc-hash = "2"
+macros = { path = "../../libs/macros" }
 structures = { path = "../../libs/structures" }
