@@ -1,7 +1,7 @@
 mod vfd;
 
 use crate::{
-    ipc_client::with_client,
+    ipc_client::{call_server, with_client},
     posix_num, process,
     util::{ipc_fail, posix_result},
 };
@@ -9,12 +9,12 @@ use arc_swap::ArcSwap;
 use libc::c_int;
 use std::sync::Arc;
 use structures::{
-    ToApple,
+    FromApple, ToApple,
     device::DeviceNumber,
     error::LxError,
     fs::{
-        AT_FDCWD, AccessFlags, AtFlags, Dirent64, FileMode, OpenFlags, OpenHow, OpenResolve, Statx,
-        StatxMask, UmountFlags,
+        AT_FDCWD, AccessFlags, AtFlags, Dirent64, FileMode, OpenFlags, OpenHow, OpenResolve,
+        StatFs, Statx, StatxMask, UmountFlags,
     },
     internal::mactux_ipc::{Request, Response},
     time::Timespec,
@@ -107,6 +107,18 @@ pub fn fstat(fd: c_int, mask: StatxMask) -> Result<Statx, LxError> {
             let mut stat = std::mem::zeroed();
             posix_result(libc::fstat(fd, &mut stat))?;
             Ok(Statx::from_apple(stat))
+        },
+    }
+}
+
+#[inline]
+pub fn fstatfs(fd: c_int) -> Result<StatFs, LxError> {
+    match crate::vfd::get(fd) {
+        Some(vfd) => vfd::statfs(vfd),
+        None => unsafe {
+            let mut statfs = Box::new(std::mem::zeroed());
+            posix_result(libc::fstatfs(fd, &mut *statfs))?;
+            Ok(StatFs::from_apple(statfs)?)
         },
     }
 }
@@ -264,16 +276,7 @@ pub fn flistxattr(fd: c_int) -> Result<Vec<u8>, LxError> {
 
 #[inline]
 pub fn umount(path: Vec<u8>, flags: UmountFlags) -> Result<(), LxError> {
-    with_client(|client| {
-        match client
-            .invoke(Request::Umount(at_path(AT_FDCWD, path)?, flags))
-            .unwrap()
-        {
-            Response::Nothing => Ok(()),
-            Response::Error(err) => Err(err),
-            _ => ipc_fail(),
-        }
-    })
+    call_server(Request::Umount(at_path(AT_FDCWD, path)?, flags))
 }
 
 #[inline]

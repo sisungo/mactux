@@ -281,6 +281,14 @@ pub fn vfd_utimens(vfd: u64, times: [Timespec; 2]) -> Result<(), LxError> {
         .utimens(times)
 }
 
+pub fn vfd_statfs(vfd: u64) -> Result<StatFs, LxError> {
+    Process::current()
+        .vfd
+        .get(vfd)
+        .ok_or(LxError::EBADF)?
+        .statfs()
+}
+
 pub fn after_fork(native_pid: libc::pid_t) -> Result<(), LxError> {
     crate::task::process::after_fork(native_pid)
 }

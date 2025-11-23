@@ -16,7 +16,7 @@ use std::{
 };
 use structures::{
     error::LxError,
-    fs::{Dirent64, Statx},
+    fs::{Dirent64, StatFs, Statx},
     internal::mactux_ipc::*,
     misc::SysInfo,
 };
@@ -281,6 +281,14 @@ impl FromResponse for Statx {
     fn from_response(resp: Response) -> Option<Self> {
         match resp {
             Response::Stat(x) => Some(*x),
+            _ => None,
+        }
+    }
+}
+impl FromResponse for StatFs {
+    fn from_response(resp: Response) -> Option<Self> {
+        match resp {
+            Response::StatFs(x) => Some(*x),
             _ => None,
         }
     }

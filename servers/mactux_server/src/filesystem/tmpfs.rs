@@ -6,6 +6,7 @@ use crate::{
         VPath,
         vfs::{Filesystem, LPath, MakeFilesystem, NewlyOpen},
     },
+    poll::PollToken,
     task::process::Process,
     util::{plain_seek, symlink_abs},
     vfd::{Stream, Vfd, VfdContent},
@@ -25,13 +26,13 @@ use structures::{
     device::DeviceNumber,
     error::LxError,
     fs::{
-        AccessFlags, Dirent64, Dirent64Hdr, FileMode, FileType, FsMagic, OpenFlags, OpenHow,
-        OpenResolve, StatFs, StatFsFlags, Statx, StatxAttrs, StatxMask,
+        AccessFlags, Dirent64, Dirent64Hdr, FileMode, FileType, FsMagic, MountFlags, OpenFlags,
+        OpenHow, OpenResolve, StatFs, StatFsFlags, Statx, StatxAttrs, StatxMask,
     },
-    io::{IoctlCmd, VfdAvailCtrl, Whence},
+    internal::mactux_ipc::CtrlOutput,
+    io::{IoctlCmd, PollEvents, VfdAvailCtrl, Whence},
     time::Timespec,
 };
-use structures::{fs::MountFlags, internal::mactux_ipc::CtrlOutput};
 
 /// Size of a block.
 const BLOCK_SIZE: u32 = 4096;
@@ -92,9 +93,18 @@ impl Tmpfs {
 }
 impl Filesystem for Tmpfs {
     fn open(self: Arc<Self>, path: LPath, how: OpenHow) -> Result<NewlyOpen, LxError> {
+        let map_virtual = |content| {
+            NewlyOpen::Virtual(Vfd::new(
+                Arc::new(WrapVfdContent {
+                    content,
+                    filesystem: self.clone(),
+                }),
+                how.flags(),
+            ))
+        };
         match self.locate(path.clone())? {
             Location::Direct(_, Some(node)) => match node {
-                Node::Dir(dir) => dir.open_vfd(how.flags()).map(NewlyOpen::Virtual),
+                Node::Dir(dir) => dir.open_vfd(how.flags()).map(map_virtual),
                 Node::File(file) => {
                     if how.flags().contains(OpenFlags::O_EXCL) {
                         return Err(LxError::EEXIST);
@@ -107,9 +117,7 @@ impl Filesystem for Tmpfs {
                             native.into_os_string().into_encoded_bytes(),
                         ));
                     }
-                    Arc::clone(&file)
-                        .open_vfd(how.flags())
-                        .map(NewlyOpen::Virtual)
+                    Arc::clone(&file).open_vfd(how.flags()).map(map_virtual)
                 }
                 Node::Symlink(symlink) => {
                     if how.resolve.contains(OpenResolve::RESOLVE_NO_SYMLINKS) {
@@ -143,7 +151,7 @@ impl Filesystem for Tmpfs {
                     path.relative.parts.last().ok_or(LxError::EEXIST)?.clone(),
                     Node::File(file.clone()),
                 );
-                Ok(NewlyOpen::Virtual(file.open_vfd(how.flags())?))
+                Ok(map_virtual(file.open_vfd(how.flags())?))
             }
             Location::MidSymlink(vpath) => Process::current().mnt.locate(&vpath)?.open(how),
         }
@@ -407,6 +415,86 @@ impl MakeFilesystem for MakeTmpfs {
     }
 }
 
+struct WrapVfdContent {
+    content: Arc<dyn VfdContent>,
+    filesystem: Arc<dyn Filesystem>,
+}
+impl Stream for WrapVfdContent {
+    fn read(&self, buf: &mut [u8], off: &mut i64) -> Result<usize, LxError> {
+        self.content.read(buf, off)
+    }
+
+    fn write(&self, buf: &[u8], off: &mut i64) -> Result<usize, LxError> {
+        self.content.write(buf, off)
+    }
+
+    fn seek(&self, orig_off: i64, whence: Whence, off: i64) -> Result<i64, LxError> {
+        self.content.seek(orig_off, whence, off)
+    }
+
+    fn ioctl(&self, cmd: IoctlCmd, data: &[u8]) -> Result<CtrlOutput, LxError> {
+        self.content.ioctl(cmd, data)
+    }
+
+    fn ioctl_query(&self, cmd: IoctlCmd) -> Result<VfdAvailCtrl, LxError> {
+        self.content.ioctl_query(cmd)
+    }
+
+    fn poll(&self, interest: PollEvents) -> Result<PollToken, LxError> {
+        self.content.poll(interest)
+    }
+}
+impl VfdContent for WrapVfdContent {
+    fn stat(&self, mask: StatxMask) -> Result<Statx, LxError> {
+        self.content.stat(mask)
+    }
+
+    fn chmod(&self, mode: u16) -> Result<(), LxError> {
+        self.content.chmod(mode)
+    }
+
+    fn chown(&self, uid: u32, gid: u32) -> Result<(), LxError> {
+        self.content.chown(uid, gid)
+    }
+
+    fn dup(&self) -> Result<Arc<dyn VfdContent>, LxError> {
+        self.content.dup().map(|content| {
+            Arc::new(Self {
+                content,
+                filesystem: self.filesystem.clone(),
+            }) as _
+        })
+    }
+
+    fn get_socket(&self, create: bool) -> Result<PathBuf, LxError> {
+        self.content.get_socket(create)
+    }
+
+    fn getdent(&self) -> Result<Option<Dirent64>, LxError> {
+        self.content.getdent()
+    }
+
+    fn sync(&self) -> Result<(), LxError> {
+        self.content.sync()
+    }
+
+    fn readlink(&self) -> Result<Vec<u8>, LxError> {
+        self.content.readlink()
+    }
+
+    fn truncate(&self, size: u64) -> Result<(), LxError> {
+        self.content.truncate(size)
+    }
+
+    fn utimens(&self, times: [Timespec; 2]) -> Result<(), LxError> {
+        self.content.utimens(times)
+    }
+
+    fn filesystem(&self) -> Result<Arc<dyn Filesystem>, LxError> {
+        Ok(self.filesystem.clone())
+    }
+}
+
 #[derive(Debug, Clone)]
 enum Node {
     Dir(Arc<Dir>),
@@ -421,7 +509,7 @@ enum Location {
 }
 
 trait File: Debug + Send + Sync {
-    fn open_vfd(self: Arc<Self>, flags: OpenFlags) -> Result<Vfd, LxError>;
+    fn open_vfd(self: Arc<Self>, flags: OpenFlags) -> Result<Arc<dyn VfdContent>, LxError>;
     fn open_native(&self) -> Option<PathBuf> {
         None
     }
@@ -432,7 +520,7 @@ struct Dir {
     children: DashMap<Vec<u8>, Node>,
 }
 impl File for Dir {
-    fn open_vfd(self: Arc<Self>, flags: OpenFlags) -> Result<Vfd, LxError> {
+    fn open_vfd(self: Arc<Self>, _: OpenFlags) -> Result<Arc<dyn VfdContent>, LxError> {
         let mut iter: Vec<Dirent64> = self
             .children
             .iter()
@@ -479,13 +567,10 @@ impl File for Dir {
             },
             b"..".to_vec(),
         ));
-        Ok(Vfd::new(
-            Arc::new(DirFd {
-                metadata: self.metadata.clone(),
-                iter: Mutex::new(iter),
-            }),
-            flags,
-        ))
+        Ok(Arc::new(DirFd {
+            metadata: self.metadata.clone(),
+            iter: Mutex::new(iter),
+        }))
     }
 }
 impl Debug for Dir {
@@ -532,8 +617,8 @@ struct Reg {
     buf: RegBuf,
 }
 impl File for Reg {
-    fn open_vfd(self: Arc<Self>, flags: OpenFlags) -> Result<Vfd, LxError> {
-        Ok(Vfd::new(self, flags))
+    fn open_vfd(self: Arc<Self>, _: OpenFlags) -> Result<Arc<dyn VfdContent>, LxError> {
+        Ok(self.clone())
     }
 }
 impl Stream for Reg {
@@ -603,7 +688,7 @@ impl File for Dev {
         device.macos_device()
     }
 
-    fn open_vfd(self: Arc<Self>, flags: OpenFlags) -> Result<Vfd, LxError> {
+    fn open_vfd(self: Arc<Self>, flags: OpenFlags) -> Result<Arc<dyn VfdContent>, LxError> {
         let device = if flags.contains(OpenFlags::O_PATH) {
             None
         } else {
@@ -614,15 +699,12 @@ impl File for Dev {
             };
             Some(x)
         };
-        Ok(Vfd::new(
-            Arc::new(DevFd {
-                metadata: self.metadata.clone(),
-                file_type: self.file_type,
-                device,
-                devnum: self.dev,
-            }),
-            flags,
-        ))
+        Ok(Arc::new(DevFd {
+            metadata: self.metadata.clone(),
+            file_type: self.file_type,
+            device,
+            devnum: self.dev,
+        }))
     }
 }
 
@@ -692,12 +774,12 @@ where
     R: DynFileReadFn,
     W: DynFileWriteFn,
 {
-    fn open_vfd(self: Arc<Self>, flags: OpenFlags) -> Result<Vfd, LxError> {
+    fn open_vfd(self: Arc<Self>, flags: OpenFlags) -> Result<Arc<dyn VfdContent>, LxError> {
         if flags.contains(OpenFlags::O_APPEND) {
             return Err(LxError::EINVAL);
         }
 
-        Ok(Vfd::new(self, flags))
+        Ok(self.clone())
     }
 }
 impl<R, W> Stream for DynFile<R, W>
@@ -721,7 +803,7 @@ where
     }
 
     fn seek(&self, orig_off: i64, whence: Whence, off: i64) -> Result<i64, LxError> {
-        plain_seek(orig_off, whence, off)
+        plain_seek(orig_off, -1, whence, off)
     }
 }
 impl<R, W> VfdContent for DynFile<R, W>
@@ -777,8 +859,8 @@ impl Debug for Symlink {
     }
 }
 impl File for Symlink {
-    fn open_vfd(self: Arc<Self>, flags: OpenFlags) -> Result<Vfd, LxError> {
-        Ok(Vfd::new(self, flags))
+    fn open_vfd(self: Arc<Self>, _: OpenFlags) -> Result<Arc<dyn VfdContent>, LxError> {
+        Ok(self.clone())
     }
 }
 impl Stream for Symlink {}

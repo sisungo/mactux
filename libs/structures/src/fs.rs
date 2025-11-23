@@ -2,7 +2,7 @@ use crate::{FromApple, ToApple, error::LxError, impl_bincode_for_bitflags, time:
 use bincode::{Decode, Encode};
 use bitflags::bitflags;
 use libc::c_int;
-use std::{mem::offset_of, os::unix::fs::FileTypeExt};
+use std::{ffi::CStr, mem::offset_of};
 
 pub const XATTR_NAMESPACE_USER_PREFIX: &[u8] = b"user.";
 pub const XATTR_NAMESPACE_SYSTEM_PREFIX: &[u8] = b"system.";
@@ -176,6 +176,23 @@ impl Dirent64 {
         }
     }
 }
+impl FromApple for Dirent64 {
+    type Apple = libc::dirent;
+
+    fn from_apple(apple: Self::Apple) -> Result<Self, LxError> {
+        let name_bytes = unsafe { CStr::from_ptr(apple.d_name.as_ptr()).to_bytes().to_vec() };
+        Ok(Self::new(
+            Dirent64Hdr {
+                d_ino: apple.d_ino,
+                d_off: apple.d_seekoff as _,
+                d_reclen: 0,
+                d_type: DirentType::from_apple(apple.d_type)?,
+                _align: [0; _],
+            },
+            name_bytes,
+        ))
+    }
+}
 
 #[derive(Debug, Clone, Copy, Encode, Decode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
@@ -189,25 +206,20 @@ impl DirentType {
     pub const DT_REG: Self = Self(8);
     pub const DT_LNK: Self = Self(10);
     pub const DT_SOCK: Self = Self(12);
+}
+impl FromApple for DirentType {
+    type Apple = u8;
 
-    #[inline]
-    pub fn from_std(ty: std::fs::FileType) -> Self {
-        if ty.is_dir() {
-            Self::DT_DIR
-        } else if ty.is_file() {
-            Self::DT_REG
-        } else if ty.is_symlink() {
-            Self::DT_LNK
-        } else if ty.is_fifo() {
-            Self::DT_FIFO
-        } else if ty.is_block_device() {
-            Self::DT_BLK
-        } else if ty.is_char_device() {
-            Self::DT_CHR
-        } else if ty.is_socket() {
-            Self::DT_SOCK
-        } else {
-            Self::DT_UNKNOWN
+    fn from_apple(apple: Self::Apple) -> Result<Self, LxError> {
+        match apple {
+            libc::DT_FIFO => Ok(Self::DT_FIFO),
+            libc::DT_CHR => Ok(Self::DT_CHR),
+            libc::DT_DIR => Ok(Self::DT_DIR),
+            libc::DT_BLK => Ok(Self::DT_BLK),
+            libc::DT_REG => Ok(Self::DT_REG),
+            libc::DT_LNK => Ok(Self::DT_LNK),
+            libc::DT_SOCK => Ok(Self::DT_SOCK),
+            _ => Ok(Self::DT_UNKNOWN),
         }
     }
 }

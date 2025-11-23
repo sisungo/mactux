@@ -12,10 +12,8 @@ use crate::{
 use libc::c_int;
 use std::{
     collections::VecDeque,
-    ffi::{CStr, CString, OsString},
+    ffi::{CStr, CString},
     fmt::Debug,
-    fs::ReadDir,
-    os::unix::{ffi::OsStringExt, fs::DirEntryExt},
     path::Path,
     sync::{Arc, Mutex},
 };
@@ -24,9 +22,10 @@ use structures::{
     device::DeviceNumber,
     error::LxError,
     fs::{
-        AccessFlags, Dirent64, Dirent64Hdr, DirentType, FileMode, MountFlags, OpenFlags, OpenHow,
-        OpenResolve, StatFs, Statx, StatxMask,
+        AccessFlags, Dirent64, FileMode, MountFlags, OpenFlags, OpenHow, OpenResolve, StatFs,
+        Statx, StatxMask,
     },
+    time::Timespec,
 };
 
 /// A nativefs mount.
@@ -53,7 +52,7 @@ impl Filesystem for NativeFs {
                     Err(err) => return Err(err),
                 }
                 if statbuf.st_mode & libc::S_IFMT == libc::S_IFDIR {
-                    let vfd_content = Arc::new(DirFd::new(dst, statbuf)?);
+                    let vfd_content = Arc::new(DirFd::new(self.clone(), dst, statbuf)?);
                     return Ok(NewlyOpen::Virtual(Vfd::new(vfd_content, how.flags())));
                 }
                 Ok(NewlyOpen::Native(dst.into_bytes()))
@@ -356,74 +355,81 @@ impl Debug for NBase {
 }
 
 struct DirFd {
-    read_dir: Mutex<ReadDir>,
+    filesystem: Arc<dyn Filesystem>,
+    path: CString,
+    read_dir: Mutex<*mut libc::DIR>,
     statx: Statx,
-    dotself: Mutex<Vec<Dirent64>>,
 }
 impl DirFd {
-    fn new(path: CString, statbuf: libc::stat) -> Result<Self, LxError> {
+    fn new(
+        filesystem: Arc<dyn Filesystem>,
+        path: CString,
+        statbuf: libc::stat,
+    ) -> Result<Self, LxError> {
         let statx = Statx::from_apple(statbuf);
-        let path = OsString::from_vec(path.into_bytes());
-        let read_dir = Mutex::new(std::fs::read_dir(Path::new(&path))?);
-        let dot = Dirent64::new(
-            Dirent64Hdr {
-                d_ino: statx.stx_ino,
-                d_off: 0,
-                d_reclen: 0,
-                d_type: DirentType::DT_DIR,
-                _align: [0; _],
-            },
-            b".".to_vec(),
-        );
-        let dotdot = Dirent64::new(
-            Dirent64Hdr {
-                d_ino: statx.stx_ino - 1,
-                d_off: 0,
-                d_reclen: 0,
-                d_type: DirentType::DT_DIR,
-                _align: [0; _],
-            },
-            b"..".to_vec(),
-        );
+        let read_dir = unsafe {
+            let dirp = libc::opendir(path.as_ptr());
+            if dirp.is_null() {
+                return Err(LxError::last_apple_error());
+            }
+            dirp
+        };
         Ok(Self {
-            read_dir,
+            filesystem,
+            path,
+            read_dir: Mutex::new(read_dir),
             statx,
-            dotself: Mutex::new(vec![dot, dotdot]),
         })
     }
 }
 impl Stream for DirFd {}
 impl VfdContent for DirFd {
     fn getdent(&self) -> Result<Option<Dirent64>, LxError> {
-        if let Some(entry) = self.dotself.lock().unwrap().pop() {
-            return Ok(Some(entry));
-        }
-
-        match self.read_dir.lock().unwrap().next() {
-            Some(Ok(entry)) => {
-                let filename = entry.file_name().into_encoded_bytes();
-                let d_type = entry
-                    .file_type()
-                    .map(DirentType::from_std)
-                    .unwrap_or(DirentType::DT_UNKNOWN);
-                let hdr = Dirent64Hdr {
-                    d_ino: entry.ino(),
-                    d_off: 0,
-                    d_reclen: 0,
-                    d_type,
-                    _align: [0; _],
-                };
-                Ok(Some(Dirent64::new(hdr, filename)))
+        let read_dir = *self.read_dir.lock().unwrap();
+        unsafe {
+            *libc::__error() = 0;
+            let entry = libc::readdir(read_dir);
+            if entry.is_null() {
+                if *libc::__error() != 0 {
+                    Err(LxError::last_apple_error())
+                } else {
+                    Ok(None)
+                }
+            } else {
+                Ok(Some(Dirent64::from_apple(*entry)?))
             }
-            Some(Err(err)) => Err(LxError::from(err)),
-            None => Ok(None),
         }
     }
 
     fn stat(&self, _: StatxMask) -> Result<Statx, LxError> {
         Ok(self.statx.clone())
     }
+
+    fn utimens(&self, times: [Timespec; 2]) -> Result<(), LxError> {
+        unsafe {
+            let times = [times[0].to_apple()?, times[1].to_apple()?];
+            posix_result(libc::utimensat(
+                libc::AT_FDCWD,
+                self.path.as_ptr(),
+                times.as_ptr(),
+                0,
+            ))
+        }
+    }
+
+    fn filesystem(&self) -> Result<Arc<dyn Filesystem>, LxError> {
+        Ok(self.filesystem.clone())
+    }
 }
+impl Drop for DirFd {
+    fn drop(&mut self) {
+        unsafe {
+            libc::closedir(*self.read_dir.lock().unwrap());
+        }
+    }
+}
+unsafe impl Send for DirFd {}
+unsafe impl Sync for DirFd {}
 
 fn bytes_to_cstring(mut data: Vec<u8>) -> Result<CString, LxError> {
     data.push(0);

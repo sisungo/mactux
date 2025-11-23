@@ -211,8 +211,8 @@ const SYSTEM_CALL_HANDLERS: &[SystemCallHandler] = &[
     sys_uselib,            // 134
     sys_invalid,           // 135
     sys_invalid,           // 136
-    sys_invalid,           // 137
-    sys_invalid,           // 138
+    sys_statfs,            // 137
+    sys_fstatfs,           // 138
     sys_sysfs,             // 139
     sys_invalid,           // 140
     sys_invalid,           // 141

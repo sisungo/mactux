@@ -115,7 +115,7 @@ impl MountNamespace {
 
     /// Unmounts a filesystem.
     pub fn umount(&self, path: &VPath, _flags: UmountFlags) -> Result<(), LxError> {
-        let has_submount = |p: &VPath, m: &Mount| {
+        let submount_busy = |p: &VPath, m: &Mount| {
             (p.parts.len() > m.mountpoint.parts.len())
                 && (p.parts[..m.mountpoint.parts.len()] == m.mountpoint.parts)
         };
@@ -126,7 +126,7 @@ impl MountNamespace {
         let mut mounts = self.mounts.write().unwrap();
 
         for (n, mount) in mounts.iter().rev().enumerate() {
-            if has_submount(&path, mount) {
+            if submount_busy(&path, mount) {
                 return Err(LxError::EBUSY);
             }
             if mount.mountpoint.parts == path.parts {
@@ -137,6 +137,9 @@ impl MountNamespace {
 
         match nelem {
             Some(i) => {
+                if Arc::strong_count(&mounts[i].filesystem) > 1 {
+                    return Err(LxError::EBUSY);
+                }
                 mounts.remove(i);
                 Ok(())
             }

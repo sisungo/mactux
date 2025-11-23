@@ -4,7 +4,7 @@ use crate::{
 };
 use structures::{
     error::LxError,
-    fs::{Dirent64, Statx, StatxMask},
+    fs::{Dirent64, StatFs, Statx, StatxMask},
     internal::mactux_ipc::{Request, Response},
     time::Timespec,
 };
@@ -27,6 +27,10 @@ pub fn chmod(vfd: u64, mode: u16) -> Result<(), LxError> {
 
 pub fn utimens(vfd: u64, times: [Timespec; 2]) -> Result<(), LxError> {
     call_server(Request::VfdUtimeNs(vfd, times))
+}
+
+pub fn statfs(vfd: u64) -> Result<StatFs, LxError> {
+    call_server(Request::VfdStatFs(vfd))
 }
 
 pub fn readlink(vfd: u64) -> Result<Vec<u8>, LxError> {

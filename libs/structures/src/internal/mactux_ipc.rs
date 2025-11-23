@@ -97,6 +97,7 @@ pub enum Request {
     VfdSync(u64),
     VfdReadlink(u64),
     VfdUtimeNs(u64, [Timespec; 2]),
+    VfdStatFs(u64),
 
     EventFd(u64, EventFdFlags),
     InvalidFd(OpenFlags),

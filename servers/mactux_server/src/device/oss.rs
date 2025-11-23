@@ -32,7 +32,11 @@ struct DspFd {
 impl DspFd {
     fn new(flags: OpenFlags) -> Result<Arc<Self>, LxError> {
         let output = if flags.is_writable() {
-            Some(Arc::new(AudioOutput::new()?))
+            let output = Arc::new(AudioOutput::new()?);
+            output.channels.store(1, atomic::Ordering::Relaxed);
+            output.sample_rate.store(8000, atomic::Ordering::Relaxed);
+            output.sample_format.store(SampleFormat::U8);
+            Some(output)
         } else {
             None
         };

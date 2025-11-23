@@ -11,7 +11,8 @@ use structures::{
     device::DeviceNumber,
     error::LxError,
     fs::{
-        AT_FDCWD, AccessFlags, AtFlags, FileMode, OpenFlags, Stat, Statx, StatxMask, UmountFlags,
+        AT_FDCWD, AccessFlags, AtFlags, FileMode, OpenFlags, Stat, StatFs, Statx, StatxMask,
+        UmountFlags,
     },
     internal::mactux_ipc::NetworkNames,
     io::{
@@ -95,6 +96,33 @@ pub unsafe fn sys_stat(filename: &CStr, statbuf: *mut Stat) -> Result<(), LxErro
         )?;
         statbuf.write(stat.into());
         Ok(())
+    }
+}
+
+#[syscall]
+pub unsafe fn sys_fstatfs(fd: c_int, buf: *mut StatFs) -> Result<(), LxError> {
+    unsafe {
+        let statfs = rtenv::fs::fstatfs(fd)?;
+        buf.write(statfs);
+        Ok(())
+    }
+}
+
+#[syscall]
+pub unsafe fn sys_statfs(path: &CStr, buf: *mut StatFs) -> Result<(), LxError> {
+    unsafe {
+        with_openat(
+            AT_FDCWD,
+            path.to_bytes().into(),
+            OpenFlags::O_PATH,
+            AtFlags::empty(),
+            0,
+            |fd| {
+                let statfs = rtenv::fs::fstatfs(fd)?;
+                buf.write(statfs);
+                Ok(())
+            },
+        )
     }
 }
 

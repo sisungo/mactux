@@ -1,6 +1,6 @@
 //! Virtual file descriptor support.
 
-use crate::poll::PollToken;
+use crate::{filesystem::vfs::Filesystem, poll::PollToken};
 use crossbeam::atomic::AtomicCell;
 use dashmap::DashMap;
 use rustc_hash::FxBuildHasher;
@@ -13,7 +13,7 @@ use std::{
 };
 use structures::{
     error::LxError,
-    fs::{Dirent64, OpenFlags, Statx, StatxMask, XATTR_NAMESPACE_PREFIXES},
+    fs::{Dirent64, OpenFlags, StatFs, Statx, StatxMask, XATTR_NAMESPACE_PREFIXES},
     internal::mactux_ipc::CtrlOutput,
     io::{FcntlCmd, FdFlags, IoctlCmd, PollEvents, VfdAvailCtrl, Whence},
     time::Timespec,
@@ -196,6 +196,10 @@ impl Vfd {
         self.content.utimens(times)
     }
 
+    pub fn statfs(&self) -> Result<StatFs, LxError> {
+        self.content.filesystem()?.statfs()
+    }
+
     /// Returns the original path of this VFD, if any.
     pub fn orig_path(&self) -> Option<&[u8]> {
         self.orig_path.get().map(|x| &**x)
@@ -292,6 +296,10 @@ pub trait VfdContent: Stream + Send + Sync {
     }
 
     fn utimens(&self, _times: [Timespec; 2]) -> Result<(), LxError> {
+        Err(LxError::EOPNOTSUPP)
+    }
+
+    fn filesystem(&self) -> Result<Arc<dyn Filesystem>, LxError> {
         Err(LxError::EOPNOTSUPP)
     }
 }
