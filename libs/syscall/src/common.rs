@@ -1430,6 +1430,17 @@ pub unsafe fn sys_setpgid(pid: i32, pgid: i32) -> Result<(), LxError> {
 }
 
 #[syscall]
+pub unsafe fn sys_setsid() -> Result<i32, LxError> {
+    // FIXME: This is not converting the native/linux PID.
+    unsafe {
+        match libc::setsid() {
+            -1 => Err(LxError::last_apple_error()),
+            n => Ok(n),
+        }
+    }
+}
+
+#[syscall]
 pub unsafe fn sys_getppid() -> c_int {
     rtenv::process::ppid()
 }
@@ -1606,13 +1617,22 @@ pub unsafe fn sys_sched_setaffinity(
 // -== Multi-user Support ==-
 
 #[syscall]
-pub unsafe fn sys_setuid(uid: u32) -> Result<(), LxError> {
-    rtenv::security::setuid(uid)
-}
-
-#[syscall]
-pub unsafe fn sys_setgid(gid: u32) -> Result<(), LxError> {
-    rtenv::security::setgid(gid)
+pub unsafe fn sys_getresuid(
+    ruid: Option<NonNull<u32>>,
+    euid: Option<NonNull<u32>>,
+    suid: Option<NonNull<u32>>,
+) {
+    unsafe {
+        if let Some(ruid) = ruid {
+            ruid.write(rtenv::security::uid());
+        }
+        if let Some(euid) = euid {
+            euid.write(rtenv::security::euid());
+        }
+        if let Some(suid) = suid {
+            suid.write(rtenv::security::suid());
+        }
+    }
 }
 
 #[syscall]
@@ -1621,18 +1641,57 @@ pub unsafe fn sys_getuid() -> u32 {
 }
 
 #[syscall]
-pub unsafe fn sys_getgid() -> u32 {
-    rtenv::security::gid()
-}
-
-#[syscall]
 pub unsafe fn sys_geteuid() -> u32 {
     rtenv::security::euid()
 }
 
 #[syscall]
+pub unsafe fn sys_setuid(uid: u32) -> Result<(), LxError> {
+    rtenv::security::setuid(uid)
+}
+
+#[syscall]
+pub unsafe fn sys_setfsuid(uid: u32) -> Result<(), LxError> {
+    rtenv::security::setfsuid(uid)
+}
+
+#[syscall]
+pub unsafe fn sys_getresgid(
+    rgid: Option<NonNull<u32>>,
+    egid: Option<NonNull<u32>>,
+    sgid: Option<NonNull<u32>>,
+) {
+    unsafe {
+        if let Some(rgid) = rgid {
+            rgid.write(rtenv::security::gid());
+        }
+        if let Some(egid) = egid {
+            egid.write(rtenv::security::egid());
+        }
+        if let Some(sgid) = sgid {
+            sgid.write(rtenv::security::sgid());
+        }
+    }
+}
+
+#[syscall]
+pub unsafe fn sys_getgid() -> u32 {
+    rtenv::security::gid()
+}
+
+#[syscall]
 pub unsafe fn sys_getegid() -> u32 {
     rtenv::security::egid()
+}
+
+#[syscall]
+pub unsafe fn sys_setgid(gid: u32) -> Result<(), LxError> {
+    rtenv::security::setgid(gid)
+}
+
+#[syscall]
+pub unsafe fn sys_setfsgid(gid: u32) -> Result<(), LxError> {
+    rtenv::security::setfsgid(gid)
 }
 
 #[syscall]

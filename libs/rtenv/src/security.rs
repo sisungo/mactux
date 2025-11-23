@@ -5,24 +5,42 @@ pub fn uid() -> c_uint {
     unsafe { libc::getuid() }
 }
 
-pub fn gid() -> c_uint {
-    unsafe { libc::getgid() }
+pub fn euid() -> c_uint {
+    unsafe { libc::geteuid() }
+}
+
+pub fn suid() -> c_uint {
+    // FIXME: macOS doesn't support this suid?
+    unsafe { libc::getuid() }
 }
 
 pub fn setuid(_uid: c_uint) -> Result<(), LxError> {
     Err(LxError::EPERM)
 }
 
-pub fn setgid(_gid: c_uint) -> Result<(), LxError> {
+pub fn setfsuid(_uid: c_uint) -> Result<(), LxError> {
     Err(LxError::EPERM)
 }
 
-pub fn euid() -> c_uint {
-    unsafe { libc::geteuid() }
+pub fn gid() -> c_uint {
+    unsafe { libc::getgid() }
 }
 
 pub fn egid() -> c_uint {
     unsafe { libc::getegid() }
+}
+
+pub fn sgid() -> c_uint {
+    // FIXME: macOS doesn't support this suid?
+    unsafe { libc::getgid() }
+}
+
+pub fn setgid(_gid: c_uint) -> Result<(), LxError> {
+    Err(LxError::EPERM)
+}
+
+pub fn setfsgid(_gid: c_uint) -> Result<(), LxError> {
+    Err(LxError::EPERM)
 }
 
 pub fn groups() -> Vec<c_uint> {

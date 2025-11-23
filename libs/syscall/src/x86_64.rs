@@ -186,18 +186,18 @@ const SYSTEM_CALL_HANDLERS: &[SystemCallHandler] = &[
     sys_setpgid,           // 109
     sys_getppid,           // 110
     sys_getpgrp,           // 111
-    sys_invalid,           // 112
+    sys_setsid,            // 112
     sys_invalid,           // 113
     sys_invalid,           // 114
     sys_getgroups,         // 115
     sys_invalid,           // 116
     sys_invalid,           // 117
-    sys_invalid,           // 118
+    sys_getresuid,         // 118
     sys_invalid,           // 119
-    sys_invalid,           // 120
+    sys_getresgid,         // 120
     sys_getpgid,           // 121
-    sys_invalid,           // 122
-    sys_invalid,           // 123
+    sys_setfsuid,          // 122
+    sys_setfsgid,          // 123
     sys_invalid,           // 124
     sys_invalid,           // 125
     sys_invalid,           // 126
