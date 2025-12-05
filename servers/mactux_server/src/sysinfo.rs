@@ -1,7 +1,10 @@
 //! UTS and system information.
 
 use crate::{app, util::sysctl_read};
-use libc::host_statistics64;
+use libc::{
+    host_cpu_load_info_data_t, host_processor_info, host_statistics, host_statistics64,
+    processor_cpu_load_info_data_t, processor_info_array_t,
+};
 use mach2::{
     mach_init::mach_host_self, mach_port::mach_port_deallocate,
     vm_statistics::vm_statistics64_data_t,
@@ -101,11 +104,13 @@ impl UtsNamespace for CustomUts {
 /// Retrieves [`SysInfo`] information.
 pub fn sysinfo() -> Result<SysInfo, LxError> {
     let mem_info = MemInfo::acquire()?;
-    let boottime = boottime()?;
+    let boottime = boot_time()?;
+    let loads = loadavg()?;
+    let loads = [loads[0] as _, loads[1] as _, loads[2] as _];
 
     Ok(SysInfo {
         uptime: Timespec::now().tv_sec - boottime.tv_sec,
-        loads: [0; 3],
+        loads,
         totalram: mem_info.total_ram as _,
         freeram: mem_info.free_ram() as _,
         sharedram: 0,
@@ -165,6 +170,64 @@ pub const fn page_size() -> usize {
     }
 }
 
+/// Retrieves the system boot time.
+pub fn boot_time() -> Result<libc::timeval, LxError> {
+    unsafe { sysctl_read([libc::CTL_KERN, libc::KERN_BOOTTIME]) }
+}
+
+/// Retrieves system load average.
+pub fn loadavg() -> Result<[f64; 3], LxError> {
+    let mut result = [0.; 3];
+    unsafe {
+        if libc::getloadavg(result.as_mut_ptr(), 3) == -1 {
+            return Err(LxError::last_apple_error());
+        }
+    }
+    Ok(result)
+}
+
+/// Retrieves Mach CPU statistics.
+pub fn mach_host_cpu_load_info() -> Result<host_cpu_load_info_data_t, LxError> {
+    unsafe {
+        let mut cpu_load_info: host_cpu_load_info_data_t = std::mem::zeroed();
+        let mut cnt = libc::HOST_CPU_LOAD_INFO_COUNT;
+        let host = mach_host_self();
+        let status = host_statistics(
+            host,
+            libc::HOST_CPU_LOAD_INFO,
+            (&raw mut cpu_load_info).cast(),
+            &mut cnt,
+        );
+        mach_port_deallocate(mach2::traps::mach_task_self(), host);
+        match status {
+            libc::KERN_SUCCESS => Ok(cpu_load_info),
+            _ => Err(LxError::EPERM),
+        }
+    }
+}
+
+/// Retrieves Mach CPU statistics.
+pub fn mach_cpu_core_load_info() -> Result<processor_info_array_t, LxError> {
+    unsafe {
+        let mut proc_cnt = 0;
+        let mut info_cnt = 0;
+        let mut result: processor_info_array_t = std::mem::zeroed();
+        let host = mach_host_self();
+        let status = host_processor_info(
+            host,
+            libc::PROCESSOR_CPU_LOAD_INFO,
+            &mut proc_cnt,
+            (&raw mut result).cast(),
+            &mut info_cnt,
+        );
+        mach_port_deallocate(mach2::traps::mach_task_self(), host);
+        match status {
+            libc::KERN_SUCCESS => Ok(result),
+            _ => Err(LxError::EPERM),
+        }
+    }
+}
+
 /// Retrieves Mach VM statistics.
 fn mach_host_vm_info() -> Result<vm_statistics64_data_t, LxError> {
     unsafe {
@@ -188,11 +251,6 @@ fn mach_host_vm_info() -> Result<vm_statistics64_data_t, LxError> {
 /// Retrieves swap usage information.
 fn swap_usage() -> Result<libc::xsw_usage, LxError> {
     unsafe { sysctl_read([libc::CTL_VM, libc::VM_SWAPUSAGE]) }
-}
-
-/// Retrieves the system boot time.
-fn boottime() -> Result<libc::timeval, LxError> {
-    unsafe { sysctl_read([libc::CTL_KERN, libc::KERN_BOOTTIME]) }
 }
 
 /// Retrieves swap usage information.

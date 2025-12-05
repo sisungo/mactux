@@ -76,6 +76,10 @@ pub fn cmdline(apple_pid: libc::pid_t) -> impl Fn() -> Result<Vec<u8>, LxError> 
     }
 }
 
+pub fn environ(_apple_pid: libc::pid_t) -> impl Fn() -> Result<Vec<u8>, LxError> + Clone {
+    move || Ok(vec![])
+}
+
 pub fn stat(apple_pid: libc::pid_t) -> impl Fn() -> Result<Vec<u8>, LxError> + Clone {
     move || {
         let pid = apple_pid;
@@ -121,7 +125,27 @@ pub fn stat(apple_pid: libc::pid_t) -> impl Fn() -> Result<Vec<u8>, LxError> + C
         write!(&mut s, "0 0 0 0 0 ").unwrap();
         write!(&mut s, "0 0 0 0 ").unwrap();
         write!(&mut s, "0 0 0 ").unwrap();
-        write!(&mut s, "17 0 0 0 0 0 0 0 0 0").unwrap();
+        writeln!(&mut s, "17 0 0 0 0 0 0 0 0 0").unwrap();
+
+        Ok(s)
+    }
+}
+
+pub fn statm(apple_pid: libc::pid_t) -> impl Fn() -> Result<Vec<u8>, LxError> + Clone {
+    move || {
+        let mut s = Vec::with_capacity(64);
+
+        let task_info = libproc::proc_pid::pidinfo::<TaskInfo>(apple_pid, apple_pid as _)
+            .map_err(|_| LxError::EPERM)?;
+
+        let size = task_info.pti_virtual_size / 4096;
+        let resident = task_info.pti_resident_size / 4096;
+        let shared = 0;
+        let text = 0;
+        let data = 0;
+
+        writeln!(&mut s, "{size} {resident} {shared} {text} 0 {data} 0").unwrap();
+
         Ok(s)
     }
 }

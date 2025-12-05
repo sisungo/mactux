@@ -192,6 +192,94 @@ impl Display for Meminfo {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct ProcStat {
+    pub cpu: Vec<ProcStatCpu>,
+    pub paged: usize,
+    pub paged_out: usize,
+    pub swap_in: usize,
+    pub swap_out: usize,
+    pub intr: usize,
+    pub ctxt: usize,
+    pub btime: i64,
+    pub processes: u64,
+    pub procs_running: u32,
+    pub procs_blocked: u32,
+}
+impl Display for ProcStat {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for cpu in self.cpu.iter() {
+            cpu.fmt(f)?;
+        }
+        writeln!(f, "page {} {}", self.paged, self.paged_out)?;
+        writeln!(f, "swap {} {}", self.swap_in, self.swap_out)?;
+        writeln!(f, "intr {}", self.intr)?;
+        writeln!(f, "ctxt {}", self.ctxt)?;
+        writeln!(f, "btime {}", self.btime)?;
+        writeln!(f, "processes {}", self.processes)?;
+        writeln!(f, "procs_running {}", self.procs_running)?;
+        writeln!(f, "procs_blocked {}", self.procs_blocked)?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ProcStatCpu {
+    pub cpu_id: Option<usize>,
+    pub user: u32,
+    pub nice: u32,
+    pub system: u32,
+    pub idle: u32,
+    pub iowait: u32,
+    pub irq: u32,
+    pub softirq: u32,
+    pub steal: u32,
+    pub guest: u32,
+    pub guest_nice: u32,
+}
+impl Display for ProcStatCpu {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let cpu_id = self.cpu_id.map(|x| x.to_string()).unwrap_or_default();
+        writeln!(
+            f,
+            "cpu{} {} {} {} {} {} {} {} {} {} {}",
+            cpu_id,
+            self.user,
+            self.nice,
+            self.system,
+            self.idle,
+            self.iowait,
+            self.irq,
+            self.softirq,
+            self.steal,
+            self.guest,
+            self.guest_nice
+        )
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ProcLoadavg {
+    pub loadavg: [f64; 3],
+    pub proc_running: u32,
+    pub proc_total: u32,
+    pub last_pid_running: i32,
+}
+impl Display for ProcLoadavg {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(
+            f,
+            "{} {} {} {}/{} {}",
+            self.loadavg[0],
+            self.loadavg[1],
+            self.loadavg[2],
+            self.proc_running,
+            self.proc_total,
+            self.last_pid_running
+        )
+    }
+}
+
 /// An error while parsing a data structure.
 #[derive(Debug, Clone)]
 pub struct ParseError;

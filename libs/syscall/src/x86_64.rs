@@ -199,8 +199,8 @@ const SYSTEM_CALL_HANDLERS: &[SystemCallHandler] = &[
     sys_setfsuid,          // 122
     sys_setfsgid,          // 123
     sys_invalid,           // 124
-    sys_invalid,           // 125
-    sys_invalid,           // 126
+    sys_capget,            // 125
+    sys_capset,            // 126
     sys_invalid,           // 127
     sys_invalid,           // 128
     sys_invalid,           // 129

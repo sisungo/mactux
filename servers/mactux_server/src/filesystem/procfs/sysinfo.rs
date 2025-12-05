@@ -1,6 +1,13 @@
-use crate::{app, sysinfo::page_size};
-use std::io::Write;
-use structures::{error::LxError, files::Meminfo};
+use crate::{
+    app,
+    sysinfo::{boot_time, mach_cpu_core_load_info, mach_host_cpu_load_info, page_size},
+    task::thread::Thread,
+    util::Shared,
+};
+use structures::{
+    error::LxError,
+    files::{Meminfo, ProcLoadavg, ProcStat, ProcStatCpu},
+};
 
 pub fn meminfo() -> Result<Vec<u8>, LxError> {
     let apple = crate::sysinfo::MemInfo::acquire()?;
@@ -67,7 +74,13 @@ pub fn uptime() -> Result<Vec<u8>, LxError> {
 }
 
 pub fn loadavg() -> Result<Vec<u8>, LxError> {
-    Err(LxError::EINVAL)
+    let loadavg = ProcLoadavg {
+        loadavg: crate::sysinfo::loadavg()?,
+        proc_running: 0,
+        proc_total: 0,
+        last_pid_running: Shared::id(&Thread::current().process()) as _,
+    };
+    Ok(loadavg.to_string().into_bytes())
 }
 
 pub fn cpuinfo() -> Result<Vec<u8>, LxError> {
@@ -75,23 +88,23 @@ pub fn cpuinfo() -> Result<Vec<u8>, LxError> {
 }
 
 pub fn stat() -> Result<Vec<u8>, LxError> {
-    let mut s = Vec::new();
-
-    let user = 0;
-    let nice = 0;
-    let system = 0;
-    let idle = 0;
-    let iowait = 0;
-    let irq = 0;
-    let softirq = 0;
-
-    writeln!(
-        &mut s,
-        "cpu {user} {nice} {system} {idle} {iowait} {irq} {softirq}"
-    )
-    .unwrap();
-
-    Ok(s)
+    let cpu_overall = stat_cpu_overall()?;
+    let mut cpu = vec![cpu_overall];
+    cpu.append(&mut stat_cpu_cores()?);
+    let stat = ProcStat {
+        cpu,
+        paged: 0,
+        paged_out: 0,
+        swap_in: 0,
+        swap_out: 0,
+        intr: 0,
+        ctxt: 0,
+        btime: boot_time()?.tv_sec,
+        processes: 0,
+        procs_running: 0,
+        procs_blocked: 0,
+    };
+    Ok(stat.to_string().into_bytes())
 }
 
 pub fn cmdline() -> Result<Vec<u8>, LxError> {
@@ -106,4 +119,43 @@ pub fn cmdline() -> Result<Vec<u8>, LxError> {
 
 pub fn filesystems() -> Result<Vec<u8>, LxError> {
     Ok(app().filesystems.list().into_bytes())
+}
+
+fn stat_cpu_overall() -> Result<ProcStatCpu, LxError> {
+    Ok(stat_cpu_from_mach(
+        None,
+        mach_host_cpu_load_info()?.cpu_ticks,
+    ))
+}
+
+fn stat_cpu_cores() -> Result<Vec<ProcStatCpu>, LxError> {
+    let ncpu: usize = std::thread::available_parallelism()?.into();
+    let mach = mach_cpu_core_load_info()?.cast::<[u32; libc::CPU_STATE_MAX as _]>();
+    let mut result = Vec::with_capacity(ncpu);
+    unsafe {
+        let slice = std::slice::from_raw_parts(mach, ncpu);
+        for (n, ticks) in slice.iter().enumerate() {
+            result.push(stat_cpu_from_mach(Some(n), *ticks));
+        }
+    }
+    Ok(result)
+}
+
+fn stat_cpu_from_mach(
+    cpu_id: Option<usize>,
+    ticks: [u32; libc::CPU_STATE_MAX as _],
+) -> ProcStatCpu {
+    ProcStatCpu {
+        cpu_id,
+        user: ticks[libc::CPU_STATE_USER as usize],
+        nice: ticks[libc::CPU_STATE_NICE as usize],
+        system: ticks[libc::CPU_STATE_SYSTEM as usize],
+        idle: ticks[libc::CPU_STATE_IDLE as usize],
+        iowait: 0,
+        irq: 0,
+        softirq: 0,
+        steal: 0,
+        guest: 0,
+        guest_nice: 0,
+    }
 }

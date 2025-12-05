@@ -1709,6 +1709,16 @@ pub unsafe fn sys_getgroups(len: c_int, list: *mut u32) -> Result<u32, LxError> 
     Ok(groups.len() as _)
 }
 
+#[syscall]
+pub unsafe fn sys_capget() -> Result<(), LxError> {
+    Ok(())
+}
+
+#[syscall]
+pub unsafe fn sys_capset() -> Result<(), LxError> {
+    Ok(())
+}
+
 // -== Program Debugging ==-
 
 #[syscall]

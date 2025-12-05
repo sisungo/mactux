@@ -48,33 +48,7 @@ pub fn new() -> Result<Arc<Tmpfs>, LxError> {
 
 pub fn add_proc(tmpfs: &Tmpfs, apple_pid: libc::pid_t, linux_pid: i32) -> Result<(), LxError> {
     create_dir(tmpfs, &format!("/{linux_pid}"), 0o777)?;
-
-    create_dynfile_ro(
-        tmpfs,
-        &format!("/{linux_pid}/cmdline"),
-        pid::cmdline(apple_pid),
-        0o444,
-    )?;
-    create_dynfile_ro(
-        tmpfs,
-        &format!("/{linux_pid}/comm"),
-        pid::comm(apple_pid),
-        0o444,
-    )?;
-    create_dynfile_ro(
-        tmpfs,
-        &format!("/{linux_pid}/stat"),
-        pid::stat(apple_pid),
-        0o444,
-    )?;
-    create_dynfile_ro(
-        tmpfs,
-        &format!("/{linux_pid}/mounts"),
-        pid::mounts(apple_pid),
-        0o444,
-    )?;
-
-    create_dir(tmpfs, &format!("/{linux_pid}/task"), 0o777)?;
+    fill_proc_or_thread(tmpfs, apple_pid, &format!("/{linux_pid}"), false)?;
 
     Ok(())
 }
@@ -89,7 +63,9 @@ pub fn add_thread(
     native_tid: libc::pid_t,
 ) -> Result<(), LxError> {
     let (linux_pid, linux_tid) = thread_linux_ids(ns, native_tid)?;
-    create_dir(tmpfs, &format!("/{linux_pid}/task/{linux_tid}"), 0o777)?;
+    let path = format!("/{linux_pid}/task/{linux_tid}");
+    create_dir(tmpfs, &path, 0o777)?;
+    fill_proc_or_thread(tmpfs, native_tid, &path, true)?;
     Ok(())
 }
 
@@ -113,6 +89,56 @@ impl MakeFilesystem for MakeProcfs {
     fn is_nodev(&self) -> bool {
         true
     }
+}
+
+fn fill_proc_or_thread(
+    tmpfs: &Tmpfs,
+    native_pid: i32,
+    relpath: &str,
+    thread: bool,
+) -> Result<(), LxError> {
+    create_dynfile_ro(
+        tmpfs,
+        &format!("{relpath}/cmdline"),
+        pid::cmdline(native_pid),
+        0o444,
+    )?;
+    create_dynfile_ro(
+        tmpfs,
+        &format!("{relpath}/comm"),
+        pid::comm(native_pid),
+        0o444,
+    )?;
+    create_dynfile_ro(
+        tmpfs,
+        &format!("{relpath}/stat"),
+        pid::stat(native_pid),
+        0o444,
+    )?;
+    create_dynfile_ro(
+        tmpfs,
+        &format!("{relpath}/mounts"),
+        pid::mounts(native_pid),
+        0o444,
+    )?;
+    create_dynfile_ro(
+        tmpfs,
+        &format!("{relpath}/environ"),
+        pid::environ(native_pid),
+        0o444,
+    )?;
+    create_dynfile_ro(
+        tmpfs,
+        &format!("{relpath}/statm"),
+        pid::statm(native_pid),
+        0o444,
+    )?;
+
+    if !thread {
+        create_dir(tmpfs, &format!("{relpath}/task"), 0o777)?;
+    }
+
+    Ok(())
 }
 
 fn create_dynfile_ro<R>(tmpfs: &Tmpfs, path: &str, rdf: R, permbits: u16) -> Result<(), LxError>
