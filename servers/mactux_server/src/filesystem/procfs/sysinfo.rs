@@ -1,12 +1,18 @@
 use crate::{
     app,
-    sysinfo::{boot_time, mach_cpu_core_load_info, mach_host_cpu_load_info, page_size},
+    sysinfo::{
+        boot_time, cpu_model_name, mach_cpu_core_load_info, mach_host_cpu_load_info, page_size,
+    },
     task::thread::Thread,
     util::Shared,
 };
+use std::{
+    sync::atomic::{self, AtomicU64},
+    time::{Duration, Instant},
+};
 use structures::{
     error::LxError,
-    files::{Meminfo, ProcLoadavg, ProcStat, ProcStatCpu},
+    files::{Meminfo, ProcCpuinfo, ProcLoadavg, ProcStat, ProcStatCpu, X86ProcCpuinfoEntry},
 };
 
 pub fn meminfo() -> Result<Vec<u8>, LxError> {
@@ -84,7 +90,40 @@ pub fn loadavg() -> Result<Vec<u8>, LxError> {
 }
 
 pub fn cpuinfo() -> Result<Vec<u8>, LxError> {
-    Err(LxError::EINVAL)
+    let ncpu: usize = std::thread::available_parallelism()?.into();
+    let mut cores = Vec::with_capacity(ncpu);
+    for processor in 0..ncpu {
+        cores.push(X86ProcCpuinfoEntry {
+            processor,
+            vendor_id: cpuinfo_vendor_id(),
+            cpu_family: 6,
+            model: 0,
+            model_name: cpu_model_name()?,
+            stepping: 1,
+            microcode: 0,
+            cpu_mhz: 0.,
+            cache_size_kb: cache_size_bytes()? as usize / 1024,
+            physical_id: processor,
+            siblings: ncpu,
+            core_id: processor,
+            cpu_cores: ncpu,
+            apicid: processor,
+            initial_apicid: 0,
+            fpu: true,
+            fpu_exception: true,
+            cpuid_level: 0,
+            wp: false,
+            flags: rosetta2_flags(),
+            vmx_flags: vec![],
+            bugs: vec![],
+            bogomips: bogo_mips(),
+            cflush_size: 0,
+            cache_alignment: 0,
+            address_sizes: (46, 48),
+            power_management: "".into(),
+        });
+    }
+    Ok(ProcCpuinfo(cores).to_string().into_bytes())
 }
 
 pub fn stat() -> Result<Vec<u8>, LxError> {
@@ -158,4 +197,52 @@ fn stat_cpu_from_mach(
         guest: 0,
         guest_nice: 0,
     }
+}
+
+fn cpuinfo_vendor_id() -> String {
+    #[cfg(target_arch = "x86_64")]
+    {
+        "GenuineIntel".into()
+    }
+
+    #[cfg(target_arch = "aarch64")]
+    {
+        "AppleSilicon".into()
+    }
+}
+
+fn bogo_mips() -> f64 {
+    static SAVED_VALUE: AtomicU64 = AtomicU64::new((-1f64).to_bits());
+
+    let saved_value = f64::from_bits(SAVED_VALUE.load(atomic::Ordering::Relaxed));
+    if saved_value != -1. {
+        return saved_value;
+    }
+    let now = Instant::now();
+    let mut loops_per_100ms = 0;
+    loop {
+        if now.elapsed() >= Duration::from_millis(100) {
+            break;
+        }
+        loops_per_100ms += 1;
+    }
+    let bogo_mips = loops_per_100ms as f64 * 10. / 500000.;
+    SAVED_VALUE.store(bogo_mips.to_bits(), atomic::Ordering::Relaxed);
+    bogo_mips
+}
+
+fn cache_size_bytes() -> Result<i64, LxError> {
+    #[cfg(target_arch = "x86_64")]
+    unsafe {
+        crate::util::sysctl_read([libc::CTL_HW, libc::HW_L3CACHESIZE])
+    }
+
+    #[cfg(target_arch = "aarch64")]
+    unsafe {
+        crate::util::sysctl_read([libc::CTL_HW, libc::HW_L2CACHESIZE])
+    }
+}
+
+fn rosetta2_flags() -> Vec<&'static str> {
+    vec!["fpu", "lm", "avx2", "aes", "sse4_2"]
 }

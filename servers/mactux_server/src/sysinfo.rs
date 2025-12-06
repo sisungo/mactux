@@ -3,7 +3,7 @@
 use crate::{app, util::sysctl_read};
 use libc::{
     host_cpu_load_info_data_t, host_processor_info, host_statistics, host_statistics64,
-    processor_cpu_load_info_data_t, processor_info_array_t,
+    processor_info_array_t,
 };
 use mach2::{
     mach_init::mach_host_self, mach_port::mach_port_deallocate,
@@ -226,6 +226,33 @@ pub fn mach_cpu_core_load_info() -> Result<processor_info_array_t, LxError> {
             _ => Err(LxError::EPERM),
         }
     }
+}
+
+/// Retrieves swap usage information.
+pub fn cpu_model_name() -> Result<String, LxError> {
+    let mut buf = Vec::new();
+    let mut len = buf.len();
+    unsafe {
+        libc::sysctlbyname(
+            c"machdep.cpu.brand_string".as_ptr(),
+            std::ptr::null_mut(),
+            &mut len,
+            std::ptr::null_mut(),
+            0,
+        );
+        buf.resize(len, 0);
+        if libc::sysctlbyname(
+            c"machdep.cpu.brand_string".as_ptr(),
+            buf.as_mut_ptr().cast(),
+            &mut len,
+            std::ptr::null_mut(),
+            0,
+        ) == -1
+        {
+            return Err(LxError::last_apple_error());
+        }
+    };
+    Ok(String::from_utf8_lossy(&buf).to_string())
 }
 
 /// Retrieves Mach VM statistics.

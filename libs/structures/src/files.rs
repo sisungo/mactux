@@ -280,6 +280,88 @@ impl Display for ProcLoadavg {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct ProcCpuinfo<T>(pub Vec<T>);
+impl<T: Display> Display for ProcCpuinfo<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for i in self.0.iter() {
+            writeln!(f, "{i}")?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct X86ProcCpuinfoEntry {
+    pub processor: usize,
+    pub vendor_id: String,
+    pub cpu_family: u32,
+    pub model: u32,
+    pub model_name: String,
+    pub stepping: u32,
+    pub microcode: u32,
+    pub cpu_mhz: f64,
+    pub cache_size_kb: usize,
+    pub physical_id: usize,
+    pub siblings: usize,
+    pub core_id: usize,
+    pub cpu_cores: usize,
+    pub apicid: usize,
+    pub initial_apicid: usize,
+    pub fpu: bool,
+    pub fpu_exception: bool,
+    pub cpuid_level: u32,
+    pub wp: bool,
+    pub flags: Vec<&'static str>,
+    pub vmx_flags: Vec<&'static str>,
+    pub bugs: Vec<&'static str>,
+    pub bogomips: f64,
+    pub cflush_size: u64,
+    pub cache_alignment: u64,
+    pub address_sizes: (u8, u8),
+    pub power_management: String,
+}
+impl Display for X86ProcCpuinfoEntry {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let bool_yesno = |x| if x { "yes" } else { "no" };
+        writeln!(f, "processor: {}", self.processor)?;
+        writeln!(f, "vendor_id: {}", self.vendor_id)?;
+        writeln!(f, "cpu family: {}", self.cpu_family)?;
+        writeln!(f, "model: {}", self.model)?;
+        writeln!(f, "model name: {}", self.model_name)?;
+        writeln!(f, "stepping: {}", self.stepping)?;
+        writeln!(f, "microcode: 0x{:x}", self.microcode)?;
+        writeln!(f, "cpu MHz: {}", self.cpu_mhz)?;
+        writeln!(f, "cache size: {} kB", self.cache_size_kb)?;
+        writeln!(f, "physical id: {}", self.physical_id)?;
+        writeln!(f, "siblings: {}", self.siblings)?;
+        writeln!(f, "core id: {}", self.core_id)?;
+        writeln!(f, "cpu cores: {}", self.cpu_cores)?;
+        writeln!(f, "apicid: {}", self.apicid)?;
+        writeln!(f, "initial apicid: {}", self.initial_apicid)?;
+        writeln!(f, "fpu: {}", bool_yesno(self.fpu))?;
+        writeln!(f, "fpu_exception: {}", bool_yesno(self.fpu_exception))?;
+        writeln!(f, "cpuid level: {}", self.cpuid_level)?;
+        writeln!(f, "wp: {}", bool_yesno(self.wp))?;
+        write!(f, "flags: ")?;
+        fmt_vec_space_split(f, &self.flags)?;
+        write!(f, "vmx flags: ")?;
+        fmt_vec_space_split(f, &self.vmx_flags)?;
+        write!(f, "bugs: ")?;
+        fmt_vec_space_split(f, &self.bugs)?;
+        writeln!(f, "bogomips: {}", self.bogomips)?;
+        writeln!(f, "cflush size: {}", self.cflush_size)?;
+        writeln!(f, "cache_alignment: {}", self.cache_alignment)?;
+        writeln!(
+            f,
+            "address sizes: {} bits physical, {} bits virtual",
+            self.address_sizes.0, self.address_sizes.1
+        )?;
+        writeln!(f, "power management: {}", self.power_management)?;
+        Ok(())
+    }
+}
+
 /// An error while parsing a data structure.
 #[derive(Debug, Clone)]
 pub struct ParseError;
@@ -289,3 +371,11 @@ impl Display for ParseError {
     }
 }
 impl std::error::Error for ParseError {}
+
+fn fmt_vec_space_split<T: Display>(f: &mut std::fmt::Formatter<'_>, v: &[T]) -> std::fmt::Result {
+    for i in v {
+        write!(f, "{i} ")?;
+    }
+    writeln!(f)?;
+    Ok(())
+}
