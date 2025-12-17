@@ -46,9 +46,12 @@ pub struct Tmpfs {
 impl Tmpfs {
     /// Creates a new [`Tmpfs`] instance.
     pub fn new() -> Result<Arc<Self>, LxError> {
+        let metadata = Arc::new(Metadata::new());
+        let vminor = (&raw const *metadata) as u32;
+        metadata.vminor.store(vminor, atomic::Ordering::Relaxed);
         Ok(Arc::new(Self {
             root: Arc::new(Dir {
-                metadata: Arc::new(Metadata::new()),
+                metadata,
                 children: DashMap::default(),
             }),
             fs_magic: AtomicCell::new(FsMagic::TMPFS_MAGIC),
@@ -139,12 +142,10 @@ impl Filesystem for Tmpfs {
                 if how.flags().contains(OpenFlags::O_DIRECTORY) || path.relative.slash_suffix {
                     return Err(LxError::ENOTDIR);
                 }
-                let metadata = Metadata::new();
-                metadata
-                    .permbits
-                    .store(how.mode().0, atomic::Ordering::Relaxed);
+                let mut mode = how.mode();
+                mode.set_file_type(FileType::RegularFile);
                 let file = Arc::new(Reg {
-                    metadata,
+                    metadata: dir.metadata.fork(mode),
                     buf: RegBuf::new(),
                 });
                 dir.children.insert(
@@ -200,18 +201,15 @@ impl Filesystem for Tmpfs {
         }
     }
 
-    fn mkdir(&self, path: LPath, mode: FileMode) -> Result<(), LxError> {
+    fn mkdir(&self, path: LPath, mut mode: FileMode) -> Result<(), LxError> {
         match self.locate(path.clone())? {
             Location::Direct(_, Some(_)) => Err(LxError::EEXIST),
             Location::Direct(dir, None) => {
+                mode.set_file_type(FileType::Directory);
                 let child = Dir {
-                    metadata: Arc::new(Metadata::new()),
+                    metadata: dir.metadata.fork(mode),
                     children: DashMap::new(),
                 };
-                child
-                    .metadata
-                    .permbits
-                    .store(mode.permbits(), atomic::Ordering::Relaxed);
                 dir.children.insert(
                     path.relative.parts.last().ok_or(LxError::EEXIST)?.clone(),
                     Node::Dir(Arc::new(child)),
@@ -297,10 +295,7 @@ impl Filesystem for Tmpfs {
         match self.locate(path.clone())? {
             Location::Direct(_, Some(_)) => Err(LxError::EEXIST),
             Location::Direct(dir, None) => {
-                let metadata = Arc::new(Metadata::new());
-                metadata
-                    .permbits
-                    .store(mode.permbits(), atomic::Ordering::Relaxed);
+                let metadata = dir.metadata.fork(mode);
                 let child = match mode.file_type() {
                     FileType::BlockDevice | FileType::CharDevice => Arc::new(Dev {
                         metadata,
@@ -328,9 +323,9 @@ impl Filesystem for Tmpfs {
             f_bavail: 0,
             f_files: 0,
             f_ffree: 0,
-            f_fsid: [0; _],
-            f_namelen: 0,
-            f_frsize: 0,
+            f_fsid: crate::util::fsid(self),
+            f_namelen: 255,
+            f_frsize: BLOCK_SIZE as _,
             f_flags: StatFsFlags::empty(),
             f_spare: [0; _],
         })
@@ -613,7 +608,7 @@ impl VfdContent for DirFd {
 
 #[derive(Debug)]
 struct Reg {
-    metadata: Metadata,
+    metadata: Arc<Metadata>,
     buf: RegBuf,
 }
 impl File for Reg {
@@ -896,6 +891,7 @@ pub struct Metadata {
     btime: RwLock<Timespec>,
     ctime: RwLock<Timespec>,
     mtime: RwLock<Timespec>,
+    vminor: AtomicU32,
 }
 impl Metadata {
     fn new() -> Self {
@@ -908,6 +904,7 @@ impl Metadata {
             btime: RwLock::new(Timespec::now()),
             ctime: RwLock::new(Timespec::now()),
             mtime: RwLock::new(Timespec::now()),
+            vminor: AtomicU32::new(0),
         }
     }
 
@@ -943,7 +940,7 @@ impl Metadata {
             stx_rdev_major: 0,
             stx_rdev_minor: 0,
             stx_dev_major: 0,
-            stx_dev_minor: 0,
+            stx_dev_minor: self.vminor.load(atomic::Ordering::Relaxed),
             stx_mnt_id: 0,
             stx_dio_mem_align: BLOCK_SIZE,
             stx_dio_offset_align: BLOCK_SIZE,
@@ -954,19 +951,23 @@ impl Metadata {
             stx_dio_read_offset_align: BLOCK_SIZE,
         }
     }
-}
-impl Clone for Metadata {
-    fn clone(&self) -> Self {
-        Self {
+
+    fn fork(&self, mode: FileMode) -> Arc<Self> {
+        let permbits = match mode.file_type() {
+            FileType::Directory => 0o777,
+            _ => 0o666,
+        };
+        Arc::new(Self {
             xattrs: self.xattrs.clone(),
             uid: AtomicU32::new(self.uid.load(atomic::Ordering::Relaxed)),
             gid: AtomicU32::new(self.gid.load(atomic::Ordering::Relaxed)),
-            permbits: AtomicU16::new(self.permbits.load(atomic::Ordering::Relaxed)),
-            atime: RwLock::new(self.atime.read().unwrap().clone()),
-            btime: RwLock::new(self.btime.read().unwrap().clone()),
-            ctime: RwLock::new(self.ctime.read().unwrap().clone()),
-            mtime: RwLock::new(self.mtime.read().unwrap().clone()),
-        }
+            permbits: AtomicU16::new(permbits),
+            atime: RwLock::new(Timespec::now()),
+            btime: RwLock::new(Timespec::now()),
+            ctime: RwLock::new(Timespec::now()),
+            mtime: RwLock::new(Timespec::now()),
+            vminor: AtomicU32::new(self.vminor.load(atomic::Ordering::Relaxed)),
+        })
     }
 }
 

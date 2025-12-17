@@ -209,3 +209,8 @@ pub fn plain_seek(orig_off: i64, end: i64, whence: Whence, off: i64) -> Result<i
         _ => Err(LxError::EOPNOTSUPP),
     }
 }
+
+pub fn fsid<T>(val: &T) -> [c_int; 2] {
+    let val = val as *const T as usize as u64;
+    unsafe { std::mem::transmute(val) }
+}

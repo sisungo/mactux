@@ -219,7 +219,9 @@ impl Filesystem for NativeFs {
         unsafe {
             let mut apple = Box::new(std::mem::zeroed());
             posix_result(libc::fstatfs(self.base.dirfd, &mut *apple))?;
-            StatFs::from_apple(apple)
+            let mut result = StatFs::from_apple(apple)?;
+            result.f_fsid = crate::util::fsid(self);
+            Ok(result)
         }
     }
 }

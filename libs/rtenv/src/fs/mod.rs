@@ -159,7 +159,7 @@ pub fn renameat2(
     src: Vec<u8>,
     dstdfd: c_int,
     dst: Vec<u8>,
-    flags: u32,
+    _flags: u32,
 ) -> Result<(), LxError> {
     with_client(|client| {
         match client
@@ -182,7 +182,7 @@ pub fn linkat(
     src: Vec<u8>,
     ddfd: c_int,
     dst: Vec<u8>,
-    flags: AtFlags,
+    _flags: AtFlags,
 ) -> Result<(), LxError> {
     let full_src = at_path(sdfd, src)?;
     let full_dst = at_path(ddfd, dst)?;

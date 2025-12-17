@@ -567,6 +567,7 @@ impl FsMagic {
         match self {
             Self::TMPFS_MAGIC => Some("tmpfs"),
             Self::NATIVEFS_MAGIC => Some("nativefs"),
+            Self::PROC_SUPER_MAGIC => Some("proc"),
             _ => None,
         }
     }
