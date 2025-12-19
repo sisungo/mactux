@@ -5,10 +5,11 @@ edition = "2024"
 
 [dependencies]
 arc-swap = "1.7"
-bincode = "2"
 libc = "0.2"
 log = "0.4"
 mach2 = "0.5"
 rustc-hash = "2"
+serde = { version = "1", features = ["derive"] }
 papaya = "0.2"
+postcard = { version = "1", default-features = false, features = ["use-std"] }
 structures = { path = "../structures" }

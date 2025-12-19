@@ -5,7 +5,7 @@ pub mod session;
 
 pub use listener::Listener;
 
-use bincode::{Decode, Encode};
+use serde::{Serialize, de::DeserializeOwned};
 use std::{
     io::{Read, Write},
     os::unix::net::UnixStream,
@@ -17,12 +17,12 @@ pub struct RegChannel(UnixStream);
 impl RegChannel {
     pub fn new(st: UnixStream) -> anyhow::Result<Self> {
         let this = Self(st);
-        let mut handshake_buf = Vec::new();
-        let handshake_req = this.recv::<HandshakeRequest>(&mut handshake_buf)?;
+        let mut buf = Vec::new();
+        let handshake_req = this.recv::<HandshakeRequest>(&mut buf)?;
         if handshake_req != HandshakeRequest::new() {
             return Err(anyhow::anyhow!("invalid handshake request"));
         }
-        this.send(&HandshakeResponse::new())?;
+        this.send(&HandshakeResponse::new(), &mut buf)?;
         Ok(this)
     }
 
@@ -42,14 +42,16 @@ impl RegChannel {
         Ok(())
     }
 
-    pub fn send<T: Encode>(&self, val: &T) -> anyhow::Result<()> {
-        let buf = bincode::encode_to_vec(val, bincode::config::standard())?;
-        self.send_bytes(&buf)
+    pub fn send<T: Serialize>(&self, val: &T, buf: &mut Vec<u8>) -> anyhow::Result<()> {
+        buf.clear();
+        postcard::to_io(val, &mut *buf)?;
+        self.send_bytes(buf)
     }
 
-    pub fn recv<T: Decode<()>>(&self, buf: &mut Vec<u8>) -> anyhow::Result<T> {
+    pub fn recv<T: DeserializeOwned>(&self, buf: &mut Vec<u8>) -> anyhow::Result<T> {
+        buf.clear();
         self.recv_bytes(buf)?;
-        Ok(bincode::decode_from_slice(buf, bincode::config::standard())?.0)
+        Ok(postcard::from_bytes(buf)?)
     }
 
     pub fn peer_pid(&self) -> Option<libc::pid_t> {

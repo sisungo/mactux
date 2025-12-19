@@ -1,8 +1,8 @@
 use crate::error::LxError;
-use bincode::{Decode, Encode};
 use bitflags::bitflags;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Encode, Decode)]
+#[derive(Debug, Clone)]
 #[repr(C)]
 pub struct UtsName {
     pub sysname: [u8; 65],
@@ -25,7 +25,7 @@ pub fn uname_str(s: &[u8]) -> Result<[u8; 65], LxError> {
     Ok(data)
 }
 
-#[derive(Debug, Clone, Encode, Decode)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[repr(C)]
 pub struct SysInfo {
     pub uptime: i64,
@@ -51,14 +51,14 @@ bitflags! {
     }
 }
 
-#[derive(Debug, Clone, Copy, Encode, Decode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(transparent)]
 pub struct SyslogAction(pub u32);
 impl SyslogAction {
     pub const SYSLOG_ACTION_READ_ALL: Self = Self(3);
 }
 
-#[derive(Debug, Clone, Copy, Encode, Decode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(transparent)]
 pub struct LogLevel(pub u32);
 impl LogLevel {

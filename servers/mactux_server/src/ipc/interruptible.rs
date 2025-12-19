@@ -52,20 +52,13 @@ impl InterruptibleSession {
                     .exec()
                     .is_err();
                 if err {
-                    _ = bincode::encode_into_std_write(
-                        Response::Error(LxError::EINVAL),
-                        &mut (&self.stream),
-                        bincode::config::standard(),
-                    );
+                    _ = postcard::to_io(&Response::Error(LxError::EINVAL), &mut (&self.stream));
+                    return;
                 }
                 let Some(resp) = f(poll_token) else {
                     return;
                 };
-                _ = bincode::encode_into_std_write(
-                    resp,
-                    &mut (&self.stream),
-                    bincode::config::standard(),
-                );
+                _ = postcard::to_io(&resp, &mut (&self.stream));
             });
         });
     }

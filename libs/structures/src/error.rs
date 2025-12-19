@@ -1,10 +1,10 @@
 use crate::{FromApple, unixvariants};
-use bincode::{Decode, Encode};
+use serde::{Deserialize, Serialize};
 use std::{ffi::c_int, fmt::Display};
 
 unixvariants! {
     /// A Linux error.
-    #[derive(Encode, Decode)]
+    #[derive(Serialize, Deserialize)]
     pub struct LxError: u32 {
         const EPERM = 1;
         const ENOENT = 2;

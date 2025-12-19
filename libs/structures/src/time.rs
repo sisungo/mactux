@@ -1,7 +1,7 @@
 use crate::{FromApple, ToApple, error::LxError, unixvariants};
-use bincode::{Decode, Encode};
 use bitflags::bitflags;
 use libc::c_int;
+use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
 unixvariants! {
@@ -24,7 +24,7 @@ bitflags! {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Encode, Decode)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[repr(C)]
 pub struct Timespec {
     pub tv_sec: i64,

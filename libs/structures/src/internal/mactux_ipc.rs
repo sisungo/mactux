@@ -8,14 +8,14 @@ use crate::{
     misc::{LogLevel, SysInfo},
     time::Timespec,
 };
-use bincode::{Decode, Encode};
 use libc::c_int;
+use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
 pub const PROTOCOL_VERSION: &str = "9999";
 
 /// A handshake request.
-#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct HandshakeRequest {
     pub magic: [u8; 8],
 }
@@ -35,7 +35,7 @@ impl Default for HandshakeRequest {
 }
 
 /// A handshake response.
-#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct HandshakeResponse {
     pub magic: [u8; 8],
     pub version: String,
@@ -59,7 +59,7 @@ impl Default for HandshakeResponse {
 }
 
 /// An uninterruptible MacTux IPC request.
-#[derive(Debug, Clone, Encode, Decode)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Request {
     SetMntNamespace(u64),
     SetPidNamespace(u64),
@@ -122,13 +122,13 @@ pub enum Request {
 }
 
 /// An interruptible MacTux IPC request.
-#[derive(Debug, Clone, Encode, Decode)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum InterruptibleRequest {
     VfdPoll(Vec<(u64, PollEvents)>, Option<Duration>),
 }
 
 /// A response to a MacTux IPC request.
-#[derive(Debug, Clone, Encode, Decode)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Response {
     Nothing,
     NativePath(Vec<u8>),
@@ -149,14 +149,14 @@ pub enum Response {
     Error(LxError),
 }
 
-#[derive(Debug, Clone, Encode, Decode)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CtrlOutput {
     pub status: c_int,
     pub blob: Vec<u8>,
 }
 
 /// Network names of current UTS namespace.
-#[derive(Debug, Clone, Encode, Decode)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NetworkNames {
     pub nodename: Vec<u8>,
     pub domainname: Vec<u8>,

@@ -57,14 +57,11 @@ impl Client {
 
     /// Forces a handshake message.
     pub fn force_handshake(&self) {
-        let mut buf = bincode::encode_to_vec(HandshakeRequest::new(), bincode::config::standard())
-            .expect("all handshakes should be valid bincode");
+        let mut buf = postcard::to_stdvec(&HandshakeRequest::new())
+            .expect("all handshake requests should be valid postcard");
         self.send(&buf).unwrap();
         self.recv(&mut buf).unwrap();
-        let response: HandshakeResponse =
-            bincode::decode_from_slice(&buf, bincode::config::standard())
-                .expect("forced handshake")
-                .0;
+        let response: HandshakeResponse = postcard::from_bytes(&buf).expect("forced handshake");
         if response != HandshakeResponse::new() {
             panic!(
                 "Server version `{}` does not match client version `{}`",
@@ -97,13 +94,19 @@ impl Client {
     /// Makes an uninterruptible request and waits for its response.
     pub fn invoke(&self, req: Request) -> std::io::Result<Response> {
         crate::signal::without_signals(|| {
-            let mut buf = bincode::encode_to_vec(&req, bincode::config::standard())
-                .expect("All requests should be valid bincode");
-            self.send(&buf)?;
-            self.recv(&mut buf)?;
-            bincode::decode_from_slice(&buf, bincode::config::standard())
-                .map_err(|_| std::io::ErrorKind::Unsupported.into())
-                .map(|x| x.0)
+            thread::with_context(|ctx| {
+                let mut buf = ctx.ipc_buf.borrow_mut();
+                buf.clear();
+                postcard::to_io(&req, &mut *buf).expect("all requests should be valid postcard");
+                self.send(&buf)?;
+                self.recv(&mut buf)?;
+                postcard::from_bytes(&buf).map_err(|err| {
+                    std::io::Error::new(
+                        std::io::ErrorKind::UnexpectedEof,
+                        format!("failed to deserialize response: {err}"),
+                    )
+                })
+            })
         })
     }
 }
@@ -125,7 +128,11 @@ impl Drop for Client {
 pub struct InterruptibleClient(UnixStream);
 impl InterruptibleClient {
     pub fn wait(&mut self) -> Response {
-        bincode::decode_from_std_read(&mut self.0, bincode::config::standard()).unwrap()
+        let mut buf = Vec::new();
+        self.0
+            .read_to_end(&mut buf)
+            .expect("unexpected end of file");
+        postcard::from_bytes(&buf).expect("failed to deserialize response")
     }
 
     pub fn interrupt(mut self) {
@@ -181,11 +188,8 @@ pub fn make_client() -> Client {
 /// Begins an interruptible request.
 pub fn begin_interruptible(ireq: InterruptibleRequest) -> InterruptibleClient {
     let client = make_client();
-    let buf = bincode::encode_to_vec(
-        Request::CallInterruptible(ireq),
-        bincode::config::standard(),
-    )
-    .expect("All requests should be valid bincode");
+    let buf = postcard::to_stdvec(&Request::CallInterruptible(ireq))
+        .expect("All requests should be valid bincode");
     client.send(&buf).unwrap();
     let stream = unsafe { (&raw const client.0).read() };
     std::mem::forget(client);

@@ -4,6 +4,6 @@ version = "0.0.1"
 edition = "2024"
 
 [dependencies]
-bincode = { version = "2", features = ["derive"] }
-bitflags = "2"
+bitflags = { version = "2", features = ["serde"] }
 libc = "0.2"
+serde = { version = "1", features = ["derive"] }

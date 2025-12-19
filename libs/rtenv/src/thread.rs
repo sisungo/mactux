@@ -48,6 +48,7 @@ pub struct ThreadCtx {
     pub emulated_gsbase: Cell<*mut u8>,
     pub thread_info_ptr: Cell<*const EmulatedThreadInfo>,
     pub client: OnceCell<RefCell<Client>>,
+    pub ipc_buf: RefCell<Vec<u8>>,
     pub clear_tid: Cell<Option<NonNull<u32>>>,
     pub sigaltstack: Cell<SigAltStack>,
 }
@@ -59,6 +60,7 @@ impl ThreadCtx {
             emulated_gsbase: Cell::new(std::ptr::null_mut()),
             thread_info_ptr: Cell::new(std::ptr::null()),
             client: OnceCell::new(),
+            ipc_buf: RefCell::new(Vec::with_capacity(256)),
             clear_tid: Cell::new(None),
             sigaltstack: Cell::new(SigAltStack::default()),
         }

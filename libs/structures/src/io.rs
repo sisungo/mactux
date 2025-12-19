@@ -1,13 +1,13 @@
 use crate::{
-    FromApple, ToApple, error::LxError, impl_bincode_for_bitflags, mapper, signal::KernelSigSet,
-    terminal::Termios2, unixvariants,
+    FromApple, ToApple, error::LxError, mapper, signal::KernelSigSet, terminal::Termios2,
+    unixvariants,
 };
-use bincode::{Decode, Encode};
 use bitflags::bitflags;
 use libc::c_int;
+use serde::{Deserialize, Serialize};
 use std::ptr::NonNull;
 
-#[derive(Debug, Clone, Copy, Encode, Decode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 pub struct FcntlCmd(pub u32);
 impl FcntlCmd {
@@ -59,7 +59,7 @@ impl FcntlCmd {
     }
 }
 
-#[derive(Debug, Clone, Copy, Encode, Decode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 pub struct IoctlCmd(pub u32);
 impl IoctlCmd {
@@ -110,7 +110,7 @@ impl IoctlCmd {
 }
 
 unixvariants! {
-    #[derive(Encode, Decode)]
+    #[derive(Serialize, Deserialize)]
     pub struct Whence: u32 {
         const SEEK_SET = 0;
         const SEEK_CUR = 1;
@@ -184,7 +184,7 @@ pub struct PollFd {
 }
 
 bitflags! {
-    #[derive(Debug, Clone, Copy)]
+    #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
     #[repr(transparent)]
     pub struct PollEvents: u16 {
         const POLLIN = 1;
@@ -200,7 +200,6 @@ bitflags! {
         const POLLRDHUP = 0x2000;
     }
 }
-crate::impl_bincode_for_bitflags!(PollEvents: u16);
 crate::bitflags_impl_from_to_apple!(
     PollEvents;
     type Apple = i16;
@@ -318,7 +317,7 @@ impl PSelectSigMask {
 }
 
 bitflags! {
-    #[derive(Debug, Clone, Copy)]
+    #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
     pub struct EventFdFlags: u32 {
         const EFD_SEMAPHORE = 1;
         const EFD_NONBLOCK = 0o4000;
@@ -337,7 +336,6 @@ impl EventFdFlags {
         result
     }
 }
-impl_bincode_for_bitflags!(EventFdFlags: u32);
 
 bitflags! {
     #[derive(Debug, Clone, Copy)]
@@ -349,7 +347,7 @@ bitflags! {
 }
 
 /// Information about a virtual file descriptor's specific "ioctl" availability.
-#[derive(Debug, Clone, Encode, Decode)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VfdAvailCtrl {
     pub in_size: isize,
     pub out_size: usize,

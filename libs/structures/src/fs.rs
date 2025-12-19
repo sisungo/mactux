@@ -1,7 +1,7 @@
-use crate::{FromApple, ToApple, error::LxError, impl_bincode_for_bitflags, time::Timespec};
-use bincode::{Decode, Encode};
+use crate::{FromApple, ToApple, error::LxError, time::Timespec};
 use bitflags::bitflags;
 use libc::c_int;
+use serde::{Deserialize, Serialize};
 use std::{ffi::CStr, mem::offset_of};
 
 pub const XATTR_NAMESPACE_USER_PREFIX: &[u8] = b"user.";
@@ -21,7 +21,7 @@ pub const XATTR_NAMESPACE_PREFIXES: &[&[u8]] = &[
 pub const AT_FDCWD: c_int = -100;
 
 bitflags! {
-    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
     #[repr(transparent)]
     pub struct OpenFlags: u32 {
         const O_RDONLY = 0;
@@ -79,7 +79,6 @@ OpenFlags;
     O_CLOEXEC,
     O_SYNC
 );
-impl_bincode_for_bitflags!(OpenFlags: u32);
 
 bitflags! {
     #[derive(Debug, Clone, Copy)]
@@ -92,7 +91,7 @@ bitflags! {
 }
 
 bitflags! {
-    #[derive(Debug, Clone, Copy)]
+    #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
     #[repr(transparent)]
     pub struct AccessFlags: u32 {
         const F_OK = 0;
@@ -106,10 +105,9 @@ crate::bitflags_impl_from_to_apple!(
     type Apple = c_int;
     values = F_OK, R_OK, W_OK, X_OK
 );
-impl_bincode_for_bitflags!(AccessFlags: u32);
 
 bitflags! {
-    #[derive(Debug, Clone, Copy)]
+    #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
     #[repr(transparent)]
     pub struct UmountFlags: u32 {
         const MNT_FORCE = 1;
@@ -118,10 +116,9 @@ bitflags! {
         const UMOUNT_NOFOLLOW = 8;
     }
 }
-impl_bincode_for_bitflags!(UmountFlags: u32);
 
 bitflags! {
-    #[derive(Debug, Clone, Copy)]
+    #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
     #[repr(transparent)]
     pub struct MountFlags: u64 {
         const MS_RDONLY = 1;
@@ -132,9 +129,8 @@ bitflags! {
         const MS_SILENT = 32768;
     }
 }
-impl_bincode_for_bitflags!(MountFlags: u64);
 
-#[derive(Debug, Clone, Copy, Encode, Decode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(C)]
 pub struct Dirent64Hdr {
     pub d_ino: u64,
@@ -144,7 +140,7 @@ pub struct Dirent64Hdr {
     pub _align: [u8; 5],
 }
 
-#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Dirent64 {
     hdr: Dirent64Hdr,
     name: Vec<u8>,
@@ -194,7 +190,7 @@ impl FromApple for Dirent64 {
     }
 }
 
-#[derive(Debug, Clone, Copy, Encode, Decode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 pub struct DirentType(pub u8);
 impl DirentType {
@@ -238,7 +234,7 @@ impl From<FileType> for DirentType {
     }
 }
 
-#[derive(Debug, Clone, Encode, Decode)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[repr(C)]
 pub struct Stat {
     pub st_dev: u64,
@@ -285,7 +281,7 @@ impl From<Statx> for Stat {
     }
 }
 
-#[derive(Debug, Clone, Encode, Decode)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[repr(C)]
 pub struct Statx {
     pub stx_mask: StatxMask,
@@ -362,7 +358,7 @@ impl Statx {
     }
 }
 
-#[derive(Debug, Clone, Copy, Encode, Decode)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[repr(C)]
 pub struct StatxTimestamp {
     pub tv_sec: i64,
@@ -385,7 +381,7 @@ impl From<Timespec> for StatxTimestamp {
     }
 }
 
-#[derive(Debug, Clone, Copy, Encode, Decode)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[repr(transparent)]
 pub struct FileMode(pub u16);
 impl FileMode {
@@ -459,14 +455,13 @@ pub enum FileType {
 }
 
 bitflags! {
-    #[derive(Debug, Clone, Copy)]
+    #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
     #[repr(transparent)]
     pub struct StatxAttrs: u64 {}
 }
-impl_bincode_for_bitflags!(StatxAttrs: u64);
 
 bitflags! {
-    #[derive(Debug, Clone, Copy)]
+    #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
     #[repr(transparent)]
     pub struct StatxMask: u32 {
         const STATX_TYPE = 1;
@@ -490,9 +485,8 @@ bitflags! {
         const STATX_BASIC_STATS = 2047;
     }
 }
-impl_bincode_for_bitflags!(StatxMask: u32);
 
-#[derive(Debug, Clone, Encode, Decode)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenHow {
     pub flags: u64,
     pub mode: u64,
@@ -509,15 +503,14 @@ impl OpenHow {
 }
 
 bitflags! {
-    #[derive(Debug, Clone, Copy)]
+    #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
     #[repr(transparent)]
     pub struct OpenResolve: u64 {
         const RESOLVE_NO_SYMLINKS = 4;
     }
 }
-impl_bincode_for_bitflags!(OpenResolve: u64);
 
-#[derive(Debug, Clone, Copy, Encode, Decode)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[repr(C)]
 pub struct StatFs {
     pub f_type: FsMagic,
@@ -554,7 +547,7 @@ impl FromApple for StatFs {
     }
 }
 
-#[derive(Debug, Clone, Copy, Encode, Decode, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[repr(transparent)]
 pub struct FsMagic(u64);
 impl FsMagic {
@@ -574,8 +567,7 @@ impl FsMagic {
 }
 
 bitflags! {
-    #[derive(Debug, Clone, Copy)]
+    #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
     #[repr(transparent)]
     pub struct StatFsFlags: u64 {}
 }
-impl_bincode_for_bitflags!(StatFsFlags: u64);

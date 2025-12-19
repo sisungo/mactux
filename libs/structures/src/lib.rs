@@ -141,31 +141,3 @@ macro_rules! unixvariants {
         }
     };
 }
-
-#[macro_export]
-macro_rules! impl_bincode_for_bitflags {
-    ($b:ty : $o:ty) => {
-        impl bincode::Encode for $b {
-            fn encode<E: bincode::enc::Encoder>(
-                &self,
-                encoder: &mut E,
-            ) -> Result<(), bincode::error::EncodeError> {
-                self.bits().encode(encoder)
-            }
-        }
-        impl<C> bincode::Decode<C> for $b {
-            fn decode<D: bincode::de::Decoder<Context = C>>(
-                decoder: &mut D,
-            ) -> Result<Self, bincode::error::DecodeError> {
-                Ok(Self::from_bits_retain(<$o>::decode(decoder)?))
-            }
-        }
-        impl<'de, C> bincode::de::BorrowDecode<'de, C> for $b {
-            fn borrow_decode<D: bincode::de::BorrowDecoder<'de, Context = C>>(
-                decoder: &mut D,
-            ) -> Result<Self, bincode::error::DecodeError> {
-                Ok(Self::from_bits_retain(<$o>::decode(decoder)?))
-            }
-        }
-    };
-}

@@ -1,7 +1,7 @@
-use bincode::{Decode, Encode};
+use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
-#[derive(Clone, Copy, Encode, Decode, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct DeviceNumber(pub u64);
 impl DeviceNumber {
     pub fn new(major: u32, minor: u32) -> Self {

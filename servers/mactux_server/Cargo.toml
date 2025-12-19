@@ -10,7 +10,6 @@ gui = []
 
 [dependencies]
 anyhow = "1"
-bincode = "2"
 clap = { version = "4", features = ["derive"] }
 dashmap = "5"
 libc = "0.2"
@@ -19,6 +18,8 @@ libproc = "0.14"
 log = "0.4"
 rustc-hash = "2"
 crossbeam = "0.8.4"
+postcard = { version = "1", default-features = false, features = ["use-std"] }
+serde = "1"
 mach2 = "0.5"
 
 [dependencies.rodio]

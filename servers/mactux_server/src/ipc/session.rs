@@ -94,7 +94,7 @@ impl RegSession {
                     return Ok(());
                 }
             };
-            self.0.send(&resp)?;
+            self.0.send(&resp, &mut buf)?;
         }
 
         Ok(())
