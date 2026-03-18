@@ -2,7 +2,7 @@ use crate::{
     fs::FilesystemContext,
     ipc_client::{Client, with_client},
     posix_num, process,
-    thread::{ThreadPubCtxMap, may_fork},
+    thread::{CloneContext, ThreadPubCtxMap, may_fork},
     util::posix_result,
 };
 use arc_swap::ArcSwap;
@@ -21,7 +21,7 @@ use structures::{
     fs::{AT_FDCWD, AtFlags, FileMode, FileType, OpenFlags, StatxMask},
     internal::mactux_ipc::Request,
     mapper::with_pid_mapper,
-    process::{ChildType, CloneArgs, CloneFlags},
+    process::{ChildType, CloneFlags},
     signal::{SigAction, SigNum},
     thread::is_tid,
 };
@@ -195,24 +195,31 @@ pub fn fork() -> Result<i32, LxError> {
     Ok(status)
 }
 
-pub fn clone(args: CloneArgs) -> Result<i32, LxError> {
-    let result = match args.flags().child_type() {
+pub fn clone(ctx: Box<CloneContext>) -> Result<i32, LxError> {
+    let cl_args = ctx.args.clone();
+    let result = match ctx.args.flags().child_type() {
         ChildType::Process => fork(),
-        ChildType::Thread => crate::thread::clone(args.clone()),
+        ChildType::Thread => crate::thread::clone(ctx),
         ChildType::Unsupported => Err(LxError::EINVAL),
     };
     match result {
         Ok(0) => {
-            if args.flags().contains(CloneFlags::CLONE_SETTLS) {
-                crate::emuctx::x86_64_set_emulated_gsbase(args.tls());
+            // if we are on the newly created process (not thread)...
+            // when a new thread rather than process is created, we would never return here
+            if cl_args.flags().contains(CloneFlags::CLONE_SETTLS) {
+                crate::emuctx::x86_64_set_emulated_gsbase(cl_args.tls());
             }
         }
         Ok(child_tid) => unsafe {
-            if args.flags().contains(CloneFlags::CLONE_PARENT_SETTID) {
-                args.parent_tid().write(child_tid);
+            // if we are on the original thread/process...
+            if cl_args.flags().contains(CloneFlags::CLONE_PARENT_SETTID) {
+                cl_args.parent_tid().write(child_tid);
             }
         },
-        Err(_) => {}
+        Err(err) => {
+            // a failed call to clone() may indicate emulator bugs
+            log::warn!("clone() failed: {err}");
+        }
     };
     result
 }

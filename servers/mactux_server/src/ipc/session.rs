@@ -85,6 +85,7 @@ impl RegSession {
                 }
                 Request::GetThreadName => get_thread_name().into_response(),
                 Request::SetThreadName(name) => set_thread_name(name).into_response(),
+                Request::GetThreadId => get_thread_id().into_response(),
                 Request::PidLinuxToNative(pid) => pid_linux_to_native(pid).into_response(),
                 Request::PidNativeToLinux(pid) => pid_native_to_linux(pid).into_response(),
                 Request::EventFd(count, flags) => eventfd(count, flags).into_response(),

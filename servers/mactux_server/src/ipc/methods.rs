@@ -103,6 +103,10 @@ pub fn get_sock_path(path: Vec<u8>, create: bool) -> Result<Response, LxError> {
         .map(|path| Response::NativePath(path.into_os_string().into_encoded_bytes()))
 }
 
+pub fn get_thread_id() -> Response {
+    Response::Pid(Thread::current().tid())
+}
+
 pub fn vfd_dup(vfd: u64) -> Result<Arc<Vfd>, LxError> {
     Ok(Process::current().vfd.get(vfd).ok_or(LxError::EBADF)?.dup())
 }

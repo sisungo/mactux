@@ -115,6 +115,8 @@ pub enum Request {
     GetThreadName,
     SetThreadName(Vec<u8>),
 
+    GetThreadId,
+
     PidNativeToLinux(i32),
     PidLinuxToNative(i32),
 

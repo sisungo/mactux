@@ -1,6 +1,6 @@
 use crate::{
     emuctx::EmulatedThreadInfo,
-    ipc_client::{Client, with_client},
+    ipc_client::{Client, call_server, with_client},
     process,
     util::ipc_fail,
 };
@@ -10,14 +10,15 @@ use std::{
     ffi::c_void,
     ptr::NonNull,
     sync::{
-        RwLock,
-        atomic::{self, AtomicPtr, AtomicUsize},
+        Arc, RwLock,
+        atomic::{self, AtomicI64, AtomicPtr, AtomicU64, AtomicUsize},
     },
 };
 use structures::{
+    FromApple,
     error::LxError,
     internal::mactux_ipc::{Request, Response},
-    process::CloneArgs,
+    process::{CloneArgs, CloneFlags},
     signal::{SigAltStack, SigNum},
     sync::{FutexOpts, RobustListHead},
     thread::TID_MIN,
@@ -212,8 +213,28 @@ pub fn set_clear_tid(value: Option<NonNull<u32>>) {
 }
 
 /// Spawns a thread.
-pub fn clone(args: CloneArgs) -> Result<i32, LxError> {
-    todo!()
+pub fn clone(ctx: Box<CloneContext>) -> Result<i32, LxError> {
+    let tid = ctx.tid.clone();
+
+    unsafe {
+        let mut native = std::mem::zeroed();
+        let data = Box::into_raw(ctx);
+        let status =
+            libc::pthread_create(&mut native, std::ptr::null(), setup_thread_lx, data as _);
+        if status != 0 {
+            drop(Box::from_raw(data));
+            return Err(LxError::from_apple(status)?);
+        }
+    }
+
+    loop {
+        let current_tid = tid.load(atomic::Ordering::Relaxed);
+        if current_tid > 0 {
+            return Ok(current_tid as _);
+        } else if current_tid < 0 {
+            return Err(LxError(current_tid.abs() as _));
+        }
+    }
 }
 
 /// Sets robust list for current thread.
@@ -278,6 +299,9 @@ pub unsafe fn enter() -> std::io::Result<()> {
 }
 
 /// This is called when exiting a MacTux thread.
+///
+/// # Safety
+/// This function may cause UB.
 pub unsafe fn exit(code: i32) -> ! {
     unsafe {
         if let Some(ptr) = with_context(|ctx| ctx.clear_tid.get()) {
@@ -288,7 +312,79 @@ pub unsafe fn exit(code: i32) -> ! {
     }
 }
 
+#[repr(C)]
+#[derive(Debug, Clone)]
+pub struct CloneContext {
+    pub args: CloneArgs,
+    pub cpu: libc::__darwin_mcontext64,
+    pub tid: Arc<AtomicI64>,
+}
+impl CloneContext {
+    pub fn new(args: CloneArgs, cpu: libc::__darwin_mcontext64) -> Box<Self> {
+        Box::new(Self {
+            args,
+            cpu,
+            tid: Arc::new(AtomicI64::new(0)),
+        })
+    }
+}
+
+#[cfg(target_arch = "x86_64")]
+extern "C" fn setup_thread_lx(data: *mut c_void) -> *mut c_void {
+    unsafe {
+        // Get inherited data
+        let CloneContext { args, mut cpu, tid } = *Box::from_raw(data as *mut CloneContext);
+
+        if !args.stack().is_null() {
+            cpu.__ss.__rsp = args.stack() as _;
+        }
+        if args.flags().contains(CloneFlags::CLONE_SETTLS) {
+            crate::emuctx::x86_64_set_emulated_gsbase(args.tls());
+        }
+
+        // Initialize runtime
+        if let Err(err) = enter() {
+            log::warn!("Failed to initialize new thread: {err}");
+            tid.store(-(LxError::from(err).0 as i64), atomic::Ordering::Relaxed);
+            return std::ptr::null_mut();
+        }
+
+        // Return thread id
+        let current_tid = match with_client(|client| client.invoke(Request::GetThreadId)) {
+            Ok(Response::Pid(pid)) => pid,
+            _ => {
+                log::warn!("Failed to get tid for new thread");
+                tid.store(-1, atomic::Ordering::Relaxed);
+                return std::ptr::null_mut();
+            }
+        };
+        tid.store(current_tid as _, atomic::Ordering::Relaxed);
+        drop(tid);
+
+        // Execute code
+        crate::emuctx::enter_emulated();
+        core::arch::asm!(
+            "mov rdi, {}",
+            "mov rax, 479",
+            "syscall",
+            in(reg) &mut cpu,
+            options(noreturn),
+        );
+    }
+}
+
 /// The macOS raw system call `thread_selfid`.
+#[cfg(target_arch = "x86_64")]
 fn thread_selfid() -> libc::pid_t {
-    unsafe { libc::syscall(372) }
+    unsafe {
+        let macos_tid: u64;
+        core::arch::asm!(
+            "mov rax, 0x2000174",
+            "syscall",
+            "mov {}, rax",
+            out(reg) macos_tid,
+            options(nomem),
+        );
+        macos_tid as _
+    }
 }

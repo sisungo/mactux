@@ -4,6 +4,7 @@
 use crate::{SystemCallHandler, UcontextExt, common::*};
 use libc::{c_int, siginfo_t, ucontext_t};
 use macros::syscall;
+use rtenv::thread::CloneContext;
 use structures::{
     error::LxError,
     process::{CloneArgs, CloneFlags},
@@ -624,7 +625,7 @@ impl_syscall_indirect!(
         let parent_tid = mctx.__ss.__rdx;
         let child_tid = mctx.__ss.__r10;
         let tls = mctx.__ss.__r8;
-        let clone_args = CloneArgs {
+        let args = CloneArgs {
             flags: flags.bits() as _,
             pidfd: 0,
             child_tid,
@@ -637,7 +638,8 @@ impl_syscall_indirect!(
             set_tid_size: 0,
             cgroup: 0,
         };
-        match rtenv::process::clone(clone_args) {
+        let clone_context = CloneContext::new(args, mctx.clone());
+        match rtenv::process::clone(clone_context) {
             Ok(0) => {
                 if stack != 0 {
                     mctx.__ss.__rsp = stack;
@@ -651,9 +653,10 @@ impl_syscall_indirect!(
 );
 impl_syscall_indirect!(
     sys_clone3 = |mctx: &mut libc::__darwin_mcontext64| {
-        let clone_args = (mctx.__ss.__rdi as *const CloneArgs).read();
-        let stack = clone_args.stack();
-        match rtenv::process::clone(clone_args) {
+        let args = (mctx.__ss.__rdi as *const CloneArgs).read();
+        let stack = args.stack();
+        let clone_context = CloneContext::new(args, mctx.clone());
+        match rtenv::process::clone(clone_context) {
             Ok(0) => {
                 if !stack.is_null() {
                     mctx.__ss.__rsp = stack as usize as _;
