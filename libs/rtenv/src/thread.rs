@@ -1,6 +1,6 @@
 use crate::{
     emuctx::EmulatedThreadInfo,
-    ipc_client::{Client, call_server, with_client},
+    ipc_client::{Client, with_client},
     process,
     util::ipc_fail,
 };
@@ -11,7 +11,7 @@ use std::{
     ptr::NonNull,
     sync::{
         Arc, RwLock,
-        atomic::{self, AtomicI64, AtomicPtr, AtomicU64, AtomicUsize},
+        atomic::{self, AtomicI64, AtomicPtr, AtomicUsize},
     },
 };
 use structures::{
@@ -358,16 +358,21 @@ extern "C" fn setup_thread_lx(data: *mut c_void) -> *mut c_void {
                 return std::ptr::null_mut();
             }
         };
+        assert!(current_tid > 0);
         tid.store(current_tid as _, atomic::Ordering::Relaxed);
         drop(tid);
+        with_context(|ctx| {
+            ctx.tid.set(current_tid);
+        });
 
         // Execute code
+        let cpu = Box::new(cpu);
         crate::emuctx::enter_emulated();
         core::arch::asm!(
             "mov rdi, {}",
             "mov rax, 479",
             "syscall",
-            in(reg) &mut cpu,
+            in(reg) Box::into_raw(cpu),
             options(noreturn),
         );
     }
