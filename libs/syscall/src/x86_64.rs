@@ -686,6 +686,7 @@ unsafe fn pseudo_restorectx(uctx: &mut libc::ucontext_t) {
         rtenv::emuctx::leave_emulated();
         let ctx = Box::from_raw(uctx.arg0() as *mut libc::__darwin_mcontext64);
         *uctx.uc_mcontext = *ctx;
+        drop(ctx);
         rtenv::emuctx::enter_emulated();
     }
 }

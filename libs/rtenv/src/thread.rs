@@ -225,6 +225,7 @@ pub fn clone(ctx: Box<CloneContext>) -> Result<i32, LxError> {
             drop(Box::from_raw(data));
             return Err(LxError::from_apple(status)?);
         }
+        libc::pthread_detach(native);
     }
 
     loop {
@@ -349,7 +350,7 @@ extern "C" fn setup_thread_lx(data: *mut c_void) -> *mut c_void {
             return std::ptr::null_mut();
         }
 
-        // Return thread id
+        // Return thread id to parent thread
         let current_tid = match with_client(|client| client.invoke(Request::GetThreadId)) {
             Ok(Response::Pid(pid)) => pid,
             _ => {
@@ -364,6 +365,9 @@ extern "C" fn setup_thread_lx(data: *mut c_void) -> *mut c_void {
         with_context(|ctx| {
             ctx.tid.set(current_tid);
         });
+
+        // Reset necessary registers
+        cpu.__ss.__rax = 0;
 
         // Execute code
         let cpu = Box::new(cpu);

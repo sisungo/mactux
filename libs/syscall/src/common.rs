@@ -1748,6 +1748,7 @@ pub unsafe fn sys_swapoff(_dev: *const c_char) -> Result<(), LxError> {
     Err(LxError::EPERM)
 }
 
+#[cold]
 pub unsafe fn sys_invalid(uctx: &mut libc::ucontext_t) {
     unsafe {
         rtenv::emuctx::leave_emulated();
