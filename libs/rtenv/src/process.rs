@@ -78,8 +78,11 @@ pub fn ppid() -> i32 {
     with_pid_mapper(|x| x.apple_to_linux(native_ppid)).unwrap_or(native_ppid)
 }
 
-pub fn pgid(pid: i32) -> Result<i32, LxError> {
-    let native_pid = with_pid_mapper(|x| x.linux_to_apple(pid))?;
+pub fn pgid(mut linux_pid: i32) -> Result<i32, LxError> {
+    if linux_pid == 0 {
+        linux_pid = pid();
+    }
+    let native_pid = with_pid_mapper(|x| x.linux_to_apple(linux_pid))?;
     let native_pgid = unsafe { posix_num!(libc::getpgid(native_pid))? };
     with_pid_mapper(|x| x.apple_to_linux(native_pgid))
 }

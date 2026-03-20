@@ -5,3 +5,8 @@ pub fn ignore_unsupported_syscalls() -> bool {
         Ok("1")
     )
 }
+
+#[inline]
+pub fn strace() -> bool {
+    matches!(std::env::var("MacTux_Strace").as_deref(), Ok("1"))
+}
