@@ -262,13 +262,21 @@ fn init_mounts() -> anyhow::Result<()> {
         &[],
     )?;
     for entry in fstab.0 {
-        init_mnt.mount(
+        let mount_result = init_mnt.mount(
             entry.device.as_bytes(),
             &VPath::parse(entry.mount_point.as_bytes()),
             &entry.fs_type,
             MountFlags::empty(),
             &[],
-        )?;
+        );
+        if let Err(err) = mount_result {
+            log::warn!(
+                "failed to mount {} on {}: {}",
+                entry.device,
+                entry.mount_point,
+                err
+            );
+        }
         // TODO Support mount flags
     }
     Ok(())

@@ -1,3 +1,5 @@
+//! Auxiliary vector information for the ELF loader.
+
 /// Information about an auxiliary vector.
 #[derive(Debug)]
 pub struct AuxiliaryInfo {
@@ -32,15 +34,21 @@ impl AuxiliaryInfo {
         stack.push(AuxType::Random as usize);
         stack.push(self.random as usize);
 
+        // Push the secure flag.
+        stack.push(AuxType::Secure as usize);
+        stack.push(0);
+
         // Push exec fd.
         stack.push(AuxType::ExecFd as usize);
         stack.push(self.exec_fd);
 
         // Push vDSO.
-        stack.push(AuxType::Sysinfo as usize);
-        stack.push(0);
         stack.push(AuxType::SysinfoEhdr as usize);
         stack.push(0);
+
+        // Push clock tick.
+        stack.push(AuxType::ClkTck as usize);
+        stack.push(unsafe { libc::sysconf(libc::_SC_CLK_TCK) as _ });
 
         // Push the terminator.
         stack.push(AuxType::Null as usize);
@@ -59,7 +67,8 @@ enum AuxType {
     PageSz = 6,
     Base = 7,
     Entry = 9,
+    ClkTck = 17,
+    Secure = 23,
     Random = 25,
-    Sysinfo = 32,
     SysinfoEhdr = 33,
 }

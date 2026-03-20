@@ -309,7 +309,7 @@ const SYSTEM_CALL_HANDLERS: &[SystemCallHandler] = &[
     sys_exit_group,        // 231
     sys_invalid,           // 232
     sys_invalid,           // 233
-    sys_invalid,           // 234
+    sys_tgkill,            // 234
     sys_invalid,           // 235
     sys_invalid,           // 236
     sys_invalid,           // 237

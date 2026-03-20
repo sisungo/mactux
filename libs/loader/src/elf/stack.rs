@@ -1,3 +1,5 @@
+//! Stack setup for the ELF loader.
+
 use super::auxv::AuxiliaryInfo;
 use std::alloc::Layout;
 

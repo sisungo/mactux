@@ -1,3 +1,5 @@
+//! MacTux program loader.
+
 #![feature(slice_split_once)]
 
 mod elf;

@@ -1,3 +1,5 @@
+//! A simple ELF loader for macOS.
+
 mod auxv;
 mod mmap;
 mod stack;

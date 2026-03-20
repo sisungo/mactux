@@ -1,3 +1,5 @@
+pub mod region;
+
 use crate::util::posix_result;
 use libc::c_int;
 use structures::{
@@ -32,7 +34,7 @@ pub unsafe fn map(
             addr => Ok(addr.cast()),
         }?;
 
-        // Lock memory if required. The semantic ignores errors, so no error handling is done here.
+        // Lock memory if required. The man pages say errors are ignored silently.
         if flags.contains(MmapFlags::MAP_LOCKED) {
             libc::mlock(addr.cast(), len);
         }
@@ -50,11 +52,21 @@ pub unsafe fn remap(
 ) -> Result<*mut u8, LxError> {
     unsafe {
         // TODO: this implementation is very incomplete
+        let mut mmap_flags = MmapFlags::MAP_PRIVATE | MmapFlags::MAP_ANON;
+        if flags.contains(MremapFlags::MREMAP_FIXED) {
+            mmap_flags |= MmapFlags::MAP_FIXED;
+        }
+        if !flags.contains(MremapFlags::MREMAP_MAYMOVE) {
+            return Err(LxError::ENOMEM);
+        }
+        if !flags.contains(MremapFlags::MREMAP_DONTUNMAP) {
+            return Err(LxError::EINVAL);
+        }
         let new_addr = match libc::mmap(
             new_addr.cast(),
             new_size,
             (MmapProt::PROT_READ | MmapProt::PROT_WRITE).to_apple()?,
-            (MmapFlags::MAP_PRIVATE | MmapFlags::MAP_ANON).to_apple()?,
+            mmap_flags.to_apple()?,
             -1,
             0,
         ) {
@@ -62,6 +74,10 @@ pub unsafe fn remap(
             addr => Ok(addr),
         }?;
         new_addr.copy_from(old_addr.cast(), old_size.min(new_size));
+        if new_addr != old_addr.cast() {
+            libc::munmap(old_addr.cast(), old_size);
+        }
+
         Ok(new_addr.cast())
     }
 }

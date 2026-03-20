@@ -1449,6 +1449,11 @@ pub unsafe fn sys_tkill(tid: i32, signum: SigNum) -> Result<(), LxError> {
 }
 
 #[syscall]
+pub unsafe fn sys_tgkill(_tgid: i32, tid: i32, signum: SigNum) -> Result<(), LxError> {
+    rtenv::thread::kill(tid, signum)
+}
+
+#[syscall]
 pub unsafe fn sys_exit(code: c_int) {
     unsafe {
         rtenv::thread::exit(code);

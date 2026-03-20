@@ -1,3 +1,5 @@
+//! MacTux shebang support.
+
 use crate::{Error, IoFd};
 use std::{
     io::{BufRead, BufReader},

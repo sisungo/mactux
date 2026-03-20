@@ -1,3 +1,5 @@
+//! Memory mapping for the ELF loader.
+
 use std::{ffi::c_int, os::fd::RawFd};
 
 /// A mapped memory area that does RAII.
