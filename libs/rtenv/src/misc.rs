@@ -68,9 +68,9 @@ fn machine() -> [u8; 65] {
 }
 
 fn release() -> [u8; 65] {
-    uname_str(b"6.15.8-11-generic").unwrap()
+    uname_str(b"7.0.0-11-generic").unwrap()
 }
 
 fn version() -> [u8; 65] {
-    uname_str(b"#1~0.1.0-MacTux SMP Fri Aug 28 14:01:22 UTC 2025").unwrap()
+    uname_str(b"#1~0.1.0-MacTux SMP Fri Mar 20 14:11:13 UTC 2026").unwrap()
 }

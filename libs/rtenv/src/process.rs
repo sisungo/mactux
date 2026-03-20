@@ -201,7 +201,7 @@ pub fn fork() -> Result<i32, LxError> {
 
 pub fn clone(ctx: Box<CloneContext>) -> Result<i32, LxError> {
     let cl_args = ctx.args.clone();
-    let result = match ctx.args.flags().child_type() {
+    let result = match cl_args.flags().child_type() {
         ChildType::Process => fork(),
         ChildType::Thread => crate::thread::clone(ctx),
         ChildType::Unsupported => Err(LxError::EINVAL),
@@ -222,7 +222,7 @@ pub fn clone(ctx: Box<CloneContext>) -> Result<i32, LxError> {
         },
         Err(err) => {
             // a failed call to clone() may indicate emulator bugs
-            log::warn!("clone() failed: {err}");
+            log::warn!("clone({:?}) failed: {err}", cl_args.flags());
         }
     };
     result

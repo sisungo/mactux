@@ -24,6 +24,7 @@ bitflags! {
         const CLONE_FS = 0x200;
         const CLONE_FILES = 0x400;
         const CLONE_SIGHAND = 0x800;
+        const CLONE_VFORK = 0x4000;
         const CLONE_PARENT = 0x8000;
         const CLONE_THREAD = 0x10000;
         const CLONE_SETTLS = 0x800000;
@@ -41,7 +42,9 @@ impl CloneFlags {
             | Self::CLONE_SIGHAND
             | Self::CLONE_THREAD;
 
-        if self.contains(thread_mask) {
+        if self.contains(Self::CLONE_VFORK) {
+            ChildType::Process
+        } else if self.contains(thread_mask) {
             ChildType::Thread
         } else if self.intersects(thread_mask) {
             ChildType::Unsupported
