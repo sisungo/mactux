@@ -119,8 +119,8 @@ const SYSTEM_CALL_HANDLERS: &[SystemCallHandler] = &[
     sys_socket,            // 41
     sys_connect,           // 42
     sys_accept,            // 43
-    sys_invalid,           // 44
-    sys_invalid,           // 45
+    sys_sendto,            // 44
+    sys_recvfrom,          // 45
     sys_invalid,           // 46
     sys_invalid,           // 47
     sys_shutdown,          // 48

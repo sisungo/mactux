@@ -53,7 +53,7 @@ pub fn comm(apple_pid: libc::pid_t) -> impl Fn() -> Result<Vec<u8>, LxError> + C
             comm.push(0);
             return Ok(comm);
         }
-        let cmdline = parse_mactux_cmdline(apple_cmdline(apple_pid)?);
+        let cmdline = argv_from_mactux_exec(apple_argv(apple_pid)?);
         let Some(arg0) = cmdline.get(0) else {
             return Ok(vec![0]);
         };
@@ -66,7 +66,7 @@ pub fn comm(apple_pid: libc::pid_t) -> impl Fn() -> Result<Vec<u8>, LxError> + C
 
 pub fn cmdline(apple_pid: libc::pid_t) -> impl Fn() -> Result<Vec<u8>, LxError> + Clone {
     move || {
-        let mut cmdline = parse_mactux_cmdline(apple_cmdline(apple_pid)?);
+        let mut cmdline = argv_from_mactux_exec(apple_argv(apple_pid)?);
         let mut data = Vec::with_capacity(cmdline.len() * 32);
         for entry in &mut cmdline {
             data.append(entry);
@@ -76,8 +76,16 @@ pub fn cmdline(apple_pid: libc::pid_t) -> impl Fn() -> Result<Vec<u8>, LxError> 
     }
 }
 
-pub fn environ(_apple_pid: libc::pid_t) -> impl Fn() -> Result<Vec<u8>, LxError> + Clone {
-    move || Ok(vec![])
+pub fn environ(apple_pid: libc::pid_t) -> impl Fn() -> Result<Vec<u8>, LxError> + Clone {
+    move || {
+        let mut envp = envp_from_mactux_exec(apple_argv(apple_pid)?);
+        let mut data = Vec::with_capacity(envp.len() * 32);
+        for entry in &mut envp {
+            data.append(entry);
+            data.push(0);
+        }
+        Ok(data)
+    }
 }
 
 pub fn stat(apple_pid: libc::pid_t) -> impl Fn() -> Result<Vec<u8>, LxError> + Clone {
@@ -150,7 +158,7 @@ pub fn statm(apple_pid: libc::pid_t) -> impl Fn() -> Result<Vec<u8>, LxError> + 
     }
 }
 
-fn apple_cmdline(apple_pid: libc::pid_t) -> Result<Vec<Vec<u8>>, LxError> {
+fn apple_argv(apple_pid: libc::pid_t) -> Result<Vec<Vec<u8>>, LxError> {
     let stack = unsafe {
         sysctl_read::<[u8; libc::PROC_PIDPATHINFO_MAXSIZE as _], _>([
             libc::CTL_KERN,
@@ -196,7 +204,7 @@ fn apple_cmdline(apple_pid: libc::pid_t) -> Result<Vec<Vec<u8>>, LxError> {
     Ok(argv)
 }
 
-fn parse_mactux_cmdline(apple: Vec<Vec<u8>>) -> Vec<Vec<u8>> {
+fn argv_from_mactux_exec(apple: Vec<Vec<u8>>) -> Vec<Vec<u8>> {
     let arg0_opt = apple
         .iter()
         .enumerate()
@@ -233,4 +241,20 @@ fn parse_mactux_cmdline(apple: Vec<Vec<u8>>) -> Vec<Vec<u8>> {
         .for_each(|_| ());
     linux.insert(0, arg0);
     linux
+}
+
+fn envp_from_mactux_exec(apple: Vec<Vec<u8>>) -> Vec<Vec<u8>> {
+    let mut envp = Vec::new();
+
+    let mut collect_next = false;
+    for i in apple {
+        if collect_next {
+            envp.push(i);
+            collect_next = false;
+        } else if i == b"--env" {
+            collect_next = true;
+        }
+    }
+
+    envp
 }

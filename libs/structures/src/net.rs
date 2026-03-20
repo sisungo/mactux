@@ -103,11 +103,28 @@ unixvariants! {
 
 bitflags! {
     #[derive(Debug, Clone, Copy)]
+    #[repr(transparent)]
     pub struct SocketFlags: u32 {
         const SOCK_NONBLOCK = 0o4000;
         const SOCK_CLOEXEC = 0o2000000;
     }
 }
+
+bitflags! {
+    #[derive(Debug, Clone, Copy)]
+    #[repr(transparent)]
+    pub struct MsgFlags: u32 {
+        const MSG_OOB = 0x1;
+        const MSG_PEEK = 0x2;
+        const MSG_DONTROUTE = 0x4;
+        const MSG_WAITALL = 0x100;
+    }
+}
+crate::bitflags_impl_from_to_apple!(
+    MsgFlags;
+    type Apple = i32;
+    values = MSG_OOB, MSG_PEEK, MSG_DONTROUTE, MSG_WAITALL
+);
 
 #[derive(Debug, Clone)]
 pub enum SockAddr {

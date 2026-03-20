@@ -165,15 +165,21 @@ unixvariants! {
     }
 }
 
-unixvariants! {
+bitflags! {
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+    #[repr(transparent)]
     pub struct FlockOp: u32 {
         const LOCK_SH = 1;
         const LOCK_EX = 2;
+        const LOCK_NB = 4;
         const LOCK_UN = 8;
-        fn from_apple(apple: c_int) -> Result<Self, LxError>;
-        fn to_apple(self) -> Result<c_int, LxError>;
     }
 }
+crate::bitflags_impl_from_to_apple!(
+    FlockOp;
+    type Apple = i32;
+    values = LOCK_SH, LOCK_EX, LOCK_NB, LOCK_UN
+);
 
 #[derive(Debug, Clone)]
 #[repr(C)]

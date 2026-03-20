@@ -8,7 +8,8 @@ use structures::{
     ToApple,
     error::LxError,
     net::{
-        Domain, Protocol, ShutdownHow, SockAddr, SockAddrIn, SockOptLevel, SocketFlags, SocketType,
+        Domain, MsgFlags, Protocol, ShutdownHow, SockAddr, SockAddrIn, SockOptLevel, SocketFlags,
+        SocketType,
     },
 };
 
@@ -87,6 +88,48 @@ pub fn getsockopt(
     buf: &mut [u8],
 ) -> Result<(), LxError> {
     sockopt::get(sock, level, opt, buf)
+}
+
+pub fn sendto(sock: c_int, buf: &[u8], flags: MsgFlags, dest: SockAddr) -> Result<usize, LxError> {
+    unsafe {
+        let (addr_buf, addr_len) = apple_sockaddr(dest, false)?;
+        let ret = libc::sendto(
+            sock,
+            buf.as_ptr().cast(),
+            buf.len(),
+            flags.to_apple()?,
+            (&raw const addr_buf).cast(),
+            addr_len as _,
+        );
+        match ret {
+            -1 => Err(LxError::last_apple_error()),
+            n => Ok(n as usize),
+        }
+    }
+}
+
+pub fn recvfrom(
+    sock: c_int,
+    buf: &mut [u8],
+    flags: MsgFlags,
+) -> Result<(usize, SockAddr), LxError> {
+    unsafe {
+        let mut addr = [0u8; size_of::<libc::sockaddr_storage>()];
+        let mut addrlen = size_of_val(&buf) as libc::socklen_t;
+        let ret = libc::recvfrom(
+            sock,
+            buf.as_mut_ptr().cast(),
+            buf.len(),
+            flags.to_apple()?,
+            (&raw mut addr).cast(),
+            &mut addrlen,
+        );
+        let len = match ret {
+            -1 => return Err(LxError::last_apple_error()),
+            n => n as usize,
+        };
+        Ok((len, linux_sockaddr(&addr[..(addrlen as usize)])?))
+    }
 }
 
 pub fn setsockopt(sock: c_int, level: SockOptLevel, opt: u32, buf: &[u8]) -> Result<(), LxError> {

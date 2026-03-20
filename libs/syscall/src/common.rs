@@ -21,7 +21,9 @@ use structures::{
     },
     misc::{GrndFlags, SysInfo, SyslogAction, UtsName},
     mm::{Madvice, MmapFlags, MmapProt, MremapFlags, MsyncFlags},
-    net::{Domain, Protocol, ShutdownHow, SockAddr, SockOptLevel, SocketFlags, SocketType},
+    net::{
+        Domain, MsgFlags, Protocol, ShutdownHow, SockAddr, SockOptLevel, SocketFlags, SocketType,
+    },
     process::{PrctlOp, RLimit64, RLimitable, RUsage, RUsageWho, WaitOptions, WaitStatus},
     signal::{KernelSigSet, MaskHowto, SigAction, SigAltStack, SigNum},
     sync::{FutexCmd, FutexOp, RSeq},
@@ -244,16 +246,26 @@ pub unsafe fn sys_readlinkat(
 
 #[syscall]
 pub unsafe fn sys_getdents64(fd: c_int, dp: *mut u8, count: c_int) -> Result<usize, LxError> {
-    let Some(dirent) = rtenv::fs::getdents64(fd)? else {
-        return Ok(0);
-    };
-    if dirent.size() > count as _ {
-        return Err(LxError::ENOMEM);
+    let mut dp = dp;
+    let mut count = count;
+    let mut total_written = 0;
+
+    loop {
+        let Some(dirent) = rtenv::fs::getdents64(fd)? else {
+            return Ok(total_written);
+        };
+        if dirent.size() > count as _ {
+            break;
+        }
+        unsafe {
+            dirent.write_to(dp);
+            total_written += dirent.size();
+            dp = dp.add(dirent.size());
+            count -= dirent.size() as c_int;
+        }
     }
-    unsafe {
-        dirent.write_to(dp);
-    }
-    Ok(dirent.size())
+
+    Ok(total_written)
 }
 
 #[syscall]
@@ -1053,6 +1065,42 @@ pub unsafe fn sys_setsockopt(
 #[syscall]
 pub unsafe fn sys_shutdown(sock: c_int, how: ShutdownHow) -> Result<(), LxError> {
     rtenv::net::shutdown(sock, how)
+}
+
+#[syscall]
+pub unsafe fn sys_sendto(
+    sock: c_int,
+    buf: *const u8,
+    len: usize,
+    flags: MsgFlags,
+    dest_addr: *const u8,
+    dest_len: c_int,
+) -> Result<usize, LxError> {
+    unsafe {
+        rtenv::net::sendto(
+            sock,
+            std::slice::from_raw_parts(buf, len),
+            flags,
+            SockAddr::from_bytes(std::slice::from_raw_parts(dest_addr, dest_len as usize))?,
+        )
+    }
+}
+
+#[syscall]
+pub unsafe fn sys_recvfrom(
+    sock: c_int,
+    buf: *mut u8,
+    len: usize,
+    flags: MsgFlags,
+    dest_addr: *mut u8,
+    dest_len: *mut u32,
+) -> Result<usize, LxError> {
+    unsafe {
+        let (size, addr) =
+            rtenv::net::recvfrom(sock, std::slice::from_raw_parts_mut(buf, len), flags)?;
+        crate::util::ret_sockaddr(addr, dest_addr, dest_len)?;
+        Ok(size)
+    }
 }
 
 // -== Memory Management ==-

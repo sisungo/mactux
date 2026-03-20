@@ -14,7 +14,7 @@ use structures::{
     io::{CloseRangeFlags, EventFdFlags, FcntlCmd, FlockOp, IoctlCmd, Whence},
     misc::{GrndFlags, SyslogAction},
     mm::{Madvice, MmapFlags, MmapProt, MremapFlags, MsyncFlags},
-    net::{Domain, Protocol, ShutdownHow, SockOptLevel, SocketFlags, SocketType},
+    net::{Domain, MsgFlags, Protocol, ShutdownHow, SockOptLevel, SocketFlags, SocketType},
     process::{PrctlOp, RLimitable, RUsageWho, WaitOptions},
     signal::{MaskHowto, SigNum},
     sync::FutexOp,
@@ -123,11 +123,12 @@ macro_rules! impl_from_to_sys_newtype {
 impl_from_to_sys_plain!(i8; u8; i16; u16; i32; u32; i64; u64; isize; usize);
 impl_from_to_sys_bitflags!(
     MmapFlags; OpenFlags; AtFlags; MmapProt; GrndFlags; AccessFlags; WaitOptions; MsyncFlags;
-    MremapFlags; SocketFlags; EventFdFlags; TimerFlags; UmountFlags; CloseRangeFlags
+    MremapFlags; SocketFlags; EventFdFlags; TimerFlags; UmountFlags; CloseRangeFlags; FlockOp;
+    MsgFlags
 );
 impl_from_to_sys_newtype!(
     Whence; FcntlCmd; IoctlCmd; FutexOp; ClockId; MaskHowto; SigNum; Domain; SocketType; Protocol;
-    ShutdownHow; FlockOp; Madvice; RLimitable; RUsageWho; PrctlOp; SockOptLevel; DeviceNumber;
+    ShutdownHow; Madvice; RLimitable; RUsageWho; PrctlOp; SockOptLevel; DeviceNumber;
     SyslogAction
 );
 impl<T> FromSyscall for *const T {
