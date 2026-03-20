@@ -1163,14 +1163,8 @@ pub unsafe fn sys_msync(addr: *mut u8, len: usize, flags: MsyncFlags) -> Result<
 }
 
 #[syscall]
-pub unsafe fn sys_mincore(addr: *mut u8, len: usize, vec: *mut u8) -> Result<(), LxError> {
-    unsafe {
-        // TODO
-        match libc::mincore(addr.cast(), len, vec.cast()) {
-            -1 => Err(LxError::last_apple_error()),
-            _ => Ok(()),
-        }
-    }
+pub unsafe fn sys_mincore(addr: *const u8, size: usize, vec: *mut u8) -> Result<(), LxError> {
+    rtenv::mm::incore(addr, size, vec)
 }
 
 #[syscall]

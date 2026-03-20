@@ -133,6 +133,12 @@ fn fill_proc_or_thread(
         pid::statm(native_pid),
         0o444,
     )?;
+    create_dynfile_ro(
+        tmpfs,
+        &format!("{relpath}/maps"),
+        pid::maps(native_pid),
+        0o444,
+    )?;
 
     if !thread {
         create_dir(tmpfs, &format!("{relpath}/task"), 0o777)?;

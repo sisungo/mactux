@@ -158,6 +158,10 @@ pub fn statm(apple_pid: libc::pid_t) -> impl Fn() -> Result<Vec<u8>, LxError> + 
     }
 }
 
+pub fn maps(_apple_pid: libc::pid_t) -> impl Fn() -> Result<Vec<u8>, LxError> + Clone {
+    move || Ok(Vec::new())
+}
+
 fn apple_argv(apple_pid: libc::pid_t) -> Result<Vec<Vec<u8>>, LxError> {
     let stack = unsafe {
         sysctl_read::<[u8; libc::PROC_PIDPATHINFO_MAXSIZE as _], _>([

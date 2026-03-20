@@ -1,7 +1,6 @@
 use crate::{
     fs::FilesystemContext,
     ipc_client::{Client, with_client},
-    mm::region::MemoryTracker,
     posix_num, process,
     thread::{CloneContext, ThreadPubCtxMap, may_fork},
     util::posix_result,
@@ -38,7 +37,6 @@ pub struct ProcessCtx {
     pub vfd_table: papaya::HashMap<c_int, u64, FxBuildHasher>,
     pub server_sock_path: ArcSwap<PathBuf>,
     pub important_fds: papaya::HashSet<c_int, FxBuildHasher>,
-    pub memory_tracker: MemoryTracker,
 }
 
 /// Installs the process context.
@@ -60,7 +58,6 @@ pub unsafe fn install() -> std::io::Result<()> {
             vfd_table,
             server_sock_path,
             important_fds: papaya::HashSet::default(),
-            memory_tracker: MemoryTracker::new(),
         });
     }
     Ok(())

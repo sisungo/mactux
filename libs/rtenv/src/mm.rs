@@ -1,7 +1,11 @@
-pub mod region;
-
 use crate::util::posix_result;
 use libc::c_int;
+use mach2::{
+    message::mach_msg_type_number_t,
+    port::mach_port_t,
+    vm_region::{vm_region_basic_info_data_64_t, vm_region_basic_info_data_t, vm_region_info_t},
+    vm_types::mach_vm_size_t,
+};
 use structures::{
     ToApple,
     error::LxError,
@@ -95,4 +99,63 @@ pub unsafe fn advise(start: *mut u8, len: usize, advice: Madvice) -> Result<(), 
         Madvice::MADV_PAGEOUT => Ok(()),
         _ => Err(LxError::EINVAL),
     }
+}
+
+pub fn incore(addr: *const u8, size: usize, vec: *mut u8) -> Result<(), LxError> {
+    for i in (0..size.next_multiple_of(0x1000)).step_by(0x1000) {
+        let start = (addr as usize + i) as *const u8;
+        let region = mach_vm_region(start);
+        if region.is_none() {
+            return Err(LxError::ENOMEM);
+        }
+        let region = region.unwrap();
+        if region.info.max_protection == 0 {
+            return Err(LxError::ENOMEM);
+        }
+        if region.addr as usize + region.size > addr as usize + size {
+            break;
+        }
+    }
+    unsafe {
+        match libc::mincore(addr.cast(), size, vec.cast()) {
+            -1 => Err(LxError::last_apple_error()),
+            _ => Ok(()),
+        }
+    }
+}
+
+#[derive(Debug)]
+struct Region {
+    addr: *const u8,
+    size: usize,
+    info: vm_region_basic_info_data_t,
+}
+
+fn mach_vm_region(addr: *const u8) -> Option<Region> {
+    let mut addr = addr as u64;
+
+    let mut count = size_of::<vm_region_basic_info_data_64_t>() as mach_msg_type_number_t;
+    let mut object_name: mach_port_t = 0;
+
+    let mut size = unsafe { std::mem::zeroed::<mach_vm_size_t>() };
+    let mut info = unsafe { std::mem::zeroed::<vm_region_basic_info_data_t>() };
+    let result = unsafe {
+        mach2::vm::mach_vm_region(
+            mach2::traps::mach_task_self(),
+            &mut addr,
+            &mut size,
+            mach2::vm_region::VM_REGION_BASIC_INFO,
+            &mut info as *mut vm_region_basic_info_data_t as vm_region_info_t,
+            &mut count,
+            &mut object_name,
+        )
+    };
+    if result != libc::KERN_SUCCESS {
+        return None;
+    }
+    Some(Region {
+        size: size as _,
+        info: info,
+        addr: addr as _,
+    })
 }
