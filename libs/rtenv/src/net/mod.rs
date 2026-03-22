@@ -24,6 +24,28 @@ pub fn socket(domain: Domain, ty: SocketType, proto: Protocol) -> Result<c_int, 
     }
 }
 
+pub fn socketpair(domain: Domain, ty: SocketType, proto: Protocol) -> Result<[c_int; 2], LxError> {
+    unsafe {
+        let mut fds = [0; 2];
+        match libc::socketpair(
+            domain.to_apple()?,
+            ty.kind().to_apple()?,
+            proto.to_apple()?,
+            fds.as_mut_ptr(),
+        ) {
+            -1 => Err(LxError::last_apple_error()),
+            n => Ok(n),
+        }?;
+        let close_fds = |_: &LxError| {
+            _ = libc::close(fds[0]);
+            _ = libc::close(fds[1]);
+        };
+        prepare_new(fds[0], ty.flags()).inspect_err(close_fds)?;
+        prepare_new(fds[1], ty.flags()).inspect_err(close_fds)?;
+        Ok(fds)
+    }
+}
+
 pub fn bind(sock: c_int, addr: SockAddr) -> Result<(), LxError> {
     unsafe {
         let (buf, len) = apple_sockaddr(addr, true)?;

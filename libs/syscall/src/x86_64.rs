@@ -128,7 +128,7 @@ const SYSTEM_CALL_HANDLERS: &[SystemCallHandler] = &[
     sys_listen,            // 50
     sys_getsockname,       // 51
     sys_getpeername,       // 52
-    sys_invalid,           // 53
+    sys_socketpair,        // 53
     sys_setsockopt,        // 54
     sys_getsockopt,        // 55
     sys_clone,             // 56
@@ -343,8 +343,8 @@ const SYSTEM_CALL_HANDLERS: &[SystemCallHandler] = &[
     sys_linkat,            // 265
     sys_symlinkat,         // 266
     sys_readlinkat,        // 267
-    sys_invalid,           // 268
-    sys_invalid,           // 269
+    sys_fchmodat,          // 268
+    sys_faccessat,         // 269
     sys_pselect6,          // 270
     sys_ppoll,             // 271
     sys_invalid,           // 272

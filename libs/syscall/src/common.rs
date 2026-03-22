@@ -86,6 +86,11 @@ pub unsafe fn sys_faccessat2(
 }
 
 #[syscall]
+pub unsafe fn sys_faccessat(dfd: c_int, path: &CStr, mode: AccessFlags) -> Result<(), LxError> {
+    rtenv::fs::faccessat2(dfd, path.to_bytes().to_vec(), mode, AtFlags::empty())
+}
+
+#[syscall]
 pub unsafe fn sys_stat(filename: &CStr, statbuf: *mut Stat) -> Result<(), LxError> {
     unsafe {
         let stat = with_openat(
@@ -452,6 +457,20 @@ pub unsafe fn sys_chmod(path: &CStr, mode: u16) -> Result<(), LxError> {
         with_openat(
             AT_FDCWD,
             path.to_bytes().to_vec(),
+            OpenFlags::O_PATH,
+            AtFlags::empty(),
+            0,
+            |fd| rtenv::fs::fchmod(fd, mode),
+        )
+    }
+}
+
+#[syscall]
+pub unsafe fn sys_fchmodat(dfd: c_int, filename: &CStr, mode: u16) -> Result<(), LxError> {
+    unsafe {
+        with_openat(
+            dfd,
+            filename.to_bytes().to_vec(),
             OpenFlags::O_PATH,
             AtFlags::empty(),
             0,
@@ -953,6 +972,20 @@ pub unsafe fn sys_socket(
     proto: Protocol,
 ) -> Result<c_int, LxError> {
     rtenv::net::socket(domain, ty, proto)
+}
+
+#[syscall]
+pub unsafe fn sys_socketpair(
+    domain: Domain,
+    ty: SocketType,
+    proto: Protocol,
+    fds: *mut [c_int; 2],
+) -> Result<(), LxError> {
+    unsafe {
+        let got = rtenv::net::socketpair(domain, ty, proto)?;
+        fds.write(got);
+        Ok(())
+    }
 }
 
 #[syscall]

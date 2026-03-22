@@ -102,6 +102,9 @@ pub unsafe fn advise(start: *mut u8, len: usize, advice: Madvice) -> Result<(), 
 }
 
 pub fn incore(addr: *const u8, size: usize, vec: *mut u8) -> Result<(), LxError> {
+    // Linux man pages says `-ENOMEM` is returned if the region contains pages that are not mapped, and
+    // certain applications (e.g. GNU grep running on glibc) depends on the behavior, so check for
+    // the memory map first.
     for i in (0..size.next_multiple_of(0x1000)).step_by(0x1000) {
         let start = (addr as usize + i) as *const u8;
         let region = mach_vm_region(start);
@@ -116,6 +119,7 @@ pub fn incore(addr: *const u8, size: usize, vec: *mut u8) -> Result<(), LxError>
             break;
         }
     }
+
     unsafe {
         match libc::mincore(addr.cast(), size, vec.cast()) {
             -1 => Err(LxError::last_apple_error()),

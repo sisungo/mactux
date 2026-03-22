@@ -25,6 +25,8 @@ impl FsRegistry {
         this.0
             .insert("proc", Box::new(crate::filesystem::procfs::MakeProcfs));
         this.0
+            .insert("sysfs", Box::new(crate::filesystem::sysfs::MakeSysfs));
+        this.0
             .insert("tmpfs", Box::new(crate::filesystem::tmpfs::MakeTmpfs));
         this.0.insert(
             "nativefs",

@@ -9,7 +9,6 @@ pub const XATTR_NAMESPACE_SYSTEM_PREFIX: &[u8] = b"system.";
 pub const XATTR_NAMESPACE_SECURITY_PREFIX: &[u8] = b"security.";
 pub const XATTR_NAMESPACE_TRUSTED_PREFIX: &[u8] = b"trusted.";
 pub const XATTR_NAMESPACE_MACTUX_INTERNAL_PREFIX: &[u8] = b"_mactux.";
-
 pub const XATTR_NAMESPACE_PREFIXES: &[&[u8]] = &[
     XATTR_NAMESPACE_USER_PREFIX,
     XATTR_NAMESPACE_SYSTEM_PREFIX,
@@ -555,6 +554,7 @@ impl FsMagic {
     pub const TMPFS_MAGIC: Self = Self(0x01021994);
     pub const NATIVEFS_MAGIC: Self = Self(0x07bee5f9);
     pub const PROC_SUPER_MAGIC: Self = Self(0x9fa0);
+    pub const SYSFS_MAGIC: Self = Self(0x62656572);
 
     pub const fn name(self) -> Option<&'static str> {
         match self {
