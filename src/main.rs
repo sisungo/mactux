@@ -2,7 +2,8 @@ use loader::Program;
 use mimalloc::MiMalloc;
 use std::{
     ffi::OsString,
-    os::fd::{FromRawFd, OwnedFd},
+    io::Write,
+    os::fd::{FromRawFd, IntoRawFd, OwnedFd},
     path::PathBuf,
 };
 use structures::fs::{AT_FDCWD, AtFlags, FileMode, OpenFlags};
@@ -103,7 +104,7 @@ fn load_program(exec: &[u8]) -> Program {
         AtFlags::empty(),
         FileMode(0),
     );
-    let fd = match fd {
+    let mut fd = match fd {
         Ok(x) => x,
         Err(e) => {
             eprintln!(
@@ -115,9 +116,7 @@ fn load_program(exec: &[u8]) -> Program {
         }
     };
     if rtenv::vfd::get(fd).is_some() {
-        _ = rtenv::io::close(fd);
-        eprintln!("mactux: virtual file descriptors are not yet supported to be executed");
-        std::process::exit(101);
+        fd = copy_vfd(fd);
     }
     loader::Program::load(unsafe { OwnedFd::from_raw_fd(fd) }).unwrap_or_else(|err| {
         eprintln!(
@@ -149,4 +148,32 @@ fn collect_envp(cmdline: &Mactux) -> Vec<&[u8]> {
         .iter()
         .for_each(|x| envp.push(x.as_encoded_bytes()));
     envp
+}
+
+/// Copies from VFD to native file to execute on virtual file descriptor.
+fn copy_vfd(fd: i32) -> i32 {
+    let Ok(mut tempfile) = tempfile::Builder::new().disable_cleanup(true).tempfile() else {
+        eprintln!("mactux: failed to create temporary file to execute on vfd");
+        std::process::exit(101);
+    };
+    let mut buf = vec![0u8; 4096];
+    loop {
+        let Ok(n) = rtenv::io::read(fd, &mut buf) else {
+            eprintln!("mactux: failed to read the executable");
+            std::process::exit(101);
+        };
+        if n == 0 {
+            break;
+        }
+        if tempfile.write(&buf[..n]).is_err() {
+            eprintln!("mactux: failed to copy vfd executable to temporary file");
+            std::process::exit(101);
+        }
+    }
+    _ = rtenv::io::close(fd);
+    let Ok(readable) = std::fs::File::open(tempfile.path()) else {
+        eprintln!("mactux: failed to reopen temporary file for reading");
+        std::process::exit(101);
+    };
+    readable.into_raw_fd()
 }

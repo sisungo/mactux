@@ -1,5 +1,7 @@
 //! A generic in-memory filesystem.
 
+mod regular;
+
 use crate::{
     app,
     filesystem::{
@@ -13,13 +15,14 @@ use crate::{
 };
 use crossbeam::atomic::AtomicCell;
 use dashmap::DashMap;
+use regular::Reg;
 use rustc_hash::FxBuildHasher;
 use std::{
     fmt::Debug,
     path::PathBuf,
     sync::{
         Arc, Mutex, RwLock,
-        atomic::{self, AtomicU16, AtomicU32, AtomicUsize},
+        atomic::{self, AtomicU16, AtomicU32},
     },
 };
 use structures::{
@@ -144,10 +147,7 @@ impl Filesystem for Tmpfs {
                 }
                 let mut mode = how.mode();
                 mode.set_file_type(FileType::RegularFile);
-                let file = Arc::new(Reg {
-                    metadata: dir.metadata.fork(mode),
-                    buf: RegBuf::new(),
-                });
+                let file = Reg::new(dir.metadata.fork(mode));
                 dir.children.insert(
                     path.relative.parts.last().ok_or(LxError::EEXIST)?.clone(),
                     Node::File(file.clone()),
@@ -607,67 +607,6 @@ impl VfdContent for DirFd {
 }
 
 #[derive(Debug)]
-struct Reg {
-    metadata: Arc<Metadata>,
-    buf: RegBuf,
-}
-impl File for Reg {
-    fn open_vfd(self: Arc<Self>, _: OpenFlags) -> Result<Arc<dyn VfdContent>, LxError> {
-        Ok(self.clone())
-    }
-}
-impl Stream for Reg {
-    fn read(&self, buf: &mut [u8], off: &mut i64) -> Result<usize, LxError> {
-        if *off < 0 {
-            return Err(LxError::EINVAL);
-        }
-        let orig_off = *off;
-
-        loop {
-            let id = *off / BLOCK_SIZE as i64;
-
-            // this shall only occur in the first block to read
-            if *off % BLOCK_SIZE as i64 != 0 {
-                let mut block = [0; BLOCK_SIZE as usize];
-                let rem = *off - id * BLOCK_SIZE as i64;
-                let block_read_len = self.buf.read_block(id as _, &mut block);
-                let read_len = block_read_len.min(BLOCK_SIZE as usize - rem as usize);
-                buf[..read_len].copy_from_slice(&block[rem as usize..rem as usize + read_len]);
-                *off += read_len as i64;
-                if block_read_len != BLOCK_SIZE as _ {
-                    return Ok(read_len);
-                }
-                continue;
-            }
-
-            let bytes_to_read =
-                (BLOCK_SIZE as usize).min(buf.len() - (*off as usize - orig_off as usize));
-            let actual_read = self.buf.read_block(
-                id as _,
-                &mut buf[(*off as usize - orig_off as usize)
-                    ..(*off as usize - orig_off as usize) + bytes_to_read],
-            );
-            *off += bytes_to_read as i64;
-            if actual_read != bytes_to_read || *off - orig_off == buf.len() as _ {
-                return Ok(*off as usize - orig_off as usize);
-            }
-        }
-    }
-}
-impl VfdContent for Reg {
-    fn stat(&self, mask: StatxMask) -> Result<Statx, LxError> {
-        let mut stat = self.metadata.stat_template(mask);
-
-        stat.stx_size = self.buf.size();
-        stat.stx_blocks = self.buf.blocks() * (BLOCK_SIZE as u64 / 512);
-
-        stat.stx_mode.set_file_type(FileType::RegularFile);
-
-        Ok(stat)
-    }
-}
-
-#[derive(Debug)]
 struct Dev {
     metadata: Arc<Metadata>,
     file_type: FileType,
@@ -969,85 +908,9 @@ impl Metadata {
             vminor: AtomicU32::new(self.vminor.load(atomic::Ordering::Relaxed)),
         })
     }
-}
 
-/// A buffer for regular files. Supports sparse files.
-#[derive(Debug)]
-struct RegBuf {
-    last_block_used: AtomicUsize,
-    data: RwLock<Vec<Option<Box<[u8; BLOCK_SIZE as _]>>>>,
-}
-impl RegBuf {
-    const fn new() -> Self {
-        Self {
-            last_block_used: AtomicUsize::new(0),
-            data: RwLock::new(Vec::new()),
-        }
-    }
-
-    fn blocks(&self) -> u64 {
-        self.data
-            .read()
-            .unwrap()
-            .iter()
-            .filter(|block| block.is_some())
-            .count() as _
-    }
-
-    fn size(&self) -> u64 {
-        let data = self.data.read().unwrap();
-        let blocks = data.len();
-        if blocks == 0 {
-            return 0;
-        }
-        ((blocks - 1) * BLOCK_SIZE as usize + self.last_block_used.load(atomic::Ordering::Relaxed))
-            as u64
-    }
-
-    fn read_block(&self, id: u64, buf: &mut [u8]) -> usize {
-        let data = self.data.read().unwrap();
-        let Some(block) = data.get(id as usize) else {
-            return 0;
-        };
-        let mut expected_len = BLOCK_SIZE;
-        if id + 1 == data.len() as u64 {
-            expected_len = self.last_block_used.load(atomic::Ordering::Relaxed) as _;
-        }
-        let actual_len = (expected_len as usize).min(buf.len()) as usize;
-        let Some(block) = &*block else {
-            buf.fill(0);
-            return actual_len;
-        };
-        buf.copy_from_slice(&block[..actual_len]);
-        actual_len
-    }
-
-    fn write_block(&self, id: u64, buf: &[u8]) -> usize {
-        let mut data = self.data.write().unwrap();
-        let write_len = (buf.len() as u64).min(BLOCK_SIZE as u64);
-        if id as usize >= data.len() {
-            data.resize(id as usize + 1, None);
-            self.last_block_used
-                .store(write_len as _, atomic::Ordering::Relaxed);
-        }
-        let block = data
-            .get_mut(id as usize)
-            .expect("reserved block should never be empty");
-
-        let buf_is_block = buf.len() == BLOCK_SIZE as _;
-        let buf_is_zeroed = buf.iter().all(|x| *x == 0);
-        if block.is_none() && buf_is_zeroed {
-            return write_len as _;
-        }
-        if block.is_some() && buf_is_zeroed && buf_is_block {
-            *block = None;
-        }
-
-        if block.is_none() {
-            *block = Some(Box::new([0; _]));
-        }
-        (block.as_mut().unwrap())[..write_len as _].copy_from_slice(&buf[..write_len as _]);
-
-        write_len as _
+    fn utimens(&self, times: [structures::time::Timespec; 2]) {
+        *self.atime.write().unwrap() = times[0];
+        *self.mtime.write().unwrap() = times[1];
     }
 }
