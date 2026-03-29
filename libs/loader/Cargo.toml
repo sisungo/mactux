@@ -5,7 +5,7 @@ edition = "2024"
 
 [dependencies]
 libc = "0.2"
-object = { version = "0.37", default-features = false, features = ["elf", "unaligned", "read", "std"] }
-rand = "0.9"
+object = { version = "0.39", default-features = false, features = ["elf", "unaligned", "read", "std"] }
+rand = "0.10"
 rtenv = { path = "../rtenv" }
 structures = { path = "../structures" }

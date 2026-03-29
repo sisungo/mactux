@@ -2,7 +2,7 @@
 
 use crossbeam::atomic::AtomicCell;
 use rodio::{
-    OutputStreamBuilder, Sample, Sink,
+    DeviceSinkBuilder, Player, Sample,
     buffer::SamplesBuffer,
     conversions::SampleTypeConverter,
     cpal::{FromSample, SampleFormat},
@@ -10,6 +10,7 @@ use rodio::{
 use std::{
     fmt::Debug,
     io::{Cursor, Read},
+    num::NonZero,
     sync::{
         atomic::{self, AtomicU16, AtomicU32},
         mpsc,
@@ -22,9 +23,9 @@ use structures::error::LxError;
 /// This is shared across different audio interfaces, and wraps the actual macOS API.
 pub struct AudioOutput {
     drop_notify: mpsc::SyncSender<()>,
-    pub sink: Sink,
-    pub sample_rate: AtomicU32,
-    pub channels: AtomicU16,
+    pub player: Player,
+    sample_rate: AtomicU32,
+    channels: AtomicU16,
     pub sample_format: AtomicCell<SampleFormat>,
 }
 impl AudioOutput {
@@ -35,24 +36,24 @@ impl AudioOutput {
         std::thread::Builder::new()
             .name(String::from("AudioOutput"))
             .spawn(move || {
-                let output_stream = OutputStreamBuilder::open_default_stream();
+                let output_stream = DeviceSinkBuilder::open_default_sink();
                 let mut output_stream = match output_stream {
                     Ok(x) => x,
                     Err(err) => {
-                        _ = sink_tx.send(Err(from_stream_error(err)));
+                        _ = sink_tx.send(Err(from_devsink_error(err)));
                         return;
                     }
                 };
                 output_stream.log_on_drop(false);
-                _ = sink_tx.send(Ok(Sink::connect_new(output_stream.mixer())));
+                _ = sink_tx.send(Ok(Player::connect_new(output_stream.mixer())));
                 _ = drop_rx.recv();
             })
             .map_err(|_| LxError::EIO)?;
-        let sink = sink_rx.recv().map_err(|_| LxError::EIO)??;
+        let player = sink_rx.recv().map_err(|_| LxError::EIO)??;
 
         Ok(Self {
             drop_notify,
-            sink,
+            player,
             sample_rate: 48000.into(),
             channels: 2.into(),
             sample_format: SampleFormat::I16.into(),
@@ -66,12 +67,39 @@ impl AudioOutput {
     pub fn write_samples(&self, samples: &[u8]) -> Result<usize, LxError> {
         let (samples, bytes) = convert_samples(self.sample_format.load(), samples);
         let buffer = SamplesBuffer::new(
-            self.channels.load(atomic::Ordering::Relaxed),
-            self.sample_rate.load(atomic::Ordering::Relaxed),
+            NonZero::new(self.channels.load(atomic::Ordering::Relaxed)).unwrap(),
+            NonZero::new(self.sample_rate.load(atomic::Ordering::Relaxed)).unwrap(),
             samples,
         );
-        self.sink.append(buffer);
+        self.player.append(buffer);
         Ok(bytes)
+    }
+
+    pub fn channels(&self) -> u16 {
+        self.channels.load(atomic::Ordering::Relaxed)
+    }
+
+    pub fn sample_rate(&self) -> u32 {
+        self.sample_rate.load(atomic::Ordering::Relaxed)
+    }
+
+    #[must_use]
+    pub fn set_channels(&self, channels: u16) -> bool {
+        if channels == 0 {
+            return false;
+        }
+        self.channels.store(channels, atomic::Ordering::Relaxed);
+        true
+    }
+
+    #[must_use]
+    pub fn set_sample_rate(&self, sample_rate: u32) -> bool {
+        if sample_rate == 0 {
+            return false;
+        }
+        self.sample_rate
+            .store(sample_rate, atomic::Ordering::Relaxed);
+        true
     }
 }
 impl Debug for AudioOutput {
@@ -89,7 +117,7 @@ impl Drop for AudioOutput {
     }
 }
 
-fn from_stream_error(err: rodio::StreamError) -> LxError {
+fn from_devsink_error(err: rodio::DeviceSinkError) -> LxError {
     match err {
         _ => LxError::EIO,
     }

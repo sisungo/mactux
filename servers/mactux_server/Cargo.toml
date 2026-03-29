@@ -11,7 +11,7 @@ gui = []
 [dependencies]
 anyhow = "1"
 clap = { version = "4", features = ["derive"] }
-dashmap = "5"
+dashmap = "6"
 libc = "0.2"
 structures = { path = "../../libs/structures" }
 libproc = "0.14"
@@ -20,10 +20,10 @@ rustc-hash = "2"
 crossbeam = "0.8.4"
 postcard = { version = "1", default-features = false, features = ["use-std"] }
 serde = "1"
-mach2 = "0.5"
+mach2 = "0.6"
 
 [dependencies.rodio]
-version = "0.21"
+version = "0.22"
 default-features = false
 features = ["playback"]
 optional = true

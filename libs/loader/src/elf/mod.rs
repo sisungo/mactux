@@ -12,7 +12,7 @@ use object::{
     elf::{PT_INTERP, PT_LOAD, ProgramHeader64},
     read::elf::{ElfFile64, FileHeader, ProgramHeader},
 };
-use rand::RngCore;
+use rand::Rng;
 use std::os::fd::{AsFd, AsRawFd, FromRawFd, OwnedFd, RawFd};
 use structures::{
     error::LxError,

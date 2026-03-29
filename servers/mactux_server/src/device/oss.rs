@@ -6,10 +6,7 @@ use crate::{
     vfd::Stream,
 };
 use rodio::cpal::SampleFormat;
-use std::{
-    ffi::c_int,
-    sync::{Arc, atomic},
-};
+use std::{ffi::c_int, sync::Arc};
 use structures::{
     error::LxError,
     fs::OpenFlags,
@@ -33,8 +30,8 @@ impl DspFd {
     fn new(flags: OpenFlags) -> Result<Arc<Self>, LxError> {
         let output = if flags.is_writable() {
             let output = Arc::new(AudioOutput::new()?);
-            output.channels.store(1, atomic::Ordering::Relaxed);
-            output.sample_rate.store(8000, atomic::Ordering::Relaxed);
+            _ = output.set_channels(1);
+            _ = output.set_sample_rate(8000);
             output.sample_format.store(SampleFormat::U8);
             Some(output)
         } else {
@@ -53,12 +50,11 @@ impl Stream for DspFd {
         let output = self.output()?;
         let nbytes = output.write_samples(buf)?;
         let nsamples = nbytes / output.sample_format.load().sample_size();
-        let time_to_sleep = std::time::Duration::from_secs(1)
-            / output.sample_rate.load(atomic::Ordering::Relaxed)
+        let time_to_sleep = std::time::Duration::from_secs(1) / output.sample_rate()
             * (nsamples as u32)
-            / output.channels.load(atomic::Ordering::Relaxed) as _;
+            / output.channels() as _;
 
-        if output.sink.len() > 2 {
+        if output.player.len() > 2 {
             std::thread::sleep(time_to_sleep);
         }
 
@@ -89,9 +85,9 @@ impl Stream for DspFd {
 
         match cmd {
             IoctlCmd::SNDCTL_DSP_CHANNELS => {
-                self.output()?
-                    .channels
-                    .store(value as _, atomic::Ordering::Relaxed);
+                if !self.output()?.set_channels(value as _) {
+                    return Err(LxError::EINVAL);
+                }
                 Ok(CtrlOutput {
                     status: 0,
                     blob: data.to_vec(),
@@ -110,9 +106,9 @@ impl Stream for DspFd {
                 })
             }
             IoctlCmd::SNDCTL_DSP_SPEED => {
-                self.output()?
-                    .sample_rate
-                    .store(value as _, atomic::Ordering::Relaxed);
+                if !self.output()?.set_sample_rate(value as _) {
+                    return Err(LxError::EINVAL);
+                }
                 Ok(CtrlOutput {
                     status: 0,
                     blob: data.to_vec(),
@@ -120,9 +116,9 @@ impl Stream for DspFd {
             }
             IoctlCmd::SNDCTL_DSP_STEREO => {
                 if value == 1 {
-                    self.output()?.channels.store(2, atomic::Ordering::Relaxed);
+                    _ = self.output()?.set_channels(2);
                 } else {
-                    self.output()?.channels.store(1, atomic::Ordering::Relaxed);
+                    _ = self.output()?.set_channels(1);
                 }
                 Ok(CtrlOutput {
                     status: 0,
