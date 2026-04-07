@@ -53,6 +53,7 @@ unixvariants! {
         const EALREADY = 114;
         const EINPROGRESS = 115;
         #[linux_only] const EBADFD = 77;
+        #[reserve] const NONE = 0;
         fn from_apple(apple: c_int) -> Result<Self, LxError>;
         fn to_apple(self) -> Result<libc::c_int, LxError>;
     }

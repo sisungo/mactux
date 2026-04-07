@@ -78,6 +78,12 @@ pub const SO_PROTOCOL: u32 = 38;
 pub const SO_DOMAIN: u32 = 39;
 
 pub const IP_TOS: u32 = 1;
+pub const IP_RECVERR: u32 = 11;
+
+pub const TCP_NODELAY: u32 = 1;
+pub const TCP_KEEPIDLE: u32 = 4;
+pub const TCP_KEEPINTVL: u32 = 5;
+pub const TCP_KEEPCNT: u32 = 6;
 
 unixvariants! {
     pub struct SockOptLevel: u32 {
@@ -134,6 +140,9 @@ pub enum SockAddr {
 impl SockAddr {
     pub fn from_bytes(buf: &[u8]) -> Result<Self, LxError> {
         unsafe {
+            if buf.len() < size_of::<SaFamily>() {
+                return Err(LxError::ENOMEM);
+            }
             let domain = buf.as_ptr().cast::<SaFamily>().read().to_domain();
             match domain {
                 Domain::PF_LOCAL => SockAddrUn::from_bytes(buf).map(|un| Self::Un(un, buf.len())),

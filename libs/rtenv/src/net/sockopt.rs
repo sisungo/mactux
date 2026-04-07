@@ -1,17 +1,11 @@
 use crate::util::posix_result;
 use libc::c_int;
-use structures::{
-    FromApple, ToApple,
-    error::LxError,
-    net::{
-        IP_TOS, Linger, SO_BROADCAST, SO_DEBUG, SO_DONTROUTE, SO_ERROR, SO_KEEPALIVE, SO_LINGER,
-        SO_OOBINLINE, SO_RCVBUF, SO_RCVLOWAT, SO_RCVTIMEO, SO_REUSEADDR, SO_REUSEPORT, SO_SNDBUF,
-        SO_SNDLOWAT, SO_SNDTIMEO, SO_TIMESTAMP, SO_TYPE, SockOptLevel, SocketKind,
-    },
-    time::Timeval,
-};
+use structures::{FromApple, ToApple, error::LxError, net::*, time::Timeval};
 
 macro_rules! auto {
+    (ignore) => {
+        (|_, _, _| Ok(()), |_, _, _| Ok(()))
+    };
     ($apple:expr, $l:ty) => {
         (auto!(@get $apple, $l), auto!(@set $apple, $l))
     };
@@ -58,6 +52,17 @@ fn level(level: SockOptLevel) -> Result<FnSockOptLevel, LxError> {
     match level {
         SockOptLevel::SOL_SOCKET => Ok(socket_level),
         SockOptLevel::SOL_IP => Ok(ip_level),
+        SockOptLevel::SOL_TCP => Ok(tcp_level),
+        _ => Err(LxError::EINVAL),
+    }
+}
+
+fn tcp_level(sockopt: u32) -> Result<(FnGetSockOpt, FnSetSockOpt), LxError> {
+    match sockopt {
+        TCP_NODELAY => Ok(auto!(libc::TCP_NODELAY, c_int)),
+        TCP_KEEPIDLE => Ok(auto!(ignore)),
+        TCP_KEEPINTVL => Ok(auto!(libc::TCP_KEEPINTVL, c_int)),
+        TCP_KEEPCNT => Ok(auto!(libc::TCP_KEEPCNT, c_int)),
         _ => Err(LxError::EINVAL),
     }
 }
@@ -65,6 +70,7 @@ fn level(level: SockOptLevel) -> Result<FnSockOptLevel, LxError> {
 fn ip_level(sockopt: u32) -> Result<(FnGetSockOpt, FnSetSockOpt), LxError> {
     match sockopt {
         IP_TOS => Ok(auto!(libc::IP_TOS, c_int)),
+        IP_RECVERR => Ok(auto!(ignore)),
         _ => Err(LxError::EINVAL),
     }
 }
@@ -88,6 +94,7 @@ fn socket_level(sockopt: u32) -> Result<(FnGetSockOpt, FnSetSockOpt), LxError> {
         SO_RCVTIMEO => Ok(auto!(libc::SO_RCVTIMEO, Timeval)),
         SO_SNDTIMEO => Ok(auto!(libc::SO_SNDTIMEO, Timeval)),
         SO_TIMESTAMP => Ok(auto!(libc::SO_TIMESTAMP, c_int)),
+        SO_NO_CHECK => Ok(auto!(ignore)),
         _ => Err(LxError::EINVAL),
     }
 }

@@ -147,7 +147,7 @@ pub enum Response {
     NetworkNames(NetworkNames),
     SysInfo(Box<SysInfo>),
     StatFs(Box<StatFs>),
-    Poll(u64, PollEvents),
+    Poll(Option<(u64, PollEvents)>),
     Error(LxError),
 }
 

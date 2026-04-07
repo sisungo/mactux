@@ -7,7 +7,6 @@ mod filesystem;
 mod ipc;
 mod multimedia;
 mod network;
-mod poll;
 mod sysinfo;
 mod syslog;
 mod task;

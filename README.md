@@ -24,6 +24,7 @@ Currently, we have tested:
  - Python 3
  - TinyCC
  - OpenSSH Client
+ - curl
 
 We suggest you to run dynamically linked or static-pie binaries, due to macOS's ASLR policy have not yet been solved
 completely.

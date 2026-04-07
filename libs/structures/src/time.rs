@@ -11,6 +11,7 @@ unixvariants! {
         const CLOCK_MONOTONIC = 1;
         const CLOCK_PROCESS_CPUTIME_ID = 2;
         const CLOCK_THREAD_CPUTIME_ID = 3;
+        const CLOCK_MONOTONIC_RAW = 4;
         fn from_apple(apple: libc::clockid_t) -> Result<Self, LxError>;
         fn to_apple(self) -> Result<libc::clockid_t, LxError>;
     }

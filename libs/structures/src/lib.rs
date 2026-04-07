@@ -96,6 +96,7 @@ macro_rules! unixvariants {
             $(const $j:ident = $k:expr;)*
             $(#[linux_only] const $h:ident = $i:expr;)*
             $(#[apple = $an:ident] const $l:ident = $m:expr;)*
+            $(#[reserve] const $r:ident = $x:expr;)*
 
             fn from_apple($_:ident: $ati:ty) -> Result<Self, LxError>;
             fn to_apple(self) -> Result<$ato:ty, LxError>;
@@ -115,6 +116,9 @@ macro_rules! unixvariants {
             $(
                 pub const $l: Self = Self($m);
             )*
+            $(
+                pub const $r: Self = Self($x);
+            )*
         }
         impl $crate::FromApple for $n {
             type Apple = $ati;
@@ -124,6 +128,7 @@ macro_rules! unixvariants {
                 match apple {
                     $(libc::$j => Ok(Self::$j),)*
                     $(libc::$an => Ok(Self::$l),)*
+                    $($x => Ok(Self::$r),)*
                     _ => Err($crate::error::LxError::EINVAL),
                 }
             }
@@ -135,6 +140,7 @@ macro_rules! unixvariants {
                 match self {
                     $(Self::$j => Ok(libc::$j),)*
                     $(Self::$l => Ok(libc::$an),)*
+                    $(Self::$r => Ok($x),)*
                     _ => Err($crate::error::LxError::EINVAL),
                 }
             }

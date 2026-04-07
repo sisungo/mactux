@@ -8,10 +8,9 @@ use crate::{
         VPath,
         vfs::{Filesystem, LPath, MakeFilesystem, NewlyOpen},
     },
-    poll::PollToken,
     task::process::Process,
     util::{plain_seek, symlink_abs},
-    vfd::{Stream, Vfd, VfdContent},
+    vfd::{PollToken, Stream, Vfd, VfdContent},
 };
 use crossbeam::atomic::AtomicCell;
 use dashmap::DashMap;

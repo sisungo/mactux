@@ -1106,16 +1106,18 @@ pub unsafe fn sys_sendto(
     buf: *const u8,
     len: usize,
     flags: MsgFlags,
-    dest_addr: *const u8,
+    dest_addr: Option<NonNull<u8>>,
     dest_len: c_int,
 ) -> Result<usize, LxError> {
     unsafe {
-        rtenv::net::sendto(
-            sock,
-            std::slice::from_raw_parts(buf, len),
-            flags,
-            SockAddr::from_bytes(std::slice::from_raw_parts(dest_addr, dest_len as usize))?,
-        )
+        let dest_addr = match dest_addr {
+            Some(ptr) => Some(SockAddr::from_bytes(std::slice::from_raw_parts(
+                ptr.as_ptr(),
+                dest_len as usize,
+            ))?),
+            None => None,
+        };
+        rtenv::net::sendto(sock, std::slice::from_raw_parts(buf, len), flags, dest_addr)
     }
 }
 
@@ -1131,7 +1133,9 @@ pub unsafe fn sys_recvfrom(
     unsafe {
         let (size, addr) =
             rtenv::net::recvfrom(sock, std::slice::from_raw_parts_mut(buf, len), flags)?;
-        crate::util::ret_sockaddr(addr, dest_addr, dest_len)?;
+        if let Some(addr) = addr {
+            crate::util::ret_sockaddr(addr, dest_addr, dest_len)?;
+        }
         Ok(size)
     }
 }

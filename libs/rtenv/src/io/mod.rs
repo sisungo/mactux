@@ -257,10 +257,10 @@ pub unsafe fn poll(fds: &mut [PollFd], timeout: Option<Duration>) -> Result<u32,
                     && (apple_fds.last().unwrap().revents & libc::POLLIN) != 0
                 {
                     match client.wait() {
-                        Response::Nothing => (),
-                        Response::Poll(vfd, revent) => {
+                        Response::Poll(Some((vfd, revent))) => {
                             fds[virtual_fd_map[&vfd]].revents = revent;
                         }
+                        Response::Poll(None) => (),
                         Response::Error(err) => {
                             return Err(err);
                         }

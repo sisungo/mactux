@@ -1,7 +1,7 @@
 //! Virtual file descriptor support.
 
-use crate::{filesystem::vfs::Filesystem, poll::PollToken};
-use crossbeam::atomic::AtomicCell;
+use crate::filesystem::vfs::Filesystem;
+use crossbeam::{atomic::AtomicCell, channel::Receiver};
 use dashmap::DashMap;
 use rustc_hash::FxBuildHasher;
 use std::{
@@ -211,6 +211,10 @@ impl Vfd {
     pub fn set_orig_path(&self, path: Vec<u8>) -> Result<(), LxError> {
         self.orig_path.set(path).map_err(|_| LxError::EPERM)
     }
+
+    pub fn poll(&self, events: PollEvents) -> Result<PollToken, LxError> {
+        self.content.poll(events)
+    }
 }
 
 pub trait Stream {
@@ -344,5 +348,17 @@ impl VfdTable {
     pub fn on_exec(&self) {
         self.table
             .retain(|_, v| !v.open_flags.load().contains(OpenFlags::O_CLOEXEC));
+    }
+}
+
+#[derive(Debug)]
+pub struct PollToken {
+    pub vfd: u64,
+    pub interest: PollEvents,
+    pub receiver: Receiver<PollEvents>,
+}
+impl PollToken {
+    pub fn ready(&self, latest: PollEvents) -> bool {
+        latest.intersects(self.interest)
     }
 }

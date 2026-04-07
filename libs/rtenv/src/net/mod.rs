@@ -112,15 +112,29 @@ pub fn getsockopt(
     sockopt::get(sock, level, opt, buf)
 }
 
-pub fn sendto(sock: c_int, buf: &[u8], flags: MsgFlags, dest: SockAddr) -> Result<usize, LxError> {
+pub fn sendto(
+    sock: c_int,
+    buf: &[u8],
+    flags: MsgFlags,
+    dest: Option<SockAddr>,
+) -> Result<usize, LxError> {
     unsafe {
-        let (addr_buf, addr_len) = apple_sockaddr(dest, false)?;
+        let has_dest = dest.is_some();
+        let (addr_buf, addr_len) = match dest {
+            Some(dest) => apple_sockaddr(dest, false)?,
+            None => (std::mem::zeroed(), 0),
+        };
+        let addr_buf_ptr = if has_dest {
+            (&raw const addr_buf).cast()
+        } else {
+            std::ptr::null()
+        };
         let ret = libc::sendto(
             sock,
             buf.as_ptr().cast(),
             buf.len(),
             flags.to_apple()?,
-            (&raw const addr_buf).cast(),
+            addr_buf_ptr,
             addr_len as _,
         );
         match ret {
@@ -134,10 +148,10 @@ pub fn recvfrom(
     sock: c_int,
     buf: &mut [u8],
     flags: MsgFlags,
-) -> Result<(usize, SockAddr), LxError> {
+) -> Result<(usize, Option<SockAddr>), LxError> {
     unsafe {
         let mut addr = [0u8; size_of::<libc::sockaddr_storage>()];
-        let mut addrlen = size_of_val(&buf) as libc::socklen_t;
+        let mut addrlen = size_of::<libc::sockaddr_storage>() as libc::socklen_t;
         let ret = libc::recvfrom(
             sock,
             buf.as_mut_ptr().cast(),
@@ -150,7 +164,7 @@ pub fn recvfrom(
             -1 => return Err(LxError::last_apple_error()),
             n => n as usize,
         };
-        Ok((len, linux_sockaddr(&addr[..(addrlen as usize)])?))
+        Ok((len, linux_sockaddr(&addr[..(addrlen as usize)]).ok()))
     }
 }
 
