@@ -2,7 +2,7 @@
 
 use super::UcontextExt;
 use crate::util::with_openat;
-use libc::{c_char, c_int, c_uint, c_void};
+use libc::{c_char, c_int, c_uint};
 use macros::syscall;
 use rtenv::posix_num;
 use std::{ffi::CStr, num::NonZero, ptr::NonNull, time::Duration};
@@ -601,7 +601,7 @@ pub unsafe fn sys_writev(
 
 #[syscall]
 pub unsafe fn sys_lseek(fd: c_int, off: i64, whence: Whence) -> Result<i64, LxError> {
-    unsafe { rtenv::io::lseek(fd, off, whence) }
+    rtenv::io::lseek(fd, off, whence)
 }
 
 #[syscall]
@@ -1217,13 +1217,8 @@ pub unsafe fn sys_mremap(
 }
 
 #[syscall]
-pub unsafe fn sys_munmap(addr: *mut c_void, len: usize) -> std::io::Result<()> {
-    unsafe {
-        match libc::munmap(addr, len) {
-            -1 => Err(std::io::Error::last_os_error()),
-            _ => Ok(()),
-        }
-    }
+pub unsafe fn sys_munmap(addr: *mut u8, len: usize) -> Result<(), LxError> {
+    unsafe { rtenv::mm::unmap(addr, len) }
 }
 
 // -== Signal Handling ==-

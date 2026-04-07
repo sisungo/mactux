@@ -198,7 +198,7 @@ pub unsafe fn sysctl_read<T: Copy, const N: usize>(mut name: [c_int; N]) -> Resu
 pub fn plain_seek(orig_off: i64, end: i64, whence: Whence, off: i64) -> Result<i64, LxError> {
     match whence {
         Whence::SEEK_CUR => Ok(orig_off + off),
-        Whence::SEEK_SET => Ok(off),
+        Whence::SEEK_SET | Whence::SEEK_DATA => Ok(off),
         Whence::SEEK_END => {
             if end == -1 {
                 Err(LxError::EINVAL)

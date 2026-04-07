@@ -9,6 +9,7 @@ pub mod misc;
 pub mod mm;
 pub mod net;
 pub mod process;
+pub mod rust;
 pub mod security;
 pub mod signal;
 pub mod switches;

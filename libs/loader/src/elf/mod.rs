@@ -4,7 +4,7 @@ mod auxv;
 mod mmap;
 mod stack;
 
-use crate::{Error, IoFd};
+use crate::Error;
 use auxv::AuxiliaryInfo;
 use mmap::*;
 use object::{
@@ -13,18 +13,15 @@ use object::{
     read::elf::{ElfFile64, FileHeader, ProgramHeader},
 };
 use rand::Rng;
-use std::os::fd::{AsFd, AsRawFd, FromRawFd, OwnedFd, RawFd};
-use structures::{
-    error::LxError,
-    fs::{AT_FDCWD, AtFlags, FileMode, OpenFlags},
-};
+use rtenv::rust::{OwnedRtFd, RawRtFd};
+use structures::error::LxError;
 
-type ExecutableObject<'a> = ElfFile64<'a, LittleEndian, &'a ReadCache<IoFd<'a>>>;
+type ExecutableObject<'a> = ElfFile64<'a, LittleEndian, &'a ReadCache<RawRtFd>>;
 
 /// A loaded Linux program.
 #[derive(Debug)]
 pub struct Program {
-    exec_fd: OwnedFd,
+    exec_fd: RawRtFd,
 
     interpreter: Option<Box<Self>>,
     phdr: *const u8,
@@ -39,8 +36,9 @@ impl Program {
     pub const MAGIC: &[u8] = &[0x7f, 0x45, 0x4c, 0x46];
 
     /// Loads a Linux program from the given file descriptor.
-    pub fn load(exec_fd: OwnedFd) -> Result<Self, Error> {
-        let read_cache = ReadCache::new(IoFd(exec_fd.as_fd()));
+    pub fn load(path: Vec<u8>) -> Result<Self, Error> {
+        let exec_fd = OwnedRtFd::open(path).map_err(Error::ReadImage)?.leak();
+        let read_cache = ReadCache::new(exec_fd);
         let main =
             ExecutableObject::parse(&read_cache).map_err(|x| Error::ImageFormat(x.to_string()))?;
         let mut interpreter = None;
@@ -58,7 +56,7 @@ impl Program {
                     interpreter = Some(Box::new(Self::load(read_interp(phdr, &read_cache)?)?));
                 }
                 PT_LOAD => {
-                    let mapped_area = map_phdr(phdr, exec_fd.as_raw_fd(), base_map.addr())
+                    let mapped_area = map_phdr(phdr, exec_fd, base_map.addr())
                         .map_err(|x| Error::LoadImage(x.into()))?;
                     if base_map.addr().is_null() {
                         _mapped_areas.push(mapped_area);
@@ -103,7 +101,7 @@ impl Program {
         let mut random = Box::new([0u8; 64]);
         rand::rng().fill_bytes(&mut *random);
         let auxv = AuxiliaryInfo {
-            exec_fd: self.exec_fd.as_raw_fd() as _,
+            exec_fd: self.exec_fd.0 as _,
             phdr_base: self.phdr as usize,
             phdr_size: self.phent,
             phdr_count: self.phnum,
@@ -138,32 +136,21 @@ fn map_base(main: &ExecutableObject) -> Result<MappedArea, Error> {
 /// Reads `PT_INTERP` from a program header.
 fn read_interp(
     phdr: &ProgramHeader64<LittleEndian>,
-    read_cache: &ReadCache<IoFd>,
-) -> Result<OwnedFd, Error> {
+    read_cache: &ReadCache<RawRtFd>,
+) -> Result<Vec<u8>, Error> {
     let path = phdr
         .interpreter(LittleEndian, read_cache)
         .map_err(|x| Error::ImageFormat(x.to_string()))?
         .ok_or_else(|| Error::ImageFormat(String::from("invalid PT_INTERP segment")))?;
-    let interp_fd = rtenv::fs::openat(
-        AT_FDCWD,
-        path.into(),
-        OpenFlags::O_CLOEXEC | OpenFlags::O_RDONLY,
-        AtFlags::empty(),
-        FileMode(0),
-    )
-    .map_err(Error::ReadImage)?;
-    if rtenv::vfd::get(interp_fd).is_some() {
-        return Err(Error::ReadImage(LxError::EACCES));
-    }
-    unsafe { Ok(OwnedFd::from_raw_fd(interp_fd)) }
+    Ok(path.into())
 }
 
 /// Maps a `PT_LOAD` program header to process memory.
 fn map_phdr(
     phdr: &ProgramHeader64<LittleEndian>,
-    fd: RawFd,
+    fd: RawRtFd,
     mem_base: *mut u8,
-) -> std::io::Result<MappedArea> {
+) -> Result<MappedArea, LxError> {
     let p_filesz = phdr.p_filesz(LittleEndian);
     let p_memsz = phdr.p_memsz(LittleEndian) as usize;
     let p_vaddr = phdr.p_vaddr(LittleEndian) as usize;

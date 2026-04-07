@@ -9,3 +9,4 @@ object = { version = "0.39", default-features = false, features = ["elf", "unali
 rand = "0.10"
 rtenv = { path = "../rtenv" }
 structures = { path = "../structures" }
+tempfile = "3"

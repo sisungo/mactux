@@ -47,6 +47,10 @@ pub unsafe fn map(
     }
 }
 
+pub unsafe fn unmap(addr: *mut u8, len: usize) -> Result<(), LxError> {
+    unsafe { posix_result(libc::munmap(addr.cast(), len)) }
+}
+
 pub unsafe fn remap(
     old_addr: *mut u8,
     old_size: usize,
@@ -120,12 +124,7 @@ pub fn incore(addr: *const u8, size: usize, vec: *mut u8) -> Result<(), LxError>
         }
     }
 
-    unsafe {
-        match libc::mincore(addr.cast(), size, vec.cast()) {
-            -1 => Err(LxError::last_apple_error()),
-            _ => Ok(()),
-        }
-    }
+    unsafe { posix_result(libc::mincore(addr.cast(), size, vec.cast())) }
 }
 
 #[derive(Debug)]

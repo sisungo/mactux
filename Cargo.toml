@@ -23,4 +23,3 @@ loader = { path = "libs/loader" }
 rtenv = { path = "libs/rtenv" }
 structures = { path = "libs/structures" }
 mimalloc = "0.1"
-tempfile = "3"

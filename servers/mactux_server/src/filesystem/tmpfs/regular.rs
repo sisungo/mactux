@@ -6,6 +6,7 @@ use std::sync::{Arc, RwLock};
 use structures::{
     error::LxError,
     fs::{FileType, OpenFlags, Statx, StatxMask},
+    io::Whence,
 };
 
 #[derive(Debug)]
@@ -37,6 +38,10 @@ impl Stream for Reg {
         let ret = self.buf.write(buf, *off as u64);
         *off += ret as i64;
         Ok(ret)
+    }
+
+    fn seek(&self, orig_off: i64, whence: Whence, off: i64) -> Result<i64, LxError> {
+        crate::util::plain_seek(orig_off, self.buf.size() as _, whence, off)
     }
 }
 impl VfdContent for Reg {

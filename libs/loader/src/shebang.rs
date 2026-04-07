@@ -1,26 +1,22 @@
 //! MacTux shebang support.
 
-use crate::{Error, IoFd};
-use std::{
-    io::{BufRead, BufReader},
-    os::fd::{AsFd, FromRawFd, OwnedFd},
-};
-use structures::{
-    error::LxError,
-    fs::{AT_FDCWD, AtFlags, FileMode, OpenFlags},
-};
+use crate::Error;
+use rtenv::rust::OwnedRtFd;
+use std::io::{BufRead, BufReader};
+use structures::error::LxError;
 
 #[derive(Debug)]
 pub struct Program {
     prog: Vec<u8>,
     arg: Option<Vec<u8>>,
+    path: Vec<u8>,
 }
 impl Program {
     pub const MAGIC: &[u8] = b"#!";
 
-    pub fn load(exec_fd: OwnedFd) -> Result<Self, Error> {
-        let io_fd = IoFd(exec_fd.as_fd());
-        let mut buf_read = BufReader::new(io_fd);
+    pub fn load(path: Vec<u8>) -> Result<Self, Error> {
+        let fd = OwnedRtFd::open(path.clone()).map_err(Error::ReadImage)?;
+        let mut buf_read = BufReader::new(fd);
         let mut first_line = Vec::with_capacity(32);
         buf_read
             .read_until(b'\n', &mut first_line)
@@ -39,6 +35,7 @@ impl Program {
         Ok(Self {
             prog: prog.into(),
             arg: arg.map(|x| x.into()),
+            path,
         })
     }
 
@@ -48,30 +45,13 @@ impl Program {
         if let Some(opt) = &self.arg {
             argv.push(&opt[..]);
         }
-        for i in args {
+        argv.push(&self.path);
+        for i in args.iter().skip(1) {
             argv.push(*i);
         }
 
         unsafe {
-            let interp_fd = rtenv::fs::openat(
-                AT_FDCWD,
-                self.prog.clone(),
-                OpenFlags::O_CLOEXEC | OpenFlags::O_RDONLY,
-                AtFlags::empty(),
-                FileMode(0),
-            );
-            let interp_fd = match interp_fd {
-                Ok(x) => x,
-                Err(e) => {
-                    eprintln!("mactux: failed to open script interpreter: {e}");
-                    std::process::exit(1);
-                }
-            };
-            if rtenv::vfd::get(interp_fd).is_some() {
-                eprintln!("mactux: failed to load script interpreter: is virtual file descriptor");
-                std::process::exit(1);
-            }
-            crate::Program::load(OwnedFd::from_raw_fd(interp_fd))
+            crate::Program::load(self.prog.clone())
                 .unwrap_or_else(|e| {
                     eprintln!("mactux: failed to load script interpreter: {e}");
                     std::process::exit(1);
