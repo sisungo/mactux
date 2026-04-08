@@ -14,7 +14,10 @@ pub fn suid() -> c_uint {
     unsafe { libc::getuid() }
 }
 
-pub fn setuid(_uid: c_uint) -> Result<(), LxError> {
+pub fn setuid(target_uid: c_uint) -> Result<(), LxError> {
+    if target_uid == uid() {
+        return Ok(());
+    }
     Err(LxError::EPERM)
 }
 

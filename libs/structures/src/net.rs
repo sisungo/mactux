@@ -1,9 +1,11 @@
 use crate::{FromApple, ToApple, error::LxError, unixvariants};
 use bitflags::bitflags;
 use libc::{c_char, c_int};
+use std::{fmt::Debug, ptr::NonNull};
 
 unixvariants! {
     pub struct Domain: u32 {
+        const PF_UNSPEC = 0;
         const PF_LOCAL = 1;
         const PF_INET = 2;
         const PF_INET6 = 10;
@@ -12,7 +14,7 @@ unixvariants! {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy)]
 pub struct SocketType(pub u32);
 impl SocketType {
     pub fn kind(self) -> SocketKind {
@@ -21,6 +23,14 @@ impl SocketType {
 
     pub fn flags(self) -> SocketFlags {
         SocketFlags::from_bits_retain(self.0 & !255)
+    }
+}
+impl Debug for SocketType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SocketType")
+            .field("kind", &self.kind())
+            .field("flags", &self.flags())
+            .finish()
     }
 }
 
@@ -124,16 +134,18 @@ bitflags! {
         const MSG_PEEK = 0x2;
         const MSG_DONTROUTE = 0x4;
         const MSG_WAITALL = 0x100;
+        const MSG_NOSIGNAL = 0x4000;
     }
 }
 crate::bitflags_impl_from_to_apple!(
     MsgFlags;
     type Apple = i32;
-    values = MSG_OOB, MSG_PEEK, MSG_DONTROUTE, MSG_WAITALL
+    values = MSG_OOB, MSG_PEEK, MSG_DONTROUTE, MSG_WAITALL, MSG_NOSIGNAL
 );
 
 #[derive(Debug, Clone)]
 pub enum SockAddr {
+    Unspec,
     Un(SockAddrUn, usize),
     In(SockAddrIn),
 }
@@ -145,6 +157,7 @@ impl SockAddr {
             }
             let domain = buf.as_ptr().cast::<SaFamily>().read().to_domain();
             match domain {
+                Domain::PF_UNSPEC => Ok(Self::Unspec),
                 Domain::PF_LOCAL => SockAddrUn::from_bytes(buf).map(|un| Self::Un(un, buf.len())),
                 Domain::PF_INET => SockAddrIn::from_bytes(buf).map(Self::In),
                 _ => Err(LxError::EAFNOSUPPORT),
@@ -154,6 +167,10 @@ impl SockAddr {
 
     pub fn write_to(&self, buf: &mut [u8]) -> Result<usize, LxError> {
         match self {
+            Self::Unspec => {
+                buf.fill(0);
+                Ok(buf.len())
+            }
             Self::Un(addr, len) => addr.write_to(buf, *len),
             Self::In(addr) => addr.write_to(buf),
         }
@@ -290,27 +307,69 @@ impl ToApple for Linger {
 #[derive(Debug, Clone)]
 #[repr(C)]
 pub struct MsgHdr {
-    pub msg_name: *mut u8,
+    pub msg_name: Option<NonNull<u8>>,
     pub msg_namelen: u32,
-    pub msg_iov: *mut libc::iovec,
+    pub msg_iov: Option<NonNull<libc::iovec>>,
     pub msg_iovlen: c_int,
     pub _pad1: c_int,
-    pub msg_control: *mut u8,
+    pub msg_control: Option<NonNull<u8>>,
     pub msg_controllen: u32,
     pub _pad2: c_int,
-    pub msg_flags: c_int,
+    pub _msg_flags: c_int,
 }
 impl MsgHdr {
-    pub unsafe fn name(&self) -> &[u8] {
-        unsafe { std::slice::from_raw_parts(self.msg_name, self.msg_namelen as _) }
-    }
-
-    pub unsafe fn iov(&self) -> &[libc::iovec] {
-        unsafe { std::slice::from_raw_parts(self.msg_iov, self.msg_iovlen as _) }
+    pub unsafe fn name(&self) -> Option<&[u8]> {
+        unsafe {
+            self.msg_name.map(|msg_name| {
+                std::slice::from_raw_parts(msg_name.as_ptr(), self.msg_namelen as _)
+            })
+        }
     }
 
     pub unsafe fn control(&self) -> &[u8] {
-        unsafe { std::slice::from_raw_parts(self.msg_control, self.msg_controllen as _) }
+        unsafe {
+            std::slice::from_raw_parts(
+                self.msg_control.unwrap_or(NonNull::dangling()).as_ptr(),
+                self.msg_controllen as _,
+            )
+        }
+    }
+
+    pub unsafe fn applize(
+        self,
+        apple_sockaddr: fn(
+            linux: SockAddr,
+            create: bool,
+        ) -> Result<(libc::sockaddr_storage, usize), LxError>,
+    ) -> Result<ApplizedMsgHdr, LxError> {
+        unsafe {
+            let (mut sockaddr, sockaddr_len) = match self.name() {
+                Some(buf) => {
+                    let (x, y) = apple_sockaddr(SockAddr::from_bytes(buf)?, false)?;
+                    (Some(Box::new(x)), y)
+                }
+                None => (None, 0),
+            };
+            let sockaddr_ptr = sockaddr
+                .as_deref_mut()
+                .map(|x| x as *mut libc::sockaddr_storage)
+                .unwrap_or_default();
+
+            let apple = libc::msghdr {
+                msg_name: sockaddr_ptr.cast(),
+                msg_namelen: sockaddr_len as _,
+                msg_iov: self.msg_iov.map(NonNull::as_ptr).unwrap_or_default(),
+                msg_iovlen: self.msg_iovlen,
+                msg_control: std::ptr::null_mut(),
+                msg_controllen: 0,
+                msg_flags: 0,
+            };
+
+            Ok(ApplizedMsgHdr {
+                apple,
+                _sockaddr: sockaddr,
+            })
+        }
     }
 }
 
@@ -319,4 +378,88 @@ impl MsgHdr {
 pub struct MmsgHdr {
     pub msg_hdr: MsgHdr,
     pub msg_len: u32,
+}
+
+#[derive(Debug, Clone)]
+#[repr(C)]
+pub struct CMsgHdr {
+    pub cmsg_len: u32,
+    pub __pad1: u32,
+    pub cmsg_level: c_int,
+    pub cmsg_type: c_int,
+}
+
+#[derive(Debug)]
+pub struct ApplizedMsgHdr {
+    apple: libc::msghdr,
+    _sockaddr: Option<Box<libc::sockaddr_storage>>,
+}
+impl ApplizedMsgHdr {
+    pub const fn msghdr(&self) -> libc::msghdr {
+        self.apple
+    }
+}
+
+#[derive(Debug)]
+pub struct LinuxizedMsgHdr {
+    linux: MsgHdr,
+    sockaddr_storage: *mut u8,
+}
+impl LinuxizedMsgHdr {
+    pub const fn msghdr(&self) -> &MsgHdr {
+        &self.linux
+    }
+
+    pub fn from_apple(
+        apple: libc::msghdr,
+        linux_sockaddr: fn(apple: &[u8]) -> Result<SockAddr, LxError>,
+    ) -> Result<Self, LxError> {
+        let sockaddr = if apple.msg_name.is_null() {
+            None
+        } else {
+            unsafe {
+                Some(linux_sockaddr(std::slice::from_raw_parts(
+                    apple.msg_name.cast(),
+                    apple.msg_namelen as _,
+                ))?)
+            }
+        };
+        let mut sockaddr_storage = std::ptr::null_mut();
+        let mut sockaddr_len = 0;
+        if let Some(sockaddr) = sockaddr {
+            unsafe {
+                sockaddr_storage = libc::malloc(1024);
+                if sockaddr_storage.is_null() {
+                    return Err(LxError::ENOMEM);
+                }
+                sockaddr_len = sockaddr.write_to(std::slice::from_raw_parts_mut(
+                    sockaddr_storage.cast(),
+                    1024,
+                ))?;
+            }
+        }
+        let linux = MsgHdr {
+            msg_name: NonNull::new(sockaddr_storage.cast()),
+            msg_namelen: sockaddr_len as _,
+            msg_iov: NonNull::new(apple.msg_iov),
+            msg_iovlen: apple.msg_iovlen,
+            msg_control: None,
+            msg_controllen: 0,
+            _msg_flags: 0,
+            _pad1: 0,
+            _pad2: 0,
+        };
+
+        Ok(Self {
+            linux,
+            sockaddr_storage: sockaddr_storage.cast(),
+        })
+    }
+}
+impl Drop for LinuxizedMsgHdr {
+    fn drop(&mut self) {
+        unsafe {
+            libc::free(self.sockaddr_storage.cast());
+        }
+    }
 }

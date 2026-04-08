@@ -22,7 +22,8 @@ use structures::{
     misc::{GrndFlags, SysInfo, SyslogAction, UtsName},
     mm::{Madvice, MmapFlags, MmapProt, MremapFlags, MsyncFlags},
     net::{
-        Domain, MsgFlags, Protocol, ShutdownHow, SockAddr, SockOptLevel, SocketFlags, SocketType,
+        Domain, MmsgHdr, MsgFlags, MsgHdr, Protocol, ShutdownHow, SockAddr, SockOptLevel,
+        SocketFlags, SocketType,
     },
     process::{PrctlOp, RLimit64, RLimitable, RUsage, RUsageWho, WaitOptions, WaitStatus},
     signal::{KernelSigSet, MaskHowto, SigAction, SigAltStack, SigNum},
@@ -1061,7 +1062,7 @@ pub unsafe fn sys_connect(sock: c_int, addr: *const u8, len: c_int) -> Result<()
     unsafe {
         rtenv::net::connect(
             sock,
-            SockAddr::from_bytes(std::slice::from_raw_parts(addr, len as usize))?,
+            (SockAddr::from_bytes(std::slice::from_raw_parts(addr, len as usize)))?,
         )
     }
 }
@@ -1137,6 +1138,33 @@ pub unsafe fn sys_recvfrom(
             crate::util::ret_sockaddr(addr, dest_addr, dest_len)?;
         }
         Ok(size)
+    }
+}
+
+#[syscall]
+pub unsafe fn sys_recvmsg(
+    sock: c_int,
+    msg: *mut MsgHdr,
+    flags: MsgFlags,
+) -> Result<usize, LxError> {
+    unsafe { rtenv::net::recvmsg(sock, &mut *msg, flags) }
+}
+
+#[syscall]
+pub unsafe fn sys_sendmmsg(
+    sock: c_int,
+    msgvec: Option<NonNull<MmsgHdr>>,
+    n: u32,
+    flags: MsgFlags,
+) -> Result<usize, LxError> {
+    unsafe {
+        let messages = std::slice::from_raw_parts_mut(
+            msgvec
+                .map(NonNull::as_ptr)
+                .unwrap_or(std::ptr::dangling_mut()),
+            n as _,
+        );
+        rtenv::net::sendmmsg(sock, messages, flags)
     }
 }
 
@@ -1633,6 +1661,7 @@ pub unsafe fn sys_prctl(
     _arg4: usize,
 ) -> Result<(), LxError> {
     match op {
+        PrctlOp::PR_SET_KEEPCAPS => Ok(()),
         PrctlOp::PR_SET_NAME => unsafe {
             rtenv::thread::set_name((arg0 as *const [u8; 16]).read());
             Ok(())

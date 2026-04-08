@@ -8,8 +8,8 @@ use structures::{
     ToApple,
     error::LxError,
     net::{
-        Domain, MsgFlags, Protocol, ShutdownHow, SockAddr, SockAddrIn, SockOptLevel, SocketFlags,
-        SocketType,
+        Domain, MmsgHdr, MsgFlags, MsgHdr, Protocol, ShutdownHow, SockAddr, SockAddrIn,
+        SockOptLevel, SocketFlags, SocketType,
     },
 };
 
@@ -144,6 +144,51 @@ pub fn sendto(
     }
 }
 
+pub unsafe fn sendmsg(sock: c_int, message: MsgHdr, flags: MsgFlags) -> Result<usize, LxError> {
+    unsafe {
+        let message = message.applize(apple_sockaddr)?;
+        posix_num!(libc::sendmsg(sock, &message.msghdr(), flags.to_apple()?))
+    }
+}
+
+pub fn recvmsg(sock: c_int, msghdr: &mut MsgHdr, flags: MsgFlags) -> Result<usize, LxError> {
+    unsafe {
+        let apple_msghdr_full = msghdr.clone().applize(apple_sockaddr)?;
+        let mut apple_msghdr = apple_msghdr_full.msghdr();
+        let n = posix_num!(libc::recvmsg(sock, &mut apple_msghdr, flags.to_apple()?))?;
+        if apple_msghdr.msg_name.is_null() {
+            msghdr.msg_name = None;
+            msghdr.msg_namelen = 0;
+        } else {
+            if let Some(buf) = msghdr.msg_name.as_mut() {
+                let buf = std::slice::from_raw_parts_mut(buf.as_ptr(), msghdr.msg_namelen as _);
+                let apple = std::slice::from_raw_parts_mut(
+                    apple_msghdr.msg_name.cast(),
+                    apple_msghdr.msg_namelen as _,
+                );
+                msghdr.msg_namelen = linux_sockaddr(apple)?.write_to(buf)? as _;
+            }
+        }
+        Ok(n)
+    }
+}
+
+pub unsafe fn sendmmsg(
+    sock: c_int,
+    messages: &mut [MmsgHdr],
+    flags: MsgFlags,
+) -> Result<usize, LxError> {
+    unsafe {
+        let mut ret = 0;
+        for mmsg in messages {
+            let n = sendmsg(sock, mmsg.msg_hdr.clone(), flags)?;
+            mmsg.msg_len = n as _;
+            ret += 1;
+        }
+        Ok(ret)
+    }
+}
+
 pub fn recvfrom(
     sock: c_int,
     buf: &mut [u8],
@@ -213,6 +258,10 @@ fn apple_sockaddr(
     let mut buf: libc::sockaddr_storage = unsafe { std::mem::zeroed() };
 
     let size = match linux {
+        SockAddr::Unspec => {
+            buf.ss_len = 16;
+            16
+        }
         SockAddr::In(inet) => unsafe {
             (&mut buf as *mut _ as *mut libc::sockaddr_in).write(inet.to_apple().unwrap());
             size_of::<libc::sockaddr_in>()

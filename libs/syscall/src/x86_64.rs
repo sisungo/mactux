@@ -122,7 +122,7 @@ const SYSTEM_CALL_HANDLERS: &[SystemCallHandler] = &[
     sys_sendto,            // 44
     sys_recvfrom,          // 45
     sys_invalid,           // 46
-    sys_invalid,           // 47
+    sys_recvmsg,           // 47
     sys_shutdown,          // 48
     sys_bind,              // 49
     sys_listen,            // 50
@@ -382,7 +382,7 @@ const SYSTEM_CALL_HANDLERS: &[SystemCallHandler] = &[
     sys_invalid,           // 304
     sys_invalid,           // 305
     sys_syncfs,            // 306
-    sys_invalid,           // 307
+    sys_sendmmsg,          // 307
     sys_invalid,           // 308
     sys_invalid,           // 309
     sys_invalid,           // 310

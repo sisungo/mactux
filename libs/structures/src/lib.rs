@@ -103,7 +103,7 @@ macro_rules! unixvariants {
         }
     } => {
         $(#[$outer])*
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+        #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
         #[repr(transparent)]
         $v struct $n(pub $t);
         impl $n {
@@ -142,6 +142,16 @@ macro_rules! unixvariants {
                     $(Self::$l => Ok(libc::$an),)*
                     $(Self::$r => Ok($x),)*
                     _ => Err($crate::error::LxError::EINVAL),
+                }
+            }
+        }
+        impl ::std::fmt::Debug for $n {
+            fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+                match *self {
+                    $(Self::$j => write!(f, concat!(stringify!($n), "(", stringify!($j), ")")),)*
+                    $(Self::$l => write!(f, concat!(stringify!($n), "(", stringify!($l), ")")),)*
+                    $(Self::$r => write!(f, concat!(stringify!($n), "(", stringify!($r), ")")),)*
+                    other => write!(f, "{}({:?})", stringify!($n), other.0),
                 }
             }
         }
