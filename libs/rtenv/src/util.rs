@@ -1,5 +1,5 @@
 use crate::ipc_client::with_client;
-use std::{ffi::c_int, panic::PanicHookInfo};
+use std::ffi::c_int;
 use structures::{
     error::LxError,
     internal::mactux_ipc::{Request, Response},
@@ -85,15 +85,4 @@ impl log::Log for RustLogger {
         );
         crate::misc::write_syslog(level, content.into_bytes());
     }
-}
-
-pub fn panic_hook(info: &PanicHookInfo) {
-    eprintln!(
-        "mactux: process {} at module `{}` panicked: {}",
-        std::process::id(),
-        info.location()
-            .map(ToString::to_string)
-            .unwrap_or_else(|| "<unknown>".into()),
-        info.payload_as_str().unwrap_or("no information provided"),
-    );
 }

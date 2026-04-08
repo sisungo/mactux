@@ -313,15 +313,16 @@ pub unsafe fn exit(code: i32) -> ! {
     }
 }
 
+#[cfg(target_arch = "x86_64")]
 #[repr(C)]
 #[derive(Debug, Clone)]
 pub struct CloneContext {
     pub args: CloneArgs,
-    pub cpu: libc::__darwin_mcontext64,
+    pub cpu: libc::__darwin_x86_thread_state64,
     pub tid: Arc<AtomicI64>,
 }
 impl CloneContext {
-    pub fn new(args: CloneArgs, cpu: libc::__darwin_mcontext64) -> Box<Self> {
+    pub fn new(args: CloneArgs, cpu: libc::__darwin_x86_thread_state64) -> Box<Self> {
         Box::new(Self {
             args,
             cpu,
@@ -336,18 +337,19 @@ extern "C" fn setup_thread_lx(data: *mut c_void) -> *mut c_void {
         // Get inherited data
         let CloneContext { args, mut cpu, tid } = *Box::from_raw(data as *mut CloneContext);
 
-        if !args.stack().is_null() {
-            cpu.__ss.__rsp = args.stack() as _;
-        }
-        if args.flags().contains(CloneFlags::CLONE_SETTLS) {
-            crate::emuctx::x86_64_set_emulated_gsbase(args.tls());
-        }
+        // When `CLONE_VM` is specified (the only case this function is called), the Linux man pages says that a stack must be
+        // explicitly specified. So no NULL-checking is done here.
+        cpu.__rsp = args.stack() as _;
 
         // Initialize runtime
         if let Err(err) = enter() {
             log::warn!("Failed to initialize new thread: {err}");
             tid.store(-(LxError::from(err).0 as i64), atomic::Ordering::Relaxed);
             return std::ptr::null_mut();
+        }
+
+        if args.flags().contains(CloneFlags::CLONE_SETTLS) {
+            crate::emuctx::x86_64_set_emulated_gsbase(args.tls());
         }
 
         // Return thread id to parent thread
@@ -367,16 +369,15 @@ extern "C" fn setup_thread_lx(data: *mut c_void) -> *mut c_void {
         });
 
         // Reset necessary registers
-        cpu.__ss.__rax = 0;
+        cpu.__rax = 0;
 
         // Execute code
-        let cpu = Box::new(cpu);
         crate::emuctx::enter_emulated();
         core::arch::asm!(
             "mov rdi, {}",
-            "mov rax, 479",
+            "mov rax, 480",
             "syscall",
-            in(reg) Box::into_raw(cpu),
+            in(reg) &raw const cpu,
             options(noreturn),
         );
     }

@@ -54,6 +54,7 @@ pub fn syscall(_: TokenStream, item: TokenStream) -> TokenStream {
             #[cfg(debug_assertions)]
             if ::rtenv::switches::strace() {
                 print!(#strace_fmt, stringify!(#ident), #(#call_impl_inputs,)*);
+                _ = ::std::io::Write::flush(&mut ::std::io::stdout());
             }
 
             let ret = __impl(#(#call_impl_inputs,)*);

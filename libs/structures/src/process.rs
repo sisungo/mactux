@@ -1,6 +1,6 @@
 use crate::{FromApple, error::LxError, signal::SigNum, time::Timeval, unixvariants};
 use bitflags::bitflags;
-use std::ffi::c_int;
+use std::{ffi::c_int, fmt::Debug};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(transparent)]
@@ -27,7 +27,8 @@ bitflags! {
         const CLONE_VFORK = 0x4000;
         const CLONE_PARENT = 0x8000;
         const CLONE_THREAD = 0x10000;
-        const CLONE_SETTLS = 0x800000;
+        const CLONE_SYSVSEM = 0x40000;
+        const CLONE_SETTLS = 0x80000;
         const CLONE_PARENT_SETTID = 0x100000;
         const CLONE_CHILD_CLEARTID = 0x200000;
         const CLONE_CHILD_SETTID = 0x1000000;
@@ -74,7 +75,7 @@ crate::bitflags_impl_from_to_apple!(
     values = WNOHANG
 );
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 #[repr(C)]
 pub struct CloneArgs {
     pub flags: u64,
@@ -88,6 +89,23 @@ pub struct CloneArgs {
     pub set_tid: u64,
     pub set_tid_size: u64,
     pub cgroup: u64,
+}
+impl Debug for CloneArgs {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CloneArgs")
+            .field("flags", &self.flags())
+            .field("pidfd", &self.pidfd())
+            .field("child_tid", &self.child_tid())
+            .field("parent_tid", &self.parent_tid())
+            .field("exit_signal", &self.exit_signal())
+            .field("stack", &(self.stack as *const u8))
+            .field("stack_size", &self.stack_size)
+            .field("tls", &self.tls())
+            .field("set_tid", &(self.set_tid as *const u8))
+            .field("set_tid_size", &self.set_tid_size)
+            .field("cgroup", &self.cgroup)
+            .finish()
+    }
 }
 impl CloneArgs {
     pub unsafe fn from_ptr_size(ptr: *const u8, size: usize) -> Result<Self, LxError> {
@@ -123,8 +141,8 @@ impl CloneArgs {
         SigNum(self.exit_signal as _)
     }
 
-    pub unsafe fn stack(&self) -> *mut u8 {
-        unsafe { (self.stack as usize as *mut u8).add(self.stack_size as usize) }
+    pub fn stack(&self) -> *mut u8 {
+        (self.stack + self.stack_size) as *mut u8
     }
 
     pub fn tls(&self) -> *mut u8 {

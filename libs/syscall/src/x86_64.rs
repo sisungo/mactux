@@ -555,6 +555,7 @@ const SYSTEM_CALL_HANDLERS: &[SystemCallHandler] = &[
     sys_invalid,           // 477
     sys_invalid,           // 478
     pseudo_restorectx,     // 479
+    pseudo_threadctx,      // 480
 ];
 
 #[syscall]
@@ -638,7 +639,7 @@ impl_syscall_indirect!(
             set_tid_size: 0,
             cgroup: 0,
         };
-        let clone_context = CloneContext::new(args, mctx.clone());
+        let clone_context = CloneContext::new(args, mctx.__ss.clone());
         match rtenv::process::clone(clone_context) {
             Ok(0) => {
                 if stack != 0 {
@@ -655,7 +656,7 @@ impl_syscall_indirect!(
     sys_clone3 = |mctx: &mut libc::__darwin_mcontext64| {
         let args = (mctx.__ss.__rdi as *const CloneArgs).read();
         let stack = args.stack();
-        let clone_context = CloneContext::new(args, mctx.clone());
+        let clone_context = CloneContext::new(args, mctx.__ss.clone());
         match rtenv::process::clone(clone_context) {
             Ok(0) => {
                 if !stack.is_null() {
@@ -687,6 +688,18 @@ unsafe fn pseudo_restorectx(uctx: &mut libc::ucontext_t) {
         let ctx = Box::from_raw(uctx.arg0() as *mut libc::__darwin_mcontext64);
         *uctx.uc_mcontext = *ctx;
         drop(ctx);
+        rtenv::emuctx::enter_emulated();
+    }
+}
+
+/// The `threadctx` pseudo system call \(480\).
+///
+/// The usage is similar to [`pseudo_restorectx`], but it receives only thread state and is used to setup the new thread.
+unsafe fn pseudo_threadctx(uctx: &mut libc::ucontext_t) {
+    unsafe {
+        rtenv::emuctx::leave_emulated();
+        let ctx = uctx.arg0() as *mut libc::__darwin_x86_thread_state64;
+        (*uctx.uc_mcontext).__ss = *ctx;
         rtenv::emuctx::enter_emulated();
     }
 }

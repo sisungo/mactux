@@ -26,7 +26,6 @@ mod util;
 /// Setups the environment.
 pub unsafe fn install() -> std::io::Result<()> {
     unsafe {
-        std::panic::set_hook(Box::new(util::panic_hook));
         process::install()?;
         thread::install()?;
         signal::install()?;
