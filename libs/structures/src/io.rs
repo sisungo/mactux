@@ -222,6 +222,11 @@ impl FdSet {
         Self { ptr, nfd }
     }
 
+    /// Returns `true` if the set contains given file descriptor.
+    ///
+    /// # Safety
+    /// The set contains raw pointer that this function would access. It may cause Undefined Behavior if the raw pointer
+    /// is dangling.
     pub unsafe fn contains(&self, fd: c_int) -> bool {
         if fd >= self.nfd as _ {
             return false;
@@ -232,6 +237,14 @@ impl FdSet {
         }
     }
 
+    /// Adds a file descriptor to the set.
+    ///
+    /// # Safety
+    /// The set contains raw pointer that this function would access. It may cause Undefined Behavior if the raw pointer
+    /// is dangling.
+    ///
+    /// # Panics
+    /// This function would panic if the set is not big enough.
     pub unsafe fn insert(&self, fd: c_int) {
         if fd >= self.nfd as _ {
             panic!("cannot overflow file descriptor set");
@@ -242,6 +255,14 @@ impl FdSet {
         }
     }
 
+    /// Removes a file descriptor from the set.
+    ///
+    /// # Safety
+    /// The set contains raw pointer that this function would access. It may cause Undefined Behavior if the raw pointer
+    /// is dangling.
+    ///
+    /// # Panics
+    /// This function would panic if the set is not big enough.
     pub unsafe fn remove(&self, fd: c_int) {
         if fd >= self.nfd as _ {
             panic!("cannot overflow file descriptor set");
@@ -252,6 +273,11 @@ impl FdSet {
         }
     }
 
+    /// Removes all file descriptors from the set.
+    ///
+    /// # Safety
+    /// The set contains raw pointer that this function would access. It may cause Undefined Behavior if the raw pointer
+    /// is dangling.
     pub unsafe fn clear(&self) {
         if self.nfd == 0 {
             return;
@@ -263,6 +289,11 @@ impl FdSet {
         }
     }
 
+    /// Returns an iterator from the file descriptor set.
+    ///
+    /// # Safety
+    /// The set contains raw pointer that this function would access. It may cause Undefined Behavior if the raw pointer
+    /// is dangling.
     pub unsafe fn iter(&self) -> FdSetIter<'_> {
         FdSetIter { set: self, pos: 0 }
     }

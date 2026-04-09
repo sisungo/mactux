@@ -234,6 +234,15 @@ pub fn vfd_close(vfd: u64) -> Result<(), LxError> {
         .map(|_| ())
 }
 
+pub fn vfd_listxattr(vfd: u64) -> Result<Response, LxError> {
+    Process::current()
+        .vfd
+        .get(vfd)
+        .ok_or(LxError::EBADF)?
+        .listxattr()
+        .map(Response::ListXattr)
+}
+
 pub fn get_network_names() -> Result<NetworkNames, LxError> {
     let uts = &Process::current().uts;
     Ok(NetworkNames {

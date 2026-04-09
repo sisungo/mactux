@@ -56,8 +56,8 @@ impl Program {
                     interpreter = Some(Box::new(Self::load(read_interp(phdr, &read_cache)?)?));
                 }
                 PT_LOAD => {
-                    let mapped_area = map_phdr(phdr, exec_fd, base_map.addr())
-                        .map_err(|x| Error::LoadImage(x.into()))?;
+                    let mapped_area =
+                        map_phdr(phdr, exec_fd, base_map.addr()).map_err(Error::LoadImage)?;
                     if base_map.addr().is_null() {
                         _mapped_areas.push(mapped_area);
                     }
@@ -126,7 +126,7 @@ fn map_base(main: &ExecutableObject) -> Result<MappedArea, Error> {
             MappedArea::builder()
                 .len(max_addr as _)
                 .build()
-                .map_err(|x| Error::LoadImage(x.into()))
+                .map_err(Error::LoadImage)
         }
     } else {
         Ok(MappedArea::null())

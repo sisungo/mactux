@@ -109,11 +109,6 @@ impl PollSet {
         }
     }
 
-    pub fn remove(&mut self, index: usize) {
-        self.select.remove(index);
-        self.tokens.remove(&index);
-    }
-
     pub fn poll(&mut self, timeout: Option<Duration>) -> Option<(usize, &PollToken)> {
         loop {
             let selop = match timeout {

@@ -62,11 +62,15 @@ pub fn groups() -> Vec<c_uint> {
 }
 
 pub fn capget(pid: i32) -> Result<UserCap, LxError> {
-    if pid == 0 || pid == crate::process::pid() {}
+    if pid == 0 || pid == crate::process::pid() {
+        // TODO: implement capget logic
+    }
     Err(LxError::ENOSYS)
 }
 
 pub fn capset(cap: UserCap) -> Result<(), LxError> {
-    if cap.pid == 0 || cap.pid == crate::process::pid() {}
+    if cap.pid == 0 || cap.pid == crate::process::pid() {
+        // TODO: implement capset logic
+    }
     Err(LxError::ENOSYS)
 }

@@ -206,7 +206,7 @@ pub fn sigaction(signum: SigNum, new: Option<SigAction>) -> Result<SigAction, Lx
         SigHandler::SIG_HOLD => {
             mask(
                 MaskHowto::SIG_BLOCK,
-                Some(KernelSigSet::from_iter([signum].into_iter())),
+                Some(KernelSigSet::from_iter([signum])),
             )?;
             return Ok(old);
         }

@@ -74,6 +74,7 @@ impl RegSession {
                 Request::VfdFcntl(vfd, cmd, data) => vfd_fcntl(vfd, cmd, &data).into_response(),
                 Request::VfdUtimeNs(vfd, times) => vfd_utimens(vfd, times).into_response(),
                 Request::VfdStatFs(vfd) => vfd_statfs(vfd).into_response(),
+                Request::VfdListXattr(vfd) => vfd_listxattr(vfd).into_response(),
                 Request::GetNetworkNames => get_network_names().into_response(),
                 Request::SetNetworkNames(set) => set_network_names(set).into_response(),
                 Request::SysInfo => sysinfo().into_response(),

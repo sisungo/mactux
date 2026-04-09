@@ -659,7 +659,7 @@ impl_syscall_indirect!(
             set_tid_size: 0,
             cgroup: 0,
         };
-        let clone_context = CloneContext::new(args, mctx.__ss.clone());
+        let clone_context = CloneContext::new(args, mctx.__ss);
         match rtenv::process::clone(clone_context) {
             Ok(0) => {
                 if stack != 0 {
@@ -676,7 +676,7 @@ impl_syscall_indirect!(
     sys_clone3 = |mctx: &mut libc::__darwin_mcontext64| {
         let args = (mctx.__ss.__rdi as *const CloneArgs).read();
         let stack = args.stack();
-        let clone_context = CloneContext::new(args, mctx.__ss.clone());
+        let clone_context = CloneContext::new(args, mctx.__ss);
         match rtenv::process::clone(clone_context) {
             Ok(0) => {
                 if !stack.is_null() {

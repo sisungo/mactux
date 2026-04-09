@@ -44,6 +44,17 @@ pub fn readlink(vfd: u64) -> Result<Vec<u8>, LxError> {
     })
 }
 
+pub fn listxattr(vfd: u64) -> Result<Vec<Vec<u8>>, LxError> {
+    with_client(|client| {
+        let response = client.invoke(Request::VfdListXattr(vfd)).unwrap();
+        match response {
+            Response::ListXattr(list) => Ok(list),
+            Response::Error(err) => Err(err),
+            _ => ipc_fail(),
+        }
+    })
+}
+
 /// Gets the path that we have used to originally open a virtual file descriptor.
 pub fn orig_path(vfd: u64) -> Result<Vec<u8>, LxError> {
     with_client(

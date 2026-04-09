@@ -98,6 +98,7 @@ pub enum Request {
     VfdReadlink(u64),
     VfdUtimeNs(u64, [Timespec; 2]),
     VfdStatFs(u64),
+    VfdListXattr(u64),
 
     EventFd(u64, EventFdFlags),
     InvalidFd(OpenFlags),
@@ -148,6 +149,7 @@ pub enum Response {
     SysInfo(Box<SysInfo>),
     StatFs(Box<StatFs>),
     Poll(Option<(u64, PollEvents)>),
+    ListXattr(Vec<Vec<u8>>),
     Error(LxError),
 }
 

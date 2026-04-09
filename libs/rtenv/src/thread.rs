@@ -138,6 +138,11 @@ impl ThreadPubCtxMap {
 }
 unsafe impl Send for ThreadPubCtxMap {}
 unsafe impl Sync for ThreadPubCtxMap {}
+impl Default for ThreadPubCtxMap {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 /// Executes a closure `fork` that may run the `fork()` system call, and calls `is_new()` to judge if the return value
 /// indicates a new process. Necessary pre- and post-fork work will be done.
@@ -182,6 +187,11 @@ impl Clone for ThreadPubCtx {
                 self.robust_list_head_size.load(atomic::Ordering::Relaxed),
             ),
         }
+    }
+}
+impl Default for ThreadPubCtx {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -233,7 +243,7 @@ pub fn clone(ctx: Box<CloneContext>) -> Result<i32, LxError> {
         if current_tid > 0 {
             return Ok(current_tid as _);
         } else if current_tid < 0 {
-            return Err(LxError(current_tid.abs() as _));
+            return Err(LxError(current_tid.unsigned_abs() as _));
         }
     }
 }

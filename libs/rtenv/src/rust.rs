@@ -100,7 +100,7 @@ impl Seek for RawRtFd {
         };
         crate::io::lseek(self.0, off, whence)
             .map_err(map_error)
-            .map(|x| x.abs() as u64)
+            .map(i64::unsigned_abs)
     }
 }
 

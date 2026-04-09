@@ -57,6 +57,11 @@ impl EmulatedThreadInfo {
         }
     }
 }
+impl Default for EmulatedThreadInfo {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 /// Returns current value of the GSBASE register. This may only be called out of the emulated context, or the return value
 /// is unspecified.

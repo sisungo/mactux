@@ -151,7 +151,7 @@ fn copy_vfd(fd: i32) -> Result<i32, LxError> {
         if n == 0 {
             break;
         }
-        tempfile.write(&buf[..n])?;
+        tempfile.write_all(&buf[..n])?;
     }
     let Ok(readable) = std::fs::File::open(tempfile.path()) else {
         eprintln!("mactux: failed to reopen temporary file for reading");

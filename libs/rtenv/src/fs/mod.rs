@@ -31,6 +31,11 @@ impl FilesystemContext {
         }
     }
 }
+impl Default for FilesystemContext {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 #[inline]
 pub fn openat(
@@ -271,7 +276,21 @@ pub fn init_cwd(new: Vec<u8>) -> Result<(), LxError> {
 
 #[inline]
 pub fn flistxattr(fd: c_int) -> Result<Vec<u8>, LxError> {
-    Ok(Vec::new())
+    match crate::vfd::get(fd) {
+        Some(vfd) => {
+            let mut list = vfd::listxattr(vfd)?;
+            let mut buf = Vec::with_capacity(list.len() * 16);
+            for i in list.iter_mut() {
+                buf.append(i);
+                buf.push(0);
+            }
+            Ok(buf)
+        }
+        None => {
+            // TODO: implement native list xattr
+            Ok(vec![])
+        }
+    }
 }
 
 #[inline]

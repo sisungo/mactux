@@ -158,7 +158,7 @@ fn mach_vm_region(addr: *const u8) -> Option<Region> {
     }
     Some(Region {
         size: size as _,
-        info: info,
+        info,
         addr: addr as _,
     })
 }

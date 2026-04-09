@@ -158,6 +158,11 @@ impl Dirent64 {
         &self.name
     }
 
+    /// Writes this Linux `struct dirent` to a given address.
+    ///
+    /// # Safety
+    /// The provided position must have enough space to store the structure, or it may cause out-of-bounds write, which
+    /// is Undefined Behavior.
     pub unsafe fn write_to(&self, pos: *mut u8) {
         unsafe {
             pos.copy_from(
