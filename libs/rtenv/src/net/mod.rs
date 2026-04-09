@@ -3,7 +3,7 @@ mod sockopt;
 
 use crate::{posix_num, util::posix_result};
 use libc::c_int;
-use std::mem::offset_of;
+use std::{mem::offset_of, ptr::NonNull};
 use structures::{
     ToApple,
     error::LxError,
@@ -153,21 +153,24 @@ pub unsafe fn sendmsg(sock: c_int, message: MsgHdr, flags: MsgFlags) -> Result<u
 
 pub fn recvmsg(sock: c_int, msghdr: &mut MsgHdr, flags: MsgFlags) -> Result<usize, LxError> {
     unsafe {
-        let apple_msghdr_full = msghdr.clone().applize(apple_sockaddr)?;
-        let mut apple_msghdr = apple_msghdr_full.msghdr();
+        let mut apple_sockaddr: libc::sockaddr_storage = std::mem::zeroed();
+        let mut apple_msghdr = libc::msghdr {
+            msg_name: (&raw mut apple_sockaddr).cast(),
+            msg_namelen: size_of_val(&apple_sockaddr) as _,
+            msg_iov: msghdr.msg_iov.map(NonNull::as_ptr).unwrap_or_default(),
+            msg_iovlen: msghdr.msg_iovlen,
+            msg_control: std::ptr::null_mut(),
+            msg_controllen: 0,
+            msg_flags: 0,
+        };
         let n = posix_num!(libc::recvmsg(sock, &mut apple_msghdr, flags.to_apple()?))?;
-        if apple_msghdr.msg_name.is_null() {
-            msghdr.msg_name = None;
-            msghdr.msg_namelen = 0;
-        } else {
-            if let Some(buf) = msghdr.msg_name.as_mut() {
-                let buf = std::slice::from_raw_parts_mut(buf.as_ptr(), msghdr.msg_namelen as _);
-                let apple = std::slice::from_raw_parts_mut(
-                    apple_msghdr.msg_name.cast(),
-                    apple_msghdr.msg_namelen as _,
-                );
-                msghdr.msg_namelen = linux_sockaddr(apple)?.write_to(buf)? as _;
-            }
+        if let Some(buf) = msghdr.msg_name {
+            let buf = std::slice::from_raw_parts_mut(buf.as_ptr(), msghdr.msg_namelen as _);
+            let apple = std::slice::from_raw_parts_mut(
+                apple_msghdr.msg_name.cast(),
+                apple_msghdr.msg_namelen as _,
+            );
+            msghdr.msg_namelen = linux_sockaddr(apple)?.write_to(buf)? as _;
         }
         Ok(n)
     }

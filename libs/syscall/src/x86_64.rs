@@ -612,7 +612,27 @@ macro_rules! impl_syscall_indirect {
                 rtenv::emuctx::leave_emulated();
                 let original_ctx = Box::new(*uctx.uc_mcontext);
                 (*uctx.uc_mcontext).__ss.__rdi = Box::into_raw(original_ctx) as usize as u64;
+
+                #[cfg(debug_assertions)]
+                if ::rtenv::switches::strace() {
+                    eprint!(
+                        concat!(stringify!($name), "(0x{:x}, 0x{:x}, 0x{:x}, 0x{:x}, 0x{:x}, 0x{:x}) = "),
+                        uctx.arg0(),
+                        uctx.arg1(),
+                        uctx.arg2(),
+                        uctx.arg3(),
+                        uctx.arg4(),
+                        uctx.arg5(),
+                    );
+                }
+
                 (*uctx.uc_mcontext).__ss.__rip = __impl as *const () as u64;
+
+                #[cfg(debug_assertions)]
+                if ::rtenv::switches::strace() {
+                    eprintln!("0x{:x}", (*uctx.uc_mcontext).__ss.__rip);
+                }
+
                 rtenv::emuctx::enter_emulated();
             }
         }

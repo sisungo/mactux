@@ -53,15 +53,14 @@ pub fn syscall(_: TokenStream, item: TokenStream) -> TokenStream {
 
             #[cfg(debug_assertions)]
             if ::rtenv::switches::strace() {
-                print!(#strace_fmt, stringify!(#ident), #(#call_impl_inputs,)*);
-                _ = ::std::io::Write::flush(&mut ::std::io::stdout());
+                eprint!(#strace_fmt, stringify!(#ident), #(#call_impl_inputs,)*);
             }
 
             let ret = __impl(#(#call_impl_inputs,)*);
 
             #[cfg(debug_assertions)]
             if ::rtenv::switches::strace() {
-                println!("{:?}", ret);
+                eprintln!("{:?}", ret);
             }
 
             crate::UcontextExt::ret(uctx, crate::ToSysret::to_sysret(ret));
