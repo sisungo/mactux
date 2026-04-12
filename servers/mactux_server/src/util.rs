@@ -134,15 +134,6 @@ impl<T: Clone> Watch<T> {
         }
     }
 
-    pub fn get(&self) -> T {
-        self.mutex.lock().unwrap().clone()
-    }
-
-    pub fn set(&self, val: T) {
-        *self.mutex.lock().unwrap() = val;
-        self.condvar.notify_all();
-    }
-
     pub fn update(&self, f: impl FnOnce(&mut T)) {
         f(&mut self.mutex.lock().unwrap());
         self.condvar.notify_all();

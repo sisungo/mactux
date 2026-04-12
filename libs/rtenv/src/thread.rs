@@ -4,6 +4,7 @@ use crate::{
     process,
     util::ipc_fail,
 };
+use crossbeam::queue::SegQueue;
 use rustc_hash::FxHashMap;
 use std::{
     cell::{Cell, OnceCell, RefCell, UnsafeCell},
@@ -52,6 +53,7 @@ pub struct ThreadCtx {
     pub ipc_buf: RefCell<Vec<u8>>,
     pub clear_tid: Cell<Option<NonNull<u32>>>,
     pub sigaltstack: Cell<SigAltStack>,
+    pub parent_thread: Option<libc::pid_t>,
 }
 impl ThreadCtx {
     /// Creates a new thread context. All fields are initialized to the "empty" values.
@@ -64,13 +66,13 @@ impl ThreadCtx {
             ipc_buf: RefCell::new(Vec::with_capacity(256)),
             clear_tid: Cell::new(None),
             sigaltstack: Cell::new(SigAltStack::default()),
+            parent_thread: None,
         }
     }
 
     /// The thread-local storage destructor. Not intended to be used directly in Rust code.
     unsafe extern "C" fn destructor(data: *mut c_void) {
         unsafe {
-            (data as *mut Self).drop_in_place();
             drop(Box::from_raw(data as *mut Self));
         }
     }
@@ -116,13 +118,11 @@ impl ThreadPubCtxMap {
 
     /// Executes a closure with [`ThreadInfo`] for current thread.
     pub fn with_current<T>(&self, f: impl FnOnce(&ThreadPubCtx) -> T) -> T {
-        unsafe {
-            f((*self.0.get())
-                .read()
-                .unwrap()
-                .get(&thread_selfid())
-                .unwrap())
-        }
+        self.with(thread_selfid(), f)
+    }
+
+    pub fn with<T>(&self, thread_id: libc::pid_t, f: impl FnOnce(&ThreadPubCtx) -> T) -> T {
+        unsafe { f((*self.0.get()).read().unwrap().get(&thread_id).unwrap()) }
     }
 
     /// This is called on the new process after `fork()`.
@@ -164,28 +164,34 @@ pub fn may_fork<T>(fork: impl FnOnce() -> T, is_new: impl FnOnce(&T) -> bool) ->
 /// context.
 #[derive(Debug)]
 pub struct ThreadPubCtx {
+    pub pthread: libc::pthread_t,
     pub emulation: EmulatedThreadInfo,
     pub robust_list_head: AtomicPtr<RobustListHead>,
     pub robust_list_head_size: AtomicUsize,
+    pub signal_queue: SegQueue<SigNum>,
 }
 impl ThreadPubCtx {
     /// Creates a new [`ThreadPubCtx`] instance. All fields are initialized to their proper initial values.
     pub fn new() -> Self {
         Self {
+            pthread: unsafe { libc::pthread_self() },
             emulation: EmulatedThreadInfo::new(),
             robust_list_head: AtomicPtr::new(std::ptr::null_mut()),
             robust_list_head_size: AtomicUsize::new(0),
+            signal_queue: SegQueue::new(),
         }
     }
 }
 impl Clone for ThreadPubCtx {
     fn clone(&self) -> Self {
         Self {
+            pthread: unsafe { libc::pthread_self() },
             emulation: self.emulation.clone(),
             robust_list_head: AtomicPtr::new(self.robust_list_head.load(atomic::Ordering::Relaxed)),
             robust_list_head_size: AtomicUsize::new(
                 self.robust_list_head_size.load(atomic::Ordering::Relaxed),
             ),
+            signal_queue: SegQueue::new(),
         }
     }
 }
@@ -319,7 +325,15 @@ pub unsafe fn exit(code: i32) -> ! {
             _ = crate::sync::futex::wake(ptr.as_ptr(), 0, FutexOpts::empty());
         }
         process::context().thread_pubctx_map.unregister();
-        libc::pthread_exit(code as usize as _); // TODO: CLS Destruction?
+        if let Some(parent_thread) = with_context(|x| x.parent_thread) {
+            process::context()
+                .thread_pubctx_map
+                .with(parent_thread, |ctx| {
+                    ctx.signal_queue.push(SigNum::SIGCHLD); // TODO: custom signal
+                    libc::pthread_kill(ctx.pthread, libc::SIGEMT);
+                });
+        }
+        libc::pthread_exit(std::ptr::null_mut());
     }
 }
 

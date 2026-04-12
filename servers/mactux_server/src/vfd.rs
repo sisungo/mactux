@@ -244,7 +244,7 @@ pub trait Stream {
 }
 
 pub trait VfdContent: Stream + Send + Sync {
-    fn stat(&self, mask: StatxMask) -> Result<Statx, LxError> {
+    fn stat(&self, _mask: StatxMask) -> Result<Statx, LxError> {
         Err(LxError::EOPNOTSUPP)
     }
 

@@ -10,7 +10,7 @@ pub unsafe fn wait(
     utime: *mut libc::timespec,
     opts: FutexOpts,
 ) -> Result<(), LxError> {
-    let flags = if opts.contains(FutexOpts::FUTEX_PRIVATE_FLAGS) {
+    let flags = if opts.contains(FutexOpts::FUTEX_PRIVATE_FLAG) {
         0
     } else {
         libc::OS_SYNC_WAIT_ON_ADDRESS_SHARED
@@ -39,7 +39,7 @@ pub unsafe fn wait(
 }
 
 pub unsafe fn wake(uaddr: *mut u32, val: u32, opts: FutexOpts) -> Result<usize, LxError> {
-    let flags = if opts.contains(FutexOpts::FUTEX_PRIVATE_FLAGS) {
+    let flags = if opts.contains(FutexOpts::FUTEX_PRIVATE_FLAG) {
         0
     } else {
         libc::OS_SYNC_WAKE_BY_ADDRESS_SHARED

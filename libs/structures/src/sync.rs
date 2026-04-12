@@ -34,7 +34,7 @@ impl FutexCmd {
 bitflags! {
     #[derive(Debug, Clone, Copy)]
     pub struct FutexOpts: c_int {
-        const FUTEX_PRIVATE_FLAGS = 128;
+        const FUTEX_PRIVATE_FLAG = 128;
         const FUTEX_CLOCK_REALTIME = 256;
     }
 }

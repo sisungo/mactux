@@ -50,6 +50,7 @@ const HANDLED_SIGNALS: &[c_int] = &[
 pub fn install() -> std::io::Result<()> {
     install_for(libc::SIGSEGV, handle_sigsegv)?;
     install_for(libc::SIGABRT, handle_sigabrt)?;
+    install_for(libc::SIGEMT, handle_sigemt)?;
 
     Ok(())
 }
@@ -343,6 +344,21 @@ unsafe extern "C" fn handle_sigabrt(_: c_int, info: &libc::siginfo_t, ctx: &mut 
         raise(SigNum::SIGABRT, info, ctx, prev_in_emulated);
     } else {
         crate::error_report::fast_fail();
+    }
+}
+
+unsafe extern "C" fn handle_sigemt(_: c_int, info: &libc::siginfo_t, ctx: &mut libc::ucontext_t) {
+    let prev_in_emulated = reentrant_in_emulated(info);
+    if prev_in_emulated {
+        unsafe {
+            crate::emuctx::leave_emulated();
+        }
+    }
+    while let Some(signum) = process::context()
+        .thread_pubctx_map
+        .with_current(|ctx| ctx.signal_queue.pop())
+    {
+        raise(signum, info, ctx, prev_in_emulated);
     }
 }
 
