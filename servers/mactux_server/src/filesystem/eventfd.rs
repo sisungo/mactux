@@ -33,18 +33,32 @@ impl Stream for EventFd {
             return Err(LxError::EINVAL);
         }
         let mut val = 0;
-        self.inner.wait_until(|cur| match cur {
-            0 => false,
-            other => {
-                val = *other;
-                if self.flags.contains(EventFdFlags::EFD_SEMAPHORE) {
-                    *other -= 1;
-                } else {
-                    *other = 0;
-                }
-                true
+        if self.flags.contains(EventFdFlags::EFD_NONBLOCK) {
+            if self.inner.get() == 0 {
+                return Err(LxError::EAGAIN);
             }
-        });
+            self.inner.update(|cur| {
+                val = *cur;
+                if self.flags.contains(EventFdFlags::EFD_SEMAPHORE) {
+                    *cur -= 1;
+                } else {
+                    *cur = 0;
+                }
+            });
+        } else {
+            self.inner.wait_until(|cur| match cur {
+                0 => false,
+                other => {
+                    val = *other;
+                    if self.flags.contains(EventFdFlags::EFD_SEMAPHORE) {
+                        *other -= 1;
+                    } else {
+                        *other = 0;
+                    }
+                    true
+                }
+            });
+        }
         buf.copy_from_slice(&val.to_ne_bytes());
 
         Ok(size_of::<u64>())
@@ -85,6 +99,12 @@ impl Stream for EventFd {
 
     fn poll(&self, interest: PollEvents) -> Result<PollToken, LxError> {
         let (tx, rx) = crossbeam::channel::unbounded();
+        if interest.contains(PollEvents::POLLIN) && self.inner.get() > 0 {
+            _ = tx.send(PollEvents::POLLIN);
+        }
+        if interest.contains(PollEvents::POLLOUT) {
+            _ = tx.send(PollEvents::POLLOUT);
+        }
         self.senders.lock().unwrap().push(tx);
         Ok(PollToken {
             vfd: 0,

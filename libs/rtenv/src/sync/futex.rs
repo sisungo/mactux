@@ -84,3 +84,71 @@ pub unsafe fn wake_op(
         Ok(count)
     }
 }
+
+pub unsafe fn wait_bitset(
+    uaddr: *mut u32,
+    val: u32,
+    utime: *mut libc::timespec,
+    opts: FutexOpts,
+    bitset: u32,
+) -> Result<(), LxError> {
+    if bitset == 0 {
+        return Err(LxError::EINVAL);
+    }
+    let flags = if opts.contains(FutexOpts::FUTEX_PRIVATE_FLAG) {
+        0
+    } else {
+        libc::OS_SYNC_WAIT_ON_ADDRESS_SHARED
+    };
+    unsafe {
+        let result = if utime.is_null() {
+            libc::os_sync_wait_on_address(uaddr.cast(), val as _, 4, flags)
+        } else {
+            let timeout = utime.read();
+            let timeout = std::time::Duration::new(timeout.tv_sec as _, timeout.tv_nsec as _);
+            libc::os_sync_wait_on_address_with_timeout(
+                uaddr.cast(),
+                val as _,
+                4,
+                flags,
+                0,
+                timeout.as_nanos() as _,
+            )
+        };
+
+        match result {
+            -1 => Err(LxError::last_apple_error()),
+            _ => Ok(()),
+        }
+    }
+}
+
+pub unsafe fn wake_bitset(
+    uaddr: *mut u32,
+    val: u32,
+    opts: FutexOpts,
+    bitset: u32,
+) -> Result<usize, LxError> {
+    if bitset == 0 {
+        return Err(LxError::EINVAL);
+    }
+    let flags = if opts.contains(FutexOpts::FUTEX_PRIVATE_FLAG) {
+        0
+    } else {
+        libc::OS_SYNC_WAKE_BY_ADDRESS_SHARED
+    };
+    unsafe {
+        for n in 0..val {
+            match libc::os_sync_wake_by_address_any(uaddr.cast(), 4, flags) {
+                -1 => {
+                    if *libc::__error() == libc::ENOENT {
+                        return Ok(n as usize + 1);
+                    }
+                    return Err(LxError::last_apple_error());
+                }
+                _ => continue,
+            }
+        }
+        Ok(0)
+    }
+}

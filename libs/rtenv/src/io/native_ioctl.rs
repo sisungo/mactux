@@ -79,6 +79,17 @@ pub fn native_ioctl(fd: c_int, cmd: IoctlCmd, arg: *mut u8) -> Result<c_int, LxE
             posix_result(libc::tcflow(fd, action.to_apple()?))?;
             Ok(0)
         },
+        IoctlCmd::SIOCGSTAMP => {
+            // No simple way to do this on Mac OS X.
+            // SIOCGIFMTU would work if we knew which interface would be used, but
+            // figuring that out is pretty complicated. For now we'll return an error
+            // and let the caller pick a default MTU.
+            Ok(0)
+        }
+        IoctlCmd::FIONREAD => unsafe {
+            posix_result(libc::ioctl(fd, libc::FIONREAD, arg.cast::<c_int>()))?;
+            Ok(0)
+        },
         _ => Err(LxError::EINVAL),
     }
 }

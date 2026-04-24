@@ -1462,8 +1462,22 @@ pub unsafe fn sys_futex(
             rtenv::sync::futex::wake_op(uaddr, val, utime as usize as u32, uaddr2, val3, op.opts())
         },
         FutexCmd::FUTEX_LOCK_PI => unsafe {
-            rtenv::sync::pi_futex::lock();
+            rtenv::sync::pi_futex::lock(&mut *uaddr.cast());
             Ok(0)
+        },
+        FutexCmd::FUTEX_UNLOCK_PI => unsafe {
+            rtenv::sync::pi_futex::unlock(&mut *uaddr.cast())?;
+            Ok(0)
+        },
+        FutexCmd::FUTEX_TRYLOCK_PI => unsafe {
+            rtenv::sync::pi_futex::try_lock(&mut *uaddr.cast())?;
+            Ok(0)
+        },
+        FutexCmd::FUTEX_WAIT_BITSET => unsafe {
+            rtenv::sync::futex::wait_bitset(uaddr, val, utime, op.opts(), val3).map(|()| 0)
+        },
+        FutexCmd::FUTEX_WAKE_BITSET => unsafe {
+            rtenv::sync::futex::wake_bitset(uaddr, val, op.opts(), val3)
         },
         _ => Err(LxError::EINVAL),
     }

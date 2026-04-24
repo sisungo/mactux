@@ -1,9 +1,11 @@
 use crate::error::LxError;
 use bitflags::bitflags;
 use libc::c_int;
-use std::ptr::NonNull;
+use std::{fmt::Debug, ptr::NonNull};
 
-#[derive(Debug, Clone, Copy)]
+pub const FUTEX_WAITERS: u32 = 0x80000000;
+
+#[derive(Clone, Copy)]
 #[repr(transparent)]
 pub struct FutexOp(pub c_int);
 impl FutexOp {
@@ -15,6 +17,14 @@ impl FutexOp {
     #[inline]
     pub const fn cmd(self) -> FutexCmd {
         FutexCmd(self.0 & 0x7f)
+    }
+}
+impl Debug for FutexOp {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("FutexOp")
+            .field("cmd", &self.cmd())
+            .field("opts", &self.opts())
+            .finish()
     }
 }
 
@@ -29,6 +39,11 @@ impl FutexCmd {
     pub const FUTEX_CMP_REQUEUE: FutexCmd = FutexCmd(4);
     pub const FUTEX_WAKE_OP: FutexCmd = FutexCmd(5);
     pub const FUTEX_LOCK_PI: FutexCmd = FutexCmd(6);
+    pub const FUTEX_UNLOCK_PI: FutexCmd = FutexCmd(7);
+    pub const FUTEX_TRYLOCK_PI: FutexCmd = FutexCmd(8);
+    pub const FUTEX_WAIT_BITSET: FutexCmd = FutexCmd(9);
+    pub const FUTEX_WAKE_BITSET: FutexCmd = FutexCmd(10);
+    pub const FUTEX_WAIT_REQUEUE_PI: FutexCmd = FutexCmd(11);
 }
 
 bitflags! {
