@@ -86,8 +86,8 @@ impl TidAlloc {
         let pure_value = value - TID_MIN;
         let nmap = pure_value / TidMap::CAPACITY as i32;
         let map_offset = pure_value % TidMap::CAPACITY as i32;
-        let byte = map_offset / 4096;
-        let shift = map_offset % 4096;
+        let byte = map_offset / 8;
+        let shift = map_offset % 8;
         (nmap as _, byte as _, shift as _)
     }
 }
