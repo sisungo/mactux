@@ -208,7 +208,7 @@ const SYSTEM_CALL_HANDLERS: &[SystemCallHandler] = &[
     sys_invalid,           // 130
     sys_sigaltstack,       // 131
     sys_invalid,           // 132
-    sys_invalid,           // 133
+    sys_mknod,             // 133
     sys_uselib,            // 134
     sys_invalid,           // 135
     sys_invalid,           // 136
@@ -339,7 +339,7 @@ const SYSTEM_CALL_HANDLERS: &[SystemCallHandler] = &[
     sys_invalid,           // 261
     sys_newfstatat,        // 262
     sys_unlinkat,          // 263
-    sys_invalid,           // 264
+    sys_renameat,          // 264
     sys_linkat,            // 265
     sys_symlinkat,         // 266
     sys_readlinkat,        // 267

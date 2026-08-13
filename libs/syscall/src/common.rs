@@ -340,6 +340,22 @@ pub unsafe fn sys_rename(src: &CStr, dst: &CStr) -> Result<(), LxError> {
 }
 
 #[syscall]
+pub unsafe fn sys_renameat(
+    srcdfd: c_int,
+    src: &CStr,
+    dstdfd: c_int,
+    dst: &CStr,
+) -> Result<(), LxError> {
+    rtenv::fs::renameat2(
+        srcdfd,
+        src.to_bytes().to_vec(),
+        dstdfd,
+        dst.to_bytes().to_vec(),
+        0,
+    )
+}
+
+#[syscall]
 pub unsafe fn sys_renameat2(
     srcdfd: c_int,
     src: &CStr,
@@ -392,6 +408,15 @@ pub unsafe fn sys_mkdir(path: &CStr, mode: u32) -> Result<(), LxError> {
 #[syscall]
 pub unsafe fn sys_mkdirat(dfd: c_int, path: &CStr, mode: u32) -> Result<(), LxError> {
     rtenv::fs::mkdirat(dfd, path.to_bytes().to_vec(), FileMode(mode as _))
+}
+
+#[syscall]
+pub unsafe fn sys_mknod(
+    path: &CStr,
+    mode: u32,
+    dev: DeviceNumber,
+) -> Result<(), LxError> {
+    rtenv::fs::mknodat(AT_FDCWD, path.to_bytes().to_vec(), FileMode(mode as _), dev)
 }
 
 #[syscall]

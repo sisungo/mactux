@@ -75,7 +75,7 @@ pub unsafe fn fcntl(fd: c_int, cmd: FcntlCmd, arg: usize) -> Result<c_int, LxErr
 #[inline]
 pub unsafe fn flock(fd: c_int, op: FlockOp) -> Result<(), LxError> {
     match crate::vfd::get(fd) {
-        Some(_) => todo!(),
+        Some(_) => Ok(()),
         None => unsafe { posix_result(libc::flock(fd, op.to_apple()?)) },
     }
 }
